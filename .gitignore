@@ -46,3 +46,9 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Local-only personal notes/docs — not part of the shipped project
+/Documents/
+
+# Local-only throwaway scripts for manually poking at the code
+/dev_scratch/

@@ -31,3 +31,59 @@ String deterministicId(RngService rng) {
   }
   return buffer.toString();
 }
+
+/// Builds a shuffled list of 4 unique multiple-choice option *strings* for
+/// a numeric puzzle answer: [correct] plus 3 unique distractors near it
+/// (never negative, since no puzzle in this app shows a negative option).
+/// Retries on collision, widening the search window if the immediate
+/// neighborhood runs out of room — relevant mainly for very small correct
+/// values (e.g. correct=1 has few non-negative neighbors).
+List<String> buildNumericMcOptions(
+  int correct,
+  RngService rng, {
+  required int spread,
+}) {
+  final distractors = <int>{};
+  var currentSpread = spread < 1 ? 1 : spread;
+  var attempts = 0;
+  while (distractors.length < 3 && attempts < 60) {
+    attempts++;
+    final delta = rng.nextInt(-currentSpread, currentSpread);
+    final candidate = correct + delta;
+    if (candidate != correct && candidate >= 0) {
+      distractors.add(candidate);
+    }
+    if (attempts % 20 == 0) currentSpread *= 2; // widen if struggling
+  }
+  // Defensive fallback (should be unreachable given the widening above,
+  // but this must never throw or hang mid-fuzz-test): fill any remaining
+  // slot by counting up from the largest distractor found so far.
+  var filler =
+      (distractors.isEmpty ? correct : distractors.reduce((a, b) => a > b ? a : b)) + 1;
+  while (distractors.length < 3) {
+    if (filler != correct) distractors.add(filler);
+    filler++;
+  }
+
+  final options =
+      [correct, ...distractors].map((n) => n.toString()).toList();
+  shuffleList(options, rng);
+  return options;
+}
+
+/// Builds a shuffled list of 4 unique multiple-choice option strings from
+/// a fixed vocabulary: [correct] plus 3 distinct distractors drawn from
+/// [candidates] (which must contain at least 3 entries other than
+/// [correct]). Used where the options aren't numbers — e.g. family-tree
+/// relationship terms.
+List<String> buildMcOptionsFromCandidates(
+  String correct,
+  List<String> candidates,
+  RngService rng,
+) {
+  final pool = candidates.where((c) => c != correct).toSet().toList();
+  shuffleList(pool, rng);
+  final options = [correct, ...pool.take(3)];
+  shuffleList(options, rng);
+  return options;
+}

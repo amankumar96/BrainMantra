@@ -28,10 +28,15 @@ math_blitz/
 │   │   └── player_stats.dart
 │   ├── services/
 │   │   ├── rng_service.dart
-│   │   ├── puzzle_generator.dart
+│   │   ├── puzzle_generator.dart                 (dispatcher + family-tree question construction)
+│   │   ├── puzzle_generator_basic_math.dart      (arithmetic, trueFalse, missingNumber)
+│   │   ├── puzzle_generator_odd_one_out.dart
+│   │   ├── puzzle_generator_sequence_target.dart (sequence, targetNumber)
+│   │   ├── family_tree.dart                (shared Person/Sex/FamilyTree data shape)
 │   │   ├── family_tree_generator.dart      (Phase 1, reasoning branch)
 │   │   ├── relationship_resolver.dart      (Phase 1, reasoning branch)
 │   │   ├── shape_reasoning_generator.dart  (Phase 1, reasoning branch)
+│   │   ├── rng_utils.dart                  (shuffle/deterministicId/MC-option helpers)
 │   │   ├── expression_evaluator.dart
 │   │   ├── difficulty_curve.dart
 │   │   ├── storage_service.dart
@@ -52,9 +57,12 @@ math_blitz/
 ├── test/
 │   ├── services/
 │   │   ├── rng_service_test.dart
-│   │   ├── puzzle_generator_test.dart
 │   │   ├── expression_evaluator_test.dart
 │   │   ├── difficulty_curve_test.dart
+│   │   ├── relationship_resolver_test.dart
+│   │   ├── family_tree_generator_test.dart
+│   │   ├── shape_reasoning_generator_test.dart
+│   │   ├── puzzle_generator_test.dart
 │   │   └── storage_service_test.dart
 │   └── models/
 │       ├── puzzle_test.dart
@@ -206,7 +214,7 @@ This is the most important phase. Build and test each service **in this exact or
 
 ---
 
-**Phase 1 exit criteria (hard gate):** `flutter test` shows 100% pass across all of `test/services/` and `test/models/`. Do not write a single widget until this is true.
+**Phase 1 exit criteria (hard gate):** `flutter test` shows 100% pass across all of `test/services/` and `test/models/`. Do not write a single widget until this is true. ✅ Done — 148 tests passing (24 models + 124 services, including the 500×type×tier fuzz suite for `puzzle_generator`), `flutter analyze` clean.
 
 ---
 
@@ -279,12 +287,12 @@ Only start this after Phase 4 is done and the game is fun to play standalone.
 ## 9. Master Checklist (give this to Claude Code as the running task list)
 
 - [x] Phase 0: Models + serialization tests (24 tests passing, `flutter analyze` clean)
-- [ ] Step 1.1: rng_service + tests
-- [ ] Step 1.2: expression_evaluator + tests
-- [ ] Step 1.3: difficulty_curve + tests
-- [ ] Step 1.4: puzzle_generator (math + reasoning branches) + fuzz tests (500 iterations/type/tier)
-- [ ] Step 1.5: storage_service + tests
-- [ ] **Gate: `flutter test` 100% green before any UI work**
+- [x] Step 1.1: rng_service + tests
+- [x] Step 1.2: expression_evaluator + tests
+- [x] Step 1.3: difficulty_curve + tests
+- [x] Step 1.4: puzzle_generator (math + reasoning branches) + fuzz tests (500 iterations/type/tier)
+- [x] Step 1.5: storage_service + tests
+- [x] **Gate: `flutter test` 100% green before any UI work** — 148 tests passing, `flutter analyze` clean
 - [ ] Step 2.1: home_screen
 - [ ] Step 2.2: game_screen + feedback_overlay (manual checklist above)
 - [ ] Step 2.3: results_screen

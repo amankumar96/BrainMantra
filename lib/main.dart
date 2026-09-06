@@ -1,10 +1,23 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'screens/home_screen.dart';
+import 'screens/login_screen.dart';
+import 'services/auth_service.dart';
+import 'services/supabase_config.dart';
 
-/// Entry point. Phase 2 is now wired up: the app launches straight into
-/// HomeScreen instead of the earlier "under construction" placeholder.
-void main() {
+/// Entry point. Connects to Supabase before anything else runs — every
+/// screen assumes `Supabase.instance.client` is already initialized.
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Supabase.initialize(
+    url: SupabaseConfig.url,
+    // Legacy JWT-format anon keys (like this project's) remain valid —
+    // they're just passed under the SDK's newer parameter name now.
+    publishableKey: SupabaseConfig.anonKey,
+  );
   runApp(const MathBlitzApp());
 }
 
@@ -15,7 +28,52 @@ class MathBlitzApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return const MaterialApp(
       title: 'MathBlitz',
-      home: HomeScreen(),
+      home: _AuthGate(),
+    );
+  }
+}
+
+/// Decides between the login/sign-up flow and [HomeScreen] based on
+/// whether a Supabase session exists — including on a fresh app launch,
+/// since `supabase_flutter` persists sessions locally by default (this is
+/// what keeps a signed-up player logged in until they actually sign out).
+class _AuthGate extends StatefulWidget {
+  const _AuthGate();
+
+  @override
+  State<_AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<_AuthGate> {
+  late final StreamSubscription<AuthState> _authSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    // Separate from the StreamBuilder below — this is purely the
+    // one-time-per-sign-in side effect (creating a profiles row), kept
+    // out of build() so it never runs as a side effect of rebuilding.
+    _authSubscription = AuthService.authStateChanges.listen((state) {
+      if (state.event == AuthChangeEvent.signedIn) {
+        AuthService.ensureProfileExists();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<AuthState>(
+      stream: AuthService.authStateChanges,
+      builder: (context, _) {
+        final hasSession = AuthService.currentUser != null;
+        return hasSession ? const HomeScreen() : const LoginScreen();
+      },
     );
   }
 }

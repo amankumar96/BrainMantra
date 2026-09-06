@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:math_blitz/screens/game_screen.dart';
 import 'package:math_blitz/screens/home_screen.dart';
+import 'package:math_blitz/services/storage_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -20,6 +21,10 @@ void main() {
       'player_stats':
           '{"highScore":250,"currentStreakDays":3,"lastPlayedDate":null,'
               '"totalCoins":0,"bestScoreByTier":{}}',
+      // Marking rules already-seen here so this test can focus purely on
+      // stats loading — the auto-shown-once dialog has its own dedicated
+      // test below.
+      'has_seen_rules': true,
     });
     await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
     await tester.pumpAndSettle();
@@ -28,8 +33,30 @@ void main() {
     expect(find.text('Streak: 3 days'), findsOneWidget);
   });
 
-  testWidgets('tapping Play navigates to GameScreen', (tester) async {
+  testWidgets(
+      'the rules dialog opens automatically on a fresh install and is '
+      'not shown again on the next launch', (tester) async {
     SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('How MathBlitz Works'), findsOneWidget);
+    expect(await StorageService.hasSeenRules(), isFalse,
+        reason: 'should only be marked seen once the dialog is dismissed');
+
+    await tester.tap(find.text('I understand'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('How MathBlitz Works'), findsNothing);
+    expect(await StorageService.hasSeenRules(), isTrue);
+  });
+
+  testWidgets('tapping Play navigates to GameScreen', (tester) async {
+    // Rules already seen — this test is about the Play button, not the
+    // auto-shown dialog (which would otherwise sit on top and block the
+    // tap below, same as a real returning player who already dismissed
+    // it once).
+    SharedPreferences.setMockInitialValues({'has_seen_rules': true});
     await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
     await tester.pumpAndSettle();
 
@@ -44,11 +71,12 @@ void main() {
     expect(find.byType(GameScreen), findsOneWidget);
   });
 
-  testWidgets('tapping the rules icon opens the rules dialog',
+  testWidgets('tapping the rules icon reopens the rules dialog on demand',
       (tester) async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({'has_seen_rules': true});
     await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
     await tester.pumpAndSettle();
+    expect(find.text('How MathBlitz Works'), findsNothing);
 
     await tester.tap(find.byIcon(Icons.info_outline));
     await tester.pumpAndSettle();

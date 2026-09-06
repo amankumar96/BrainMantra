@@ -12,6 +12,7 @@ import '../models/player_stats.dart';
 abstract final class StorageService {
   static const String _statsKey = 'player_stats';
   static const String _lastSessionKey = 'last_session';
+  static const String _hasSeenRulesKey = 'has_seen_rules';
 
   /// Persists [stats], overwriting whatever was saved before.
   static Future<void> saveStats(PlayerStats stats) async {
@@ -42,10 +43,26 @@ abstract final class StorageService {
     await prefs.setString(_lastSessionKey, jsonEncode(session.toJson()));
   }
 
-  /// Erases everything this service has saved (stats and last session).
+  /// Whether the player has ever dismissed the rules dialog — checked
+  /// once, right after they first reach the home screen, so it's shown
+  /// automatically exactly once (an info icon lets them reopen it
+  /// anytime afterward; see rules_dialog.dart).
+  static Future<bool> hasSeenRules() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_hasSeenRulesKey) ?? false;
+  }
+
+  static Future<void> markRulesSeen() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_hasSeenRulesKey, true);
+  }
+
+  /// Erases everything this service has saved (stats, last session, and
+  /// the "seen rules" flag).
   static Future<void> clearAll() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_statsKey);
     await prefs.remove(_lastSessionKey);
+    await prefs.remove(_hasSeenRulesKey);
   }
 }

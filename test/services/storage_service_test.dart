@@ -111,4 +111,24 @@ void main() {
       expect(await StorageService.loadStats(), equals(PlayerStats()));
     });
   });
+
+  group('hasSeenRules', () {
+    test('defaults to false when nothing has been recorded yet', () async {
+      expect(await StorageService.hasSeenRules(), isFalse);
+    });
+
+    test('markRulesSeen flips it to true and it stays true', () async {
+      await StorageService.markRulesSeen();
+      expect(await StorageService.hasSeenRules(), isTrue);
+    });
+
+    test('clearAll resets hasSeenRules back to false', () async {
+      await StorageService.markRulesSeen();
+      expect(await StorageService.hasSeenRules(), isTrue);
+
+      await StorageService.clearAll();
+
+      expect(await StorageService.hasSeenRules(), isFalse);
+    });
+  });
 }

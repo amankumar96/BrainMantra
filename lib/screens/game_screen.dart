@@ -5,6 +5,7 @@ import '../controllers/game_controller.dart';
 import '../models/puzzle.dart';
 import '../models/player_stats.dart';
 import '../models/test_session.dart';
+import '../services/leaderboard_service.dart';
 import '../services/storage_service.dart';
 import '../utils/constants.dart';
 import '../widgets/answer_button.dart';
@@ -65,6 +66,23 @@ class _GameScreenState extends State<GameScreen> {
     final testSession = _controller.finalTestSession!;
     await StorageService.saveSession(testSession.session);
 
+    // Only Daily Challenge results are ranked — a "Play" session uses
+    // freely-random questions, so it isn't a fair, comparable test across
+    // players the way a shared-seed Daily Challenge is (see the plan's
+    // rationale in ARCHITECTURE.md's Phase 2 amendment). Local stats
+    // still save for both modes, below.
+    //
+    // Reads _controller.isDailyChallenge (not widget.isDailyChallenge) —
+    // the controller is the authoritative source, since a test-injected
+    // debugController's own flag could otherwise diverge from the
+    // widget's separate constructor parameter.
+    if (_controller.isDailyChallenge) {
+      await LeaderboardService.submitDailyResult(
+        marks: testSession.totalMarks,
+        questionsTotal: _controller.totalQuestions,
+      );
+    }
+
     final currentStats = await StorageService.loadStats();
     final isNewHighScore = testSession.totalMarks > currentStats.highScore;
     // lastPlayedDate is updated regardless of whether this was a new high
@@ -86,7 +104,8 @@ class _GameScreenState extends State<GameScreen> {
         previousHighScore: currentStats.highScore,
         onPlayAgain: () => Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (_) => GameScreen(isDailyChallenge: widget.isDailyChallenge),
+            builder: (_) =>
+                GameScreen(isDailyChallenge: _controller.isDailyChallenge),
           ),
         ),
       ),

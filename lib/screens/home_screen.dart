@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../models/player_stats.dart';
+import '../services/auth_service.dart';
 import '../services/storage_service.dart';
 import '../utils/constants.dart';
 import '../widgets/rules_dialog.dart';
 import 'game_screen.dart';
+import 'leaderboard_screen.dart';
 
 /// The title screen: high score, streak, an on-demand rules icon (item 6
 /// of the product requirements), and the two ways to start a test.
@@ -26,11 +28,26 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadStats();
+    _maybeShowRulesForTheFirstTime();
   }
 
   Future<void> _loadStats() async {
     final stats = await StorageService.loadStats();
     if (mounted) setState(() => _stats = stats);
+  }
+
+  /// Shows the rules dialog automatically exactly once — the first time a
+  /// player ever reaches this screen, regardless of whether they arrived
+  /// via email sign-up or Google sign-in. Deferred to after the first
+  /// frame since showDialog needs a fully-mounted Navigator/Overlay.
+  Future<void> _maybeShowRulesForTheFirstTime() async {
+    final alreadySeen = await StorageService.hasSeenRules();
+    if (alreadySeen || !mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await RulesDialog.show(context);
+      await StorageService.markRulesSeen();
+    });
   }
 
   void _navigateToGame({required bool isDailyChallenge}) {
@@ -46,6 +63,12 @@ class _HomeScreenState extends State<HomeScreen> {
         .then((_) => _loadStats());
   }
 
+  void _navigateToLeaderboard() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const LeaderboardScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final stats = _stats ?? PlayerStats();
@@ -58,6 +81,11 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: const Icon(Icons.info_outline),
             tooltip: 'Rules',
             onPressed: () => RulesDialog.show(context),
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Sign out',
+            onPressed: () => AuthService.signOut(),
           ),
         ],
       ),
@@ -90,6 +118,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: OutlinedButton(
                   onPressed: () => _navigateToGame(isDailyChallenge: true),
                   child: const Text('Daily Challenge'),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton.icon(
+                  onPressed: _navigateToLeaderboard,
+                  icon: const Icon(Icons.leaderboard_outlined),
+                  label: const Text('Leaderboard'),
                 ),
               ),
             ],

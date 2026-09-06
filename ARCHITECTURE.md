@@ -246,7 +246,7 @@ Built in two internally-gated parts: **Part A** (offline gameplay — screens/wi
 
 **Phase 2 exit criteria:** a human can sign up, see the rules once, play a full test (both Play and Daily Challenge, both categories) with no crashes, see a Daily Challenge result appear correctly ranked on the leaderboard, and have `PlayerStats` persist across app restarts.
 
-### 4a. Gameplay redesign amendment (post-Phase-2) — ⚠️ code done, your SQL/deploy steps pending
+### 4a. Gameplay redesign amendment (post-Phase-2) — ✅ Built and deployed
 
 Four changes on top of the above, **scoped to "Play" only** — Daily Challenge is untouched:
 1. **Play is now never-ending.** `GameController.totalQuestions` is `int?` (`null` = no cap). Difficulty still climbs, but there's no fixed finish line.
@@ -254,21 +254,13 @@ Four changes on top of the above, **scoped to "Play" only** — Daily Challenge 
 3. **Difficulty tier is randomized**, not a single deterministic lookup: `DifficultyCurve.randomTierForScore(score, rng)` picks from a score-banded weighted set (score<30 → tiers 1-2; 30-300 → tiers 2-4; ≥300 → tiers 1-4 weighted toward 3-4). Used by both modes.
 4. **Theme**: light blue + silver (`AppColors.background`/`silver`, `main.dart`'s new `ThemeData`).
 
-**Still needed before this is fully live — SQL you run once, and a CLI deploy:**
-```sql
--- 1. New columns Play's persistent score and the 30-day check need:
-alter table profiles add column current_score int not null default 0;
-alter table profiles add column last_active_at timestamptz not null default now();
+**Deployed:** `current_score`/`last_active_at` columns added, FK cascades fixed, `supabase/functions/delete-inactive-users` deployed via the Supabase CLI (installed to `C:\src\supabase-cli`, no Node/npm needed — same "no winget package, get the standalone binary" pattern as Flutter's own install), scheduled via `pg_cron`/`pg_net` + two Vault secrets (`project_url`, `publishable_key`) at `0 3 * * *` (3am UTC daily, job `delete-inactive-users-daily`).
 
--- 2. Cascade fix so account deletion doesn't fail on existing rows:
-alter table profiles drop constraint profiles_id_fkey,
-  add constraint profiles_id_fkey foreign key (id) references auth.users(id) on delete cascade;
-alter table daily_test_results drop constraint daily_test_results_user_id_fkey,
-  add constraint daily_test_results_user_id_fkey foreign key (user_id) references auth.users(id) on delete cascade;
-```
-Then deploy `supabase/functions/delete-inactive-users/index.ts` via the Supabase CLI and schedule it with `pg_cron`/`pg_net` (exact commands given directly to the user when reaching this step — see the plan session's conversation, not duplicated here to avoid this doc going stale if the CLI syntax changes).
+**Manual gates — both passed:**
+1. Play → End → resumed from the same score on the next Play. ✅
+2. End-to-end deletion proof: created a disposable test account, backdated its `profiles.last_active_at` 31 days, invoked the function by hand — it found exactly that one account (`candidateCount: 1`) and deleted it; confirmed both the `profiles` row and the `auth.users` row are gone (`0 remaining` for both). ✅
 
-**Manual gates:** (1) play Play mode, hit End, confirm the next Play resumes from the same score; (2) after deploying, manually backdate a test profile's `last_active_at` 31+ days and invoke the function once by hand to confirm deletion actually works before trusting the daily schedule.
+**Found and fixed along the way:** the Supabase project's Email auth provider was unexpectedly fully disabled (not just "Confirm email" — the whole provider), discovered when the test signup failed with `email_provider_disabled`. Re-enabled. Worth a periodic sanity check that "Confirm email" specifically is still off, since a sign-up during this investigation came back without an active session (the expected behavior when confirmation is required) — if real users hit that, `sign_up_screen.dart` doesn't currently handle a "check your email" state.
 
 ---
 
@@ -323,8 +315,9 @@ This phase's original idea (a leaderboard, with server-side anti-cheat) was pull
 - [x] Phase 2 Part B: Supabase accounts (email + Google) + daily-challenge leaderboard, schema verified live
 - [ ] **Gate: full manual sign-up → Daily Challenge → leaderboard playthrough + restart-persistence check**
 - [x] Gameplay redesign: infinite Play + persistent score + End button + randomized tiers + light blue/silver theme (218 tests passing) — see §4a
-- [ ] Gameplay redesign: run the `current_score`/`last_active_at`/FK-cascade SQL, deploy `delete-inactive-users`, schedule its cron (§4a)
-- [ ] **Gate: Play → End → resume-same-score check; manually-backdated-account deletion check**
+- [x] Gameplay redesign: schema SQL run, `delete-inactive-users` deployed, cron scheduled (§4a)
+- [x] **Gate: Play → End → resume-same-score check; manually-backdated-account deletion check** — both passed
+- [ ] Follow-up: confirm "Confirm email" is genuinely off (see §4a) and handle the "check your email" state in `sign_up_screen.dart` if it isn't
 - [ ] Step 3: streak logic (daily-seed determinism already exists via `GameController`'s date-seeded RNG, reused from what was planned here)
 - [ ] Step 4: ads_service with test ad units + frequency-cap test
 - [ ] Server-side score validation on `daily_test_results` writes (anti-cheat gap noted in the superseded Phase 5 section above)

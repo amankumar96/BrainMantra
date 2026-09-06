@@ -434,6 +434,41 @@ void main() {
       final controller = GameController(totalQuestions: 1, isDailyChallenge: true);
       expect(controller.currentPuzzle, isNotNull);
     });
+
+    test('two independently auto-seeded Daily Challenge instances (no '
+        'explicit rng) produce an identical sequence — the literal '
+        '"two separate app installs on the same date" fairness guarantee',
+        () {
+      // Both self-seed off _todaySeedString() (today's UTC date) at
+      // construction time, moments apart — same as two different players
+      // opening the app on the same day. No explicit rng: is passed to
+      // either, unlike every other determinism test in this file, which
+      // is what makes this the direct test of GameController's own
+      // auto-seeding path rather than RngService.seeded's determinism.
+      final a = GameController(totalQuestions: 10, isDailyChallenge: true);
+      final b = GameController(totalQuestions: 10, isDailyChallenge: true);
+
+      expect(a.currentPuzzle, equals(b.currentPuzzle));
+
+      for (var i = 0; i < 10; i++) {
+        final answer = a.currentPuzzle!.correctAnswer.toString();
+        a.selectOption(answer);
+        a.submitSelected();
+        b.selectOption(answer);
+        b.submitSelected();
+        a.onFeedbackAnimationComplete();
+        b.onFeedbackAnimationComplete();
+        if (!a.isTestComplete) {
+          expect(a.currentPuzzle, equals(b.currentPuzzle));
+        }
+      }
+
+      expect(a.finalTestSession!.outcomes, equals(b.finalTestSession!.outcomes));
+      expect(
+        a.finalTestSession!.session.puzzlesAnswered,
+        equals(b.finalTestSession!.session.puzzlesAnswered),
+      );
+    });
   });
 
   group('question type selection', () {

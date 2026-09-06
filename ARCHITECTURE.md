@@ -281,27 +281,36 @@ Daily Challenge stopped being a separate, isolated tally and became a bonus roun
 
 ---
 
-## 5. Phase 3 — Daily Challenge & Meta Layer
+## 5. Phase 3 — Daily Challenge & Meta Layer ✅ Built
 
-- Wire `RngService.seeded(dateString)` into `game_screen` when `isDailyChallenge = true`.
-- **Test:** two separate app installs (or two test runs) on the same date produce an identical puzzle sequence — this is the critical correctness test for leaderboard fairness. Write an automated test that generates a full daily sequence twice from the same date-seed and asserts equality.
-- Add streak tracking (`currentStreakDays` increments if `lastPlayedDate` was yesterday, resets if gap > 1 day).
-- **Test:** streak logic unit test with mocked dates (yesterday → increments; 3 days ago → resets to 1; today already played → unchanged).
+- **Daily-seed determinism**: `RngService.seeded(dateString)` was already wired into `GameController` since the original Daily Challenge build (Phase 2 Part B) via `_todaySeedString()` — a UTC-date string. What was missing was the literal test called for here: `test/controllers/game_controller_test.dart`'s `determinism` group now includes a test constructing **two independently auto-seeded** `GameController(isDailyChallenge: true)` instances (no explicit `rng:` passed to either) and asserting their full puzzle sequences match — the direct "two separate app installs on the same date" fairness check, not just generic seeded-RNG determinism.
+- **Streak tracking**: new `lib/services/streak_service.dart` — pure, stateless, unit-tested (`StreakService.nextStreakDays`). Comparisons use **UTC calendar days** (not local time), deliberately matching `GameController`'s own day boundary for Daily Challenge's seed. Rule: unchanged if already played today; `+1` if the last play was exactly yesterday; resets to `1` on a first-ever play, a gap of 2+ days, or a negative/clock-skew gap (defensive, never crashes). Wired into `game_screen.dart`'s `_persistAndShowResults` for **both modes** (Play and Daily Challenge — a streak day means "played at all today," not "completed a Daily Challenge"); `lastPlayedDate` is now stored as UTC too (was local `DateTime.now()` before, an inconsistency this closes).
 
-**Phase 3 exit criteria:** daily-seed determinism test passes; streak logic tests pass.
+**Phase 3 exit criteria:** both met — daily-seed determinism test passes (233+ tests green); streak logic tests pass (`test/services/streak_service_test.dart`, 7 tests covering same-day/yesterday/gap/negative-gap/UTC-boundary/determinism).
 
 ---
 
-## 6. Phase 4 — Ads Integration (`ads_service.dart`)
+## 6. Phase 4 — Ads Integration ✅ Built (banner + interstitial; rewarded deliberately out of scope)
 
-- Wraps `google_mobile_ads`: `loadRewarded()`, `showRewarded(onReward)`, `loadInterstitial()`, `showInterstitialIfDue()`, `bannerAdWidget()`.
-- Use **AdMob test ad unit IDs** during this entire phase — never real ad unit IDs until final release build.
-- **Manual test checklist:**
-  - [ ] Rewarded ad shown only when player opts in (revive/double-coins button), never auto-played.
-  - [ ] Interstitial shows at most once per 3–4 round-ends (verify counter logic with a unit test on the "due" calculation, independent of the actual ad SDK call).
-  - [ ] Banner only appears on home/menu, never during active gameplay countdown.
+Rewarded ads were dropped from this phase by product decision — the original spec tied them to a "revive/double-coins" mechanic that no longer exists post the marks-scoring redesign (no lives, no working coin economy). Banner + interstitial only.
 
-**Phase 4 exit criteria:** all placements verified with test ads; `showInterstitialIfDue()` frequency-cap logic has a passing unit test.
+**Research-grounded design** (full citations in the commit/plan history): Google's UMP consent SDK is mandatory for EEA/UK users (required since Jan 2024, bundled with `google_mobile_ads` itself); interstitials must never show on app load/exit, only at natural content breaks; AdMob mediation (not a separate AppLovin MAX package) is the right first step for a pre-revenue app, with AppLovin addable later as a mediated network via the dashboard with zero app-code changes.
+
+- **`lib/services/ad_frequency_cap.dart`** (new) — pure counting logic, zero ad-SDK dependency, fully unit-tested (7 tests). Question-count-based (not round/session-based, since Play has no natural round-end short of the player-initiated End button): an interstitial is "due" every 10 questions answered (`TUNABLE`), in either mode.
+- **`lib/services/ads_service.dart`** (new) — the actual `google_mobile_ads` + UMP wrapper (singleton `AdsService.instance`, since it holds mutable ad state unlike this codebase's other static services). Every public method is defensive (try/catch, `kIsWeb`-guarded) — `google_mobile_ads` has no Flutter Web support at all and its platform channel isn't registered under `flutter test` either, so an ad SDK failure must never break app startup or break an existing widget test, the same "best-effort" precedent already set for every Supabase call. Uses Google's published **TEST** ad-unit IDs (need no AdMob account) — must be swapped for real ones before any release build.
+- **Placements**: banner is `home_screen.dart`'s `bottomNavigationBar` only (never gameplay or results, to avoid the accidental-click risk right next to Play-Again/Home). Interstitial triggers from `game_screen.dart`'s `_GameScreenState` — detects a completed question via a `questionNumber` transition in the existing controller-change listener, records it on `AdFrequencyCap`, and shows via `AdsService` only between questions (never mid-countdown) and only when the session isn't also ending on that same transition (so it never stacks in front of the results-screen navigation).
+- **Content/sensitivity control**: by explicit product decision, handled **entirely at the AdMob account-dashboard level** (Blocking controls → Sensitive categories), not hardcoded in app code — `AdsService` deliberately sets no `maxAdContentRating`.
+- **Platform config**: `pubspec.yaml` (`google_mobile_ads: ^9.1.0`), `android/app/src/main/AndroidManifest.xml` (`APPLICATION_ID` meta-data, TEST App ID), `ios/Runner/Info.plist` (`GADApplicationIdentifier` TEST App ID + `NSUserTrackingUsageDescription`).
+- **Target-audience flag**: `AdsService.isChildDirectedTreatment` (currently `false`/general-audience) — a single named constant to flip if Play Console's Target Audience declaration is ever set to include children; that declaration itself is a business/legal decision, not made here.
+
+**Manual test checklist** (needs a real Android emulator/iOS simulator — this dev loop has been Chrome-only so far, and `google_mobile_ads` has no web support at all):
+  - [ ] Banner shows on Home only, never during gameplay's countdown.
+  - [ ] Interstitial fires once every 10 questions (verify in both Play and Daily Challenge), never on app load/exit, never mid-countdown.
+  - [ ] UMP consent form appears when simulating an EEA/UK region.
+  - [ ] Once a real AdMob account exists: register the app, retrieve real ad-unit IDs (swap in before release), and configure Blocking controls → Sensitive categories.
+  - [ ] Set Play Console's Target Audience declaration and flip `isChildDirectedTreatment` to match if it ever includes children.
+
+**Phase 4 exit criteria:** `AdFrequencyCap`'s "due" logic has passing unit tests independent of the actual ad SDK call (met — 7 tests, `test/services/ad_frequency_cap_test.dart`); the manual checklist above is the remaining, device-dependent gate.
 
 ---
 
@@ -336,8 +345,10 @@ This phase's original idea (a leaderboard, with server-side anti-cheat) was pull
 - [x] **Gate: Play → End → resume-same-score check; manually-backdated-account deletion check** — both passed
 - [x] Follow-up: "Confirm email" kept ON by decision — Google steered as primary sign-up/login path, "check your email" state built into `sign_up_screen.dart` (see §4a)
 - [x] Daily Challenge redesign: tier 3+ only, +10/no-deduction scoring, earned marks now add onto the persistent Play score instead of staying isolated (225 tests passing) — see §4b
-- [ ] Step 3: streak logic (daily-seed determinism already exists via `GameController`'s date-seeded RNG, reused from what was planned here)
-- [ ] Step 4: ads_service with test ad units + frequency-cap test
+- [x] Step 3: streak logic (`streak_service.dart` + tests) + strengthened daily-seed determinism test (233 tests passing) — see §5
+- [x] Step 4: `ad_frequency_cap.dart` + `ads_service.dart` (banner + interstitial, TEST ad-unit IDs, UMP consent) — see §6 (240 tests passing, `flutter analyze` clean)
+- [ ] **Gate: manual Android emulator/iOS simulator check** — banner/interstitial placement, frequency, and UMP consent form (this dev loop has been Chrome-only so far; `google_mobile_ads` has no web support) — see §6's manual checklist
+- [ ] Real AdMob account + app registration, Blocking controls → Sensitive categories configured, Play Console Target Audience declaration set (business/legal steps, guided when reached — see §6)
 - [ ] Server-side score validation on `daily_test_results` writes (anti-cheat gap noted in the superseded Phase 5 section above)
 - [ ] Step 6: polish + store assets
 - [ ] Submit to Play Console (internal → closed → production)

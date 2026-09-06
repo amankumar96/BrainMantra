@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/player_stats.dart';
+import '../services/ads_service.dart';
 import '../services/auth_service.dart';
 import '../services/storage_service.dart';
 import '../utils/constants.dart';
@@ -141,6 +142,11 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
+      // Banner ads are confined to Home only — never gameplay's countdown
+      // or results' Play-Again/Home decision (see ARCHITECTURE.md's
+      // Phase 4 write-up). bottomNavigationBar keeps it pinned outside
+      // the centered Column above, so it never disturbs that layout.
+      bottomNavigationBar: AdsService.instance.bannerAdWidget(),
     );
   }
 }

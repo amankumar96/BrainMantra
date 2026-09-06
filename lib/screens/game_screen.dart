@@ -5,9 +5,12 @@ import '../controllers/game_controller.dart';
 import '../models/puzzle.dart';
 import '../models/player_stats.dart';
 import '../models/test_session.dart';
+import '../services/ad_frequency_cap.dart';
+import '../services/ads_service.dart';
 import '../services/auth_service.dart';
 import '../services/leaderboard_service.dart';
 import '../services/storage_service.dart';
+import '../services/streak_service.dart';
 import '../utils/constants.dart';
 import '../widgets/answer_button.dart';
 import '../widgets/feedback_overlay.dart';
@@ -54,6 +57,14 @@ class _GameScreenState extends State<GameScreen> {
   late final GameController _controller;
   bool _hasNavigatedToResults = false;
 
+  // Interstitial ads: fire at most once every N questions answered, in
+  // either mode — see ARCHITECTURE.md's Phase 4 write-up for why this is
+  // question-count-based rather than round/session-based (Play has no
+  // natural "round-end" short of the End button, which could be a very
+  // long time away).
+  final AdFrequencyCap _adFrequencyCap = AdFrequencyCap();
+  late int _lastSeenQuestionNumber;
+
   @override
   void initState() {
     super.initState();
@@ -64,10 +75,18 @@ class _GameScreenState extends State<GameScreen> {
               widget.isDailyChallenge ? dailyChallengeQuestionCount : null,
           startingScore: widget.isDailyChallenge ? 0 : widget.startingScore,
         );
+    _lastSeenQuestionNumber = _controller.questionNumber;
     _controller.addListener(_handleControllerChange);
   }
 
   void _handleControllerChange() {
+    if (_controller.questionNumber != _lastSeenQuestionNumber) {
+      // A question was just completed and the controller moved to the
+      // next one (or ended) — the one point-in-time this screen can tell
+      // "a question just finished" from outside GameController itself.
+      _lastSeenQuestionNumber = _controller.questionNumber;
+      _maybeShowInterstitial();
+    }
     if (_controller.isSessionOver && !_hasNavigatedToResults) {
       _hasNavigatedToResults = true;
       // Deferred to after the current frame: this listener fires from
@@ -78,6 +97,19 @@ class _GameScreenState extends State<GameScreen> {
         if (mounted) _persistAndShowResults();
       });
     }
+  }
+
+  /// Shows an interstitial only between questions (never mid-countdown,
+  /// never on load/exit — see Google's own interstitial placement policy
+  /// cited in ARCHITECTURE.md's Phase 4 write-up), and only when the
+  /// session isn't also ending on this exact transition — an interstitial
+  /// must never stack in front of the results-screen navigation.
+  void _maybeShowInterstitial() {
+    _adFrequencyCap.recordQuestionAnswered();
+    if (_controller.isSessionOver || !_adFrequencyCap.isDue) return;
+    AdsService.instance.showInterstitialIfLoaded(
+      onDismissed: _adFrequencyCap.recordAdShown,
+    );
   }
 
   Future<void> _persistAndShowResults() async {
@@ -140,14 +172,20 @@ class _GameScreenState extends State<GameScreen> {
 
     final currentStats = await StorageService.loadStats();
     final isNewHighScore = updatedScore > currentStats.highScore;
-    // lastPlayedDate is updated regardless of whether this was a new high
-    // score — full day-streak logic (increment/reset based on the gap
-    // since the previous play date) is Phase 3 scope; this just keeps
-    // the raw date current so that logic has something to build on.
+    // lastPlayedDate/currentStreakDays are updated for every session end,
+    // either mode — a streak day means "played at all today," not
+    // "completed a Daily Challenge." UTC (not local) to match
+    // GameController's own day boundary for Daily Challenge's seed.
+    final playedAt = DateTime.now().toUtc();
+    final newStreakDays = StreakService.nextStreakDays(
+      previousStreakDays: currentStats.currentStreakDays,
+      lastPlayedDate: currentStats.lastPlayedDate,
+      now: playedAt,
+    );
     await StorageService.saveStats(PlayerStats(
       highScore: isNewHighScore ? updatedScore : currentStats.highScore,
-      currentStreakDays: currentStats.currentStreakDays,
-      lastPlayedDate: DateTime.now(),
+      currentStreakDays: newStreakDays,
+      lastPlayedDate: playedAt,
       totalCoins: currentStats.totalCoins,
       bestScoreByTier: currentStats.bestScoreByTier,
     ));

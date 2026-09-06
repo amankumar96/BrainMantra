@@ -24,6 +24,16 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<!-- Google's published iOS TEST App ID (ca-app-pub-3940256099942544~...) -
+	     works with no AdMob account, needs no setup. MUST be swapped for the
+	     real AdMob App ID before any release build - see ARCHITECTURE.md's
+	     Phase 4 write-up and its Phase 6 release gate. -->
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-3940256099942544~1458002511</string>
+	<!-- Shown by iOS's App Tracking Transparency prompt if/when ad
+	     personalization requests tracking permission. -->
+	<key>NSUserTrackingUsageDescription</key>
+	<string>This identifier will be used to show you more relevant ads.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>

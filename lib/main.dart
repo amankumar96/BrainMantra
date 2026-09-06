@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
+import 'services/ads_service.dart';
 import 'services/auth_service.dart';
 import 'services/supabase_config.dart';
 import 'utils/constants.dart';
@@ -19,6 +20,9 @@ Future<void> main() async {
     // they're just passed under the SDK's newer parameter name now.
     publishableKey: SupabaseConfig.anonKey,
   );
+  // Best-effort: AdsService.initialize() never throws (see its own doc
+  // comment) — an ad SDK issue must never block the app from starting.
+  await AdsService.instance.initialize();
   runApp(const MathBlitzApp());
 }
 

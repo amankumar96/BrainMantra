@@ -2,9 +2,18 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Wraps Supabase Auth so the rest of the app never touches the
-/// `supabase_flutter` client directly. With "Confirm email" turned off in
-/// the Supabase project, [signUp] returns an active, logged-in session
-/// immediately — no email-confirmation step for the player to go through.
+/// `supabase_flutter` client directly. "Confirm email" is turned ON for
+/// this project, so an email/password [signUp] does not return an active
+/// session until the player clicks the link in the confirmation email —
+/// see [SignUpResult]. Google sign-in ([signInWithGoogle]) never goes
+/// through email confirmation and is the flow the UI steers players
+/// toward first for that reason.
+/// What happened as a result of an email/password [AuthService.signUp]
+/// call. [confirmationEmailSent] means the account exists but is not
+/// usable yet — the player must click the link Supabase just emailed
+/// them before they can log in.
+enum SignUpResult { signedIn, confirmationEmailSent }
+
 abstract final class AuthService {
   static SupabaseClient get _client => Supabase.instance.client;
 
@@ -18,22 +27,26 @@ abstract final class AuthService {
   /// sign out or uninstall, with no extra work needed).
   static Stream<AuthState> get authStateChanges => _client.auth.onAuthStateChange;
 
-  static Future<void> signUp({
+  static Future<SignUpResult> signUp({
     required String email,
     required String password,
     required String displayName,
   }) async {
-    final response =
-        await _client.auth.signUp(email: email, password: password);
-    if (response.user == null) {
-      throw StateError(
-        'Sign up did not return a user — check that "Confirm email" is '
-        'disabled in the Supabase project (Authentication > Providers > '
-        'Email), otherwise no session is issued until the email link is '
-        'clicked.',
-      );
+    final response = await _client.auth.signUp(
+      email: email,
+      password: password,
+      // Carried in user metadata so the name typed here survives the gap
+      // between now and whenever the confirmation link gets clicked —
+      // ensureProfileExists picks it up from here as a fallback below.
+      data: {'display_name': displayName},
+    );
+    if (response.session != null) {
+      // No confirmation pending (e.g. this player already confirmed a
+      // prior sign-up attempt with the same address) — log straight in.
+      await ensureProfileExists(preferredDisplayName: displayName);
+      return SignUpResult.signedIn;
     }
-    await ensureProfileExists(preferredDisplayName: displayName);
+    return SignUpResult.confirmationEmailSent;
   }
 
   static Future<void> signIn({
@@ -76,6 +89,11 @@ abstract final class AuthService {
     if (existing != null) return;
 
     final displayName = preferredDisplayName ??
+        // Set by signUp() at account-creation time — the name the player
+        // typed survives even though profile creation itself only
+        // happens later, once they've clicked the confirmation link and
+        // this runs from the `signedIn` listener in main.dart instead.
+        user.userMetadata?['display_name'] as String? ??
         user.userMetadata?['full_name'] as String? ??
         user.userMetadata?['name'] as String? ??
         user.email?.split('@').first ??

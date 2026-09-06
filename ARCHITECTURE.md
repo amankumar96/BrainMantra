@@ -260,7 +260,12 @@ Four changes on top of the above, **scoped to "Play" only** — Daily Challenge 
 1. Play → End → resumed from the same score on the next Play. ✅
 2. End-to-end deletion proof: created a disposable test account, backdated its `profiles.last_active_at` 31 days, invoked the function by hand — it found exactly that one account (`candidateCount: 1`) and deleted it; confirmed both the `profiles` row and the `auth.users` row are gone (`0 remaining` for both). ✅
 
-**Found and fixed along the way:** the Supabase project's Email auth provider was unexpectedly fully disabled (not just "Confirm email" — the whole provider), discovered when the test signup failed with `email_provider_disabled`. Re-enabled. Worth a periodic sanity check that "Confirm email" specifically is still off, since a sign-up during this investigation came back without an active session (the expected behavior when confirmation is required) — if real users hit that, `sign_up_screen.dart` doesn't currently handle a "check your email" state.
+**Found and fixed along the way:** the Supabase project's Email auth provider was unexpectedly fully disabled (not just "Confirm email" — the whole provider), discovered when the test signup failed with `email_provider_disabled`. Re-enabled.
+
+**Follow-up resolved — "Confirm email" decision:** kept **ON**. Since email/password sign-up now genuinely requires clicking a confirmation link, the auth UX was reworked to steer players toward Google (which never needs confirmation) as the primary path, with email/password as an explicit secondary option:
+- `login_screen.dart` / `sign_up_screen.dart`: "Continue with Google" is now a prominent `FilledButton` at the top of the screen; the email/password form sits below an "or ..." divider, with a smaller `OutlinedButton` submit and a note that a confirmation email will be sent.
+- `AuthService.signUp` now returns a `SignUpResult` (`signedIn` or `confirmationEmailSent`) instead of assuming an immediate session. `sign_up_screen.dart` switches to a dedicated "check your email" view when confirmation is pending, rather than silently doing nothing or throwing. The display name typed at sign-up is carried in Supabase user metadata (`data: {'display_name': ...}`) so `ensureProfileExists` — which only actually runs once a session exists, i.e. after the link is clicked, via the `signedIn` listener in `main.dart` — still picks up the right name.
+- `login_screen.dart` catches `AuthException` for an unconfirmed account (`email_not_confirmed`) and shows a friendly "click the confirmation link we emailed you" message instead of Supabase's raw error text.
 
 ---
 
@@ -317,7 +322,7 @@ This phase's original idea (a leaderboard, with server-side anti-cheat) was pull
 - [x] Gameplay redesign: infinite Play + persistent score + End button + randomized tiers + light blue/silver theme (218 tests passing) — see §4a
 - [x] Gameplay redesign: schema SQL run, `delete-inactive-users` deployed, cron scheduled (§4a)
 - [x] **Gate: Play → End → resume-same-score check; manually-backdated-account deletion check** — both passed
-- [ ] Follow-up: confirm "Confirm email" is genuinely off (see §4a) and handle the "check your email" state in `sign_up_screen.dart` if it isn't
+- [x] Follow-up: "Confirm email" kept ON by decision — Google steered as primary sign-up/login path, "check your email" state built into `sign_up_screen.dart` (see §4a)
 - [ ] Step 3: streak logic (daily-seed determinism already exists via `GameController`'s date-seeded RNG, reused from what was planned here)
 - [ ] Step 4: ads_service with test ad units + frequency-cap test
 - [ ] Server-side score validation on `daily_test_results` writes (anti-cheat gap noted in the superseded Phase 5 section above)

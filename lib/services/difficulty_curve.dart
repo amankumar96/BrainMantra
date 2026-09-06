@@ -79,7 +79,7 @@ abstract final class DifficultyCurve {
   static const List<DifficultyParams> _paramsByTier = [
     DifficultyParams(
       tier: 1,
-      timeLimitSeconds: 20,
+      timeLimitSeconds: 120, // 2 min — exam-style pacing (Phase 2 amendment)
       math: MathParams(
         minOperand: 1,
         maxOperand: 10,
@@ -93,7 +93,7 @@ abstract final class DifficultyCurve {
     ),
     DifficultyParams(
       tier: 2,
-      timeLimitSeconds: 15,
+      timeLimitSeconds: 600, // 10 min
       math: MathParams(
         minOperand: 2,
         maxOperand: 20,
@@ -111,7 +111,7 @@ abstract final class DifficultyCurve {
     ),
     DifficultyParams(
       tier: 3,
-      timeLimitSeconds: 12,
+      timeLimitSeconds: 1200, // 20 min
       math: MathParams(
         minOperand: 5,
         maxOperand: 50,
@@ -130,7 +130,7 @@ abstract final class DifficultyCurve {
     ),
     DifficultyParams(
       tier: 4,
-      timeLimitSeconds: 8,
+      timeLimitSeconds: 1800, // 30 min
       math: MathParams(
         minOperand: 10,
         maxOperand: 100,

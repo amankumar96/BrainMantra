@@ -33,10 +33,14 @@ void main() {
   });
 
   group('paramsForTier', () {
-    test('tier 4 has a strictly smaller time limit than tier 1', () {
+    // Phase 2 amendment: time limits moved from an 8-20 SECOND fast-blitz
+    // range to a 2-30 MINUTE exam-pacing range, which also flips the
+    // relationship — a harder question now gets MORE time to work
+    // through, not less, unlike the original arcade-style design.
+    test('tier 4 has a strictly larger time limit than tier 1', () {
       final tier1 = DifficultyCurve.paramsForTier(1);
       final tier4 = DifficultyCurve.paramsForTier(4);
-      expect(tier4.timeLimitSeconds, lessThan(tier1.timeLimitSeconds));
+      expect(tier4.timeLimitSeconds, greaterThan(tier1.timeLimitSeconds));
     });
 
     test('tier 4 has a strictly wider operand range than tier 1', () {

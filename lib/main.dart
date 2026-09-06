@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
-/// Entry point. Intentionally minimal — no real UI is built until Phase 2
-/// of ARCHITECTURE.md, once Phase 1 (services) is fully green.
+import 'screens/home_screen.dart';
+
+/// Entry point. Phase 2 is now wired up: the app launches straight into
+/// HomeScreen instead of the earlier "under construction" placeholder.
 void main() {
   runApp(const MathBlitzApp());
 }
@@ -13,9 +15,7 @@ class MathBlitzApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return const MaterialApp(
       title: 'MathBlitz',
-      home: Scaffold(
-        body: Center(child: Text('MathBlitz — under construction')),
-      ),
+      home: HomeScreen(),
     );
   }
 }

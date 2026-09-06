@@ -229,7 +229,23 @@ void main() {
         }
       }
 
-      expect(a.finalTestSession, equals(b.finalTestSession));
+      // Deliberately NOT `expect(a.finalTestSession, equals(b.finalTestSession))`:
+      // GameSession.startedAt is DateTime.now() captured independently by
+      // each controller at construction time, so the two TestSessions
+      // will almost never be wall-clock-identical even when everything
+      // that determinism actually promises (questions, outcomes, marks)
+      // matches exactly — asserting full equality here is what actually
+      // flaked in development. Compare the parts seeded-RNG determinism
+      // is meant to guarantee instead.
+      final sessionA = a.finalTestSession!;
+      final sessionB = b.finalTestSession!;
+      expect(sessionA.outcomes, equals(sessionB.outcomes));
+      expect(sessionA.marksAwarded, equals(sessionB.marksAwarded));
+      expect(sessionA.totalMarks, equals(sessionB.totalMarks));
+      expect(
+        sessionA.session.puzzlesAnswered,
+        equals(sessionB.session.puzzlesAnswered),
+      );
     });
 
     test('a Daily Challenge instance self-seeds without throwing when no '

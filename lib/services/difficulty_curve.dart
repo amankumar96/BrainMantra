@@ -1,3 +1,5 @@
+import 'rng_service.dart';
+
 /// The four arithmetic operators a math puzzle can be built from.
 enum MathOperator { add, subtract, multiply, divide }
 
@@ -169,5 +171,54 @@ abstract final class DifficultyCurve {
   static DifficultyParams paramsForTier(int tier) {
     final clamped = tier.clamp(1, _paramsByTier.length);
     return _paramsByTier[clamped - 1];
+  }
+
+  /// Picks a tier *randomly* from a score-dependent band, rather than the
+  /// single deterministic tier [tierForScore] returns — this is what lets
+  /// a player occasionally see an easier or harder question than their
+  /// score alone would imply, instead of a strict ladder. Used by
+  /// `GameController` for every question, in both Play and Daily
+  /// Challenge (drawn from the same per-day seeded [rng] in the latter
+  /// case, so every player still gets an identical sequence — randomness
+  /// doesn't break fairness here, only *which* fixed sequence is fair).
+  ///
+  /// TUNABLE — initial bands/weights, not derived from an external spec:
+  /// - score < 30: tiers 1-2 (60/40, easy-leaning)
+  /// - 30 <= score < 300: tiers 2-4, broadly spread
+  /// - score >= 300: tiers 1-4, weighted so 3-4 dominate ("mostly", not
+  ///   exclusively — an easy question can still occasionally appear)
+  static int randomTierForScore(int score, RngService rng) {
+    if (score < 30) {
+      return _weightedPick(rng, tiers: const [1, 2], weights: const [3, 2]);
+    } else if (score < 300) {
+      return _weightedPick(
+        rng,
+        tiers: const [2, 3, 4],
+        weights: const [2, 2, 1],
+      );
+    } else {
+      return _weightedPick(
+        rng,
+        tiers: const [1, 2, 3, 4],
+        weights: const [1, 2, 4, 4],
+      );
+    }
+  }
+
+  /// Rolls one value from [tiers], weighted by the parallel [weights] list
+  /// — the same cumulative-weight technique `shape_reasoning_generator.dart`
+  /// uses to weight (without excluding) simpler shapes at easier tiers.
+  static int _weightedPick(
+    RngService rng, {
+    required List<int> tiers,
+    required List<int> weights,
+  }) {
+    final totalWeight = weights.reduce((a, b) => a + b);
+    var roll = rng.nextInt(0, totalWeight - 1);
+    for (var i = 0; i < tiers.length; i++) {
+      if (roll < weights[i]) return tiers[i];
+      roll -= weights[i];
+    }
+    return tiers.last; // unreachable given the loop covers all weight
   }
 }

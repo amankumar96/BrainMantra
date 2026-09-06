@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:math_blitz/services/difficulty_curve.dart';
+import 'package:math_blitz/services/rng_service.dart';
 
 void main() {
   group('tierForScore', () {
@@ -73,6 +74,61 @@ void main() {
       expect(DifficultyCurve.paramsForTier(0).tier, equals(1));
       expect(DifficultyCurve.paramsForTier(-5).tier, equals(1));
       expect(DifficultyCurve.paramsForTier(99).tier, equals(4));
+    });
+  });
+
+  group('randomTierForScore', () {
+    test('below 30: only ever picks tier 1 or 2', () {
+      final rng = RngService.seeded('band-low');
+      for (var i = 0; i < 300; i++) {
+        final tier = DifficultyCurve.randomTierForScore(10, rng);
+        expect(tier, anyOf(1, 2));
+      }
+    });
+
+    test('30 to just under 300: only ever picks tier 2, 3, or 4', () {
+      final rng = RngService.seeded('band-mid');
+      for (var i = 0; i < 300; i++) {
+        final tier = DifficultyCurve.randomTierForScore(150, rng);
+        expect(tier, anyOf(2, 3, 4));
+      }
+    });
+
+    test('300 and above: can pick any tier, but 3/4 are the majority', () {
+      final rng = RngService.seeded('band-high');
+      final counts = {1: 0, 2: 0, 3: 0, 4: 0};
+      const samples = 1000;
+      for (var i = 0; i < samples; i++) {
+        final tier = DifficultyCurve.randomTierForScore(500, rng);
+        counts[tier] = counts[tier]! + 1;
+      }
+      final tier3And4 = counts[3]! + counts[4]!;
+      // "mostly" tier 3+, not exclusively — expect a clear majority
+      // without demanding every single draw be 3 or 4.
+      expect(tier3And4, greaterThan(samples ~/ 2));
+    });
+
+    test('negative scores behave like the lowest band (no crash)', () {
+      final rng = RngService.seeded('band-negative');
+      for (var i = 0; i < 50; i++) {
+        expect(
+          DifficultyCurve.randomTierForScore(-10, rng),
+          anyOf(1, 2),
+        );
+      }
+    });
+
+    test('same seed produces the same tier sequence', () {
+      // Mirrors real usage: one shared RngService instance drawing across
+      // repeated calls (as GameController does), not a fresh seed per call.
+      final scores = [0, 50, 400, 40, 600];
+      final rngA = RngService.seeded('shared-tier-seed');
+      final rngB = RngService.seeded('shared-tier-seed');
+      final sequenceA =
+          scores.map((s) => DifficultyCurve.randomTierForScore(s, rngA)).toList();
+      final sequenceB =
+          scores.map((s) => DifficultyCurve.randomTierForScore(s, rngB)).toList();
+      expect(sequenceA, equals(sequenceB));
     });
   });
 }

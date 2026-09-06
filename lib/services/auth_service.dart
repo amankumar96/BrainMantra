@@ -93,4 +93,47 @@ abstract final class AuthService {
       if (e.code != '23505') rethrow;
     }
   }
+
+  /// The player's persisted Play-mode score — this is what makes "Play"
+  /// resume from exactly where they left off, since the score lives on
+  /// their account rather than resetting each session. Returns 0 if
+  /// signed out, the profile row somehow doesn't have one yet, or the
+  /// request fails (e.g. offline) — a fresh-player default is always a
+  /// safe fallback here, and Play should never be unreachable just
+  /// because this one read failed.
+  static Future<int> fetchCurrentScore() async {
+    try {
+      final user = currentUser;
+      if (user == null) return 0;
+      final row = await _client
+          .from('profiles')
+          .select('current_score')
+          .eq('id', user.id)
+          .maybeSingle();
+      return (row?['current_score'] as int?) ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Persists the new running Play-mode total after a session ends.
+  static Future<void> updateCurrentScore(int score) async {
+    final user = currentUser;
+    if (user == null) return;
+    await _client
+        .from('profiles')
+        .update({'current_score': score}).eq('id', user.id);
+  }
+
+  /// Marks this player as active right now — called at the end of every
+  /// session (Play or Daily Challenge). This is the timestamp the 30-day
+  /// inactive-account deletion job checks.
+  static Future<void> touchLastActive() async {
+    final user = currentUser;
+    if (user == null) return;
+    await _client
+        .from('profiles')
+        .update({'last_active_at': DateTime.now().toUtc().toIso8601String()})
+        .eq('id', user.id);
+  }
 }

@@ -37,4 +37,16 @@ void main() {
 
     expect(find.text('0 marks'), findsOneWidget);
   });
+
+  testWidgets('a null totalQuestions (Play mode) omits the "of N" part',
+      (tester) async {
+    await tester.pumpWidget(_wrap(const MarksIndicator(
+      currentQuestionNumber: 47,
+      totalQuestions: null,
+      marksSoFar: 188,
+    )));
+
+    expect(find.text('Question 47'), findsOneWidget);
+    expect(find.text('+188 marks'), findsOneWidget);
+  });
 }

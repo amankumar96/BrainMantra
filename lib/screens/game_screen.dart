@@ -5,6 +5,7 @@ import '../controllers/game_controller.dart';
 import '../models/puzzle.dart';
 import '../models/player_stats.dart';
 import '../models/test_session.dart';
+import '../services/auth_service.dart';
 import '../services/leaderboard_service.dart';
 import '../services/storage_service.dart';
 import '../utils/constants.dart';
@@ -19,14 +20,26 @@ import 'results_screen.dart';
 /// renders them with select-then-submit answer buttons, a countdown, and
 /// feedback — looping until the test is complete, then persisting the
 /// result and navigating to [ResultsScreen].
+/// Daily Challenge's fixed question count — TUNABLE, matches
+/// GameController's original default before totalQuestions became
+/// nullable to support Play's no-cap mode.
+const int dailyChallengeQuestionCount = 10;
+
 class GameScreen extends StatefulWidget {
   const GameScreen({
     super.key,
     this.isDailyChallenge = false,
+    this.startingScore = 0,
     @visibleForTesting this.debugController,
   });
 
   final bool isDailyChallenge;
+
+  /// Only meaningful for Play (`isDailyChallenge: false`) — the score to
+  /// resume from, fetched from the player's Supabase profile by whoever
+  /// navigates here (see `home_screen.dart`). Daily Challenge always
+  /// starts fresh at 0, per its fairness rules.
+  final int startingScore;
 
   /// Test-only hook: inject a pre-built controller (e.g. with a seeded
   /// RngService and a small totalQuestions) instead of letting this
@@ -45,12 +58,17 @@ class _GameScreenState extends State<GameScreen> {
   void initState() {
     super.initState();
     _controller = widget.debugController ??
-        GameController(isDailyChallenge: widget.isDailyChallenge);
+        GameController(
+          isDailyChallenge: widget.isDailyChallenge,
+          totalQuestions:
+              widget.isDailyChallenge ? dailyChallengeQuestionCount : null,
+          startingScore: widget.isDailyChallenge ? 0 : widget.startingScore,
+        );
     _controller.addListener(_handleControllerChange);
   }
 
   void _handleControllerChange() {
-    if (_controller.isTestComplete && !_hasNavigatedToResults) {
+    if (_controller.isSessionOver && !_hasNavigatedToResults) {
       _hasNavigatedToResults = true;
       // Deferred to after the current frame: this listener fires from
       // inside GameController.notifyListeners(), and navigating away
@@ -76,11 +94,34 @@ class _GameScreenState extends State<GameScreen> {
     // the controller is the authoritative source, since a test-injected
     // debugController's own flag could otherwise diverge from the
     // widget's separate constructor parameter.
-    if (_controller.isDailyChallenge) {
-      await LeaderboardService.submitDailyResult(
-        marks: testSession.totalMarks,
-        questionsTotal: _controller.totalQuestions,
-      );
+    //
+    // Wrapped in try/catch: local persistence and navigation must succeed
+    // regardless of Supabase reachability (offline, a dropped connection,
+    // or — in widget tests — Supabase never being initialized at all).
+    // Losing one score-sync isn't nearly as bad as getting stuck on this
+    // screen because a network call failed.
+    try {
+      if (_controller.isDailyChallenge) {
+        await LeaderboardService.submitDailyResult(
+          marks: testSession.totalMarks,
+          // Daily Challenge always sets a fixed totalQuestions (see
+          // initState) — dailyChallengeQuestionCount avoids a
+          // force-unwrap of the nullable field here.
+          questionsTotal: dailyChallengeQuestionCount,
+        );
+      } else {
+        // Play mode: persist the new running total to the player's
+        // account so their next Play session resumes from exactly here,
+        // not 0.
+        await AuthService.updateCurrentScore(testSession.totalMarks);
+      }
+      // Every session (either mode) marks the player as active — this is
+      // what the 30-day inactive-account deletion job checks.
+      await AuthService.touchLastActive();
+    } catch (_) {
+      // Best-effort sync — local stats (below) are the source of truth
+      // for what the player sees right now regardless of whether this
+      // succeeded.
     }
 
     final currentStats = await StorageService.loadStats();
@@ -98,14 +139,27 @@ class _GameScreenState extends State<GameScreen> {
     ));
 
     if (!mounted) return;
+    // Captured before pushReplacement disposes _controller (see dispose()
+    // below) — Continue Playing needs these to resume from the right spot.
+    final isDailyChallenge = _controller.isDailyChallenge;
+    // testSession.session.score is the cumulative total (see
+    // GameController._buildTestSession), unlike testSession.totalMarks
+    // which is only this session's delta — see ResultsScreen.currentScore's
+    // doc comment for why that distinction matters.
+    final updatedScore = testSession.session.score;
     Navigator.of(context).pushReplacement(MaterialPageRoute(
       builder: (_) => ResultsScreen(
         testSession: testSession,
+        currentScore: updatedScore,
         previousHighScore: currentStats.highScore,
         onPlayAgain: () => Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (_) =>
-                GameScreen(isDailyChallenge: _controller.isDailyChallenge),
+            builder: (_) => GameScreen(
+              isDailyChallenge: isDailyChallenge,
+              // Resume from the just-updated cumulative score, not the
+              // score this session originally started from.
+              startingScore: isDailyChallenge ? 0 : updatedScore,
+            ),
           ),
         ),
       ),
@@ -126,10 +180,11 @@ class _GameScreenState extends State<GameScreen> {
       child: Consumer<GameController>(
         builder: (context, controller, _) {
           final puzzle = controller.currentPuzzle;
-          // Between the last question finishing and the post-frame
-          // navigation above actually firing, there's nothing sensible
-          // to render yet — a brief loading state covers that gap.
-          if (puzzle == null || controller.isTestComplete) {
+          // Between the session ending (question cap reached, or the
+          // player pressed End) and the post-frame navigation above
+          // actually firing, there's nothing sensible to render yet — a
+          // brief loading state covers that gap.
+          if (puzzle == null || controller.isSessionOver) {
             return const Scaffold(
               body: Center(child: CircularProgressIndicator()),
             );
@@ -153,6 +208,17 @@ class _GameScreenBody extends StatelessWidget {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text(controller.isDailyChallenge ? 'Daily Challenge' : 'Play'),
+        actions: [
+          // Play only — it's the never-ending mode, so it needs an
+          // explicit way to stop. Daily Challenge already has a natural
+          // end (its fixed question count) and isn't offered an early
+          // exit here.
+          if (!controller.isDailyChallenge)
+            TextButton(
+              onPressed: controller.endSession,
+              child: const Text('End', style: TextStyle(color: Colors.white)),
+            ),
+        ],
       ),
       body: SafeArea(
         child: Padding(

@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import '../models/test_session.dart';
 import '../utils/constants.dart';
 
-/// The end-of-test screen: final marks, a correct/wrong/skipped
-/// breakdown, a "new high score" banner if earned, and Play Again / Home.
+/// The end-of-session screen: current score, a correct/wrong/skipped
+/// breakdown of *this* session, a "new high score" banner if earned, and
+/// Play Again / Home.
 ///
 /// Takes an [onPlayAgain] callback rather than importing `game_screen.dart`
 /// directly — keeps this screen reusable/testable on its own and avoids a
@@ -13,11 +14,21 @@ class ResultsScreen extends StatelessWidget {
   const ResultsScreen({
     super.key,
     required this.testSession,
+    required this.currentScore,
     required this.previousHighScore,
     required this.onPlayAgain,
   });
 
   final TestSession testSession;
+
+  /// The headline number to show — deliberately **not**
+  /// `testSession.totalMarks` (which is only this session's delta): for
+  /// Play mode, this is the player's cumulative persisted score
+  /// (`GameController.totalMarks`, i.e. "score till now"), so ending a
+  /// session shows the real running total, not just what was earned in
+  /// this one sitting. For Daily Challenge, which always starts at 0,
+  /// this happens to equal `testSession.totalMarks` anyway.
+  final int currentScore;
   final int previousHighScore;
   final VoidCallback onPlayAgain;
 
@@ -29,13 +40,15 @@ class ResultsScreen extends StatelessWidget {
         testSession.outcomes.where((o) => o == AnswerOutcome.wrong).length;
     final skippedCount =
         testSession.outcomes.where((o) => o == AnswerOutcome.skipped).length;
-    final isNewHighScore = testSession.totalMarks > previousHighScore;
-    final bestScore =
-        isNewHighScore ? testSession.totalMarks : previousHighScore;
+    final isNewHighScore = currentScore > previousHighScore;
+    final bestScore = isNewHighScore ? currentScore : previousHighScore;
+    final isDailyChallenge = testSession.session.isDailyChallenge;
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Test Complete')),
+      appBar: AppBar(
+        title: Text(isDailyChallenge ? 'Test Complete' : 'Session Ended'),
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.lg),
@@ -52,13 +65,13 @@ class ResultsScreen extends StatelessWidget {
                 const SizedBox(height: AppSpacing.md),
               ],
               Text(
-                '${testSession.totalMarks}',
+                '$currentScore',
                 style: const TextStyle(
                   fontSize: 48,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const Text('total marks'),
+              Text(isDailyChallenge ? 'total marks' : 'score so far'),
               const SizedBox(height: AppSpacing.lg),
               _StatRow(
                 label: 'Correct',
@@ -82,7 +95,7 @@ class ResultsScreen extends StatelessWidget {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: onPlayAgain,
-                  child: const Text('Play Again'),
+                  child: Text(isDailyChallenge ? 'Play Again' : 'Continue Playing'),
                 ),
               ),
               TextButton(

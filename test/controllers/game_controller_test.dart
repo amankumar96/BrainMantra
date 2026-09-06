@@ -128,6 +128,126 @@ void main() {
     });
   });
 
+  group('startingScore (Play mode resuming a persisted score)', () {
+    test('totalMarks starts at startingScore, not 0', () {
+      final controller = GameController(
+        totalQuestions: 3,
+        isDailyChallenge: false,
+        startingScore: 250,
+        rng: RngService.seeded('starting-score-1'),
+      );
+      expect(controller.totalMarks, equals(250));
+    });
+
+    test('startingScore carries through scoring and into finalTestSession',
+        () {
+      final controller = GameController(
+        totalQuestions: 1,
+        isDailyChallenge: false,
+        startingScore: 100,
+        rng: RngService.seeded('starting-score-2'),
+      );
+      final correctAnswer =
+          controller.currentPuzzle!.correctAnswer.toString();
+      controller.selectOption(correctAnswer);
+      controller.submitSelected();
+      controller.onFeedbackAnimationComplete();
+
+      // GameController.totalMarks is the cumulative, persisted total.
+      expect(controller.totalMarks, equals(104)); // 100 + 4
+      expect(controller.finalTestSession!.session.score, equals(104));
+      // TestSession.totalMarks/marksAwarded are deliberately session-local
+      // only (this session's delta, not the carried-in starting score) —
+      // e.g. what a Daily Challenge submits to the leaderboard should
+      // never include an unrelated Play-mode starting score.
+      expect(controller.finalTestSession!.totalMarks, equals(4));
+      expect(controller.finalTestSession!.marksAwarded, equals([4]));
+    });
+
+    test('Daily Challenge always starts at 0 regardless of startingScore',
+        () {
+      // Guards against ever accidentally wiring startingScore into Daily
+      // Challenge, which would break its fairness (everyone must start
+      // from the same 0 baseline).
+      final controller = GameController(
+        totalQuestions: 3,
+        isDailyChallenge: true,
+        startingScore: 0, // game_screen.dart always passes 0 here
+        rng: RngService.seeded('starting-score-3'),
+      );
+      expect(controller.totalMarks, equals(0));
+    });
+  });
+
+  group('infinite mode (Play, totalQuestions == null)', () {
+    test('never becomes test-complete on its own, however many questions '
+        'are answered', () {
+      final controller = GameController(
+        totalQuestions: null,
+        isDailyChallenge: false,
+        rng: RngService.seeded('infinite-1'),
+      );
+      for (var i = 0; i < 50; i++) {
+        expect(controller.isTestComplete, isFalse);
+        expect(controller.isSessionOver, isFalse);
+        controller.skipDueToTimeout();
+        controller.onFeedbackAnimationComplete();
+      }
+      expect(controller.isSessionOver, isFalse);
+      expect(controller.finalTestSession, isNull);
+    });
+
+    test('endSession stops it, and finalTestSession reflects only what '
+        'was scored before ending', () {
+      final controller = GameController(
+        totalQuestions: null,
+        isDailyChallenge: false,
+        rng: RngService.seeded('infinite-2'),
+      );
+      final correctAnswer =
+          controller.currentPuzzle!.correctAnswer.toString();
+      controller.selectOption(correctAnswer);
+      controller.submitSelected();
+      controller.onFeedbackAnimationComplete();
+
+      controller.endSession();
+
+      expect(controller.isSessionOver, isTrue);
+      expect(controller.finalTestSession, isNotNull);
+      expect(controller.finalTestSession!.outcomes, hasLength(1));
+      expect(controller.totalMarks, equals(4));
+    });
+
+    test('pressing End mid-question discards it, uncounted and unpenalized',
+        () {
+      final controller = GameController(
+        totalQuestions: null,
+        isDailyChallenge: false,
+        rng: RngService.seeded('infinite-3'),
+      );
+      // Nothing submitted for the current (first) question yet.
+      controller.endSession();
+
+      expect(controller.isSessionOver, isTrue);
+      expect(controller.finalTestSession!.outcomes, isEmpty);
+      expect(controller.totalMarks, equals(0));
+    });
+
+    test('a second endSession call is a harmless no-op', () {
+      final controller = GameController(
+        totalQuestions: null,
+        isDailyChallenge: false,
+        rng: RngService.seeded('infinite-4'),
+      );
+      controller.endSession();
+      final sessionAfterFirstEnd = controller.finalTestSession;
+
+      controller.endSession(); // should not change anything further
+
+      expect(controller.finalTestSession, equals(sessionAfterFirstEnd));
+    });
+  });
+
   group('progressing through a test', () {
     test('advances the question number and loads a new puzzle after '
         'feedback completes', () {

@@ -126,4 +126,49 @@ void main() {
 
     expect(find.byType(ResultsScreen), findsOneWidget);
   });
+
+  testWidgets('an infinite (Play) session shows an End button that ends '
+      'the session and navigates to ResultsScreen', (tester) async {
+    final controller = GameController(
+      totalQuestions: null, // Play mode — no cap
+      isDailyChallenge: false,
+      startingScore: 40,
+      rng: RngService.seeded('gs-5'),
+    );
+    await tester.pumpWidget(_wrap(GameScreen(debugController: controller)));
+    await tester.pump();
+
+    // Answer one question first, just to prove End works mid-session, not
+    // only on the very first question.
+    final answer = _correctLabel(controller.currentPuzzle!);
+    await tester.tap(find.text(answer));
+    await tester.pump();
+    await tester.tap(find.text('Submit'));
+    await tester.pump();
+    await _pumpMillis(tester, AppDurations.feedbackDuration.inMilliseconds + 200);
+
+    expect(find.byType(ResultsScreen), findsNothing);
+    expect(find.text('End'), findsOneWidget);
+
+    await tester.tap(find.text('End'));
+    // Unlike the mid-question pumps above, pumpAndSettle is safe here:
+    // endSession() makes the screen render a plain loading spinner (see
+    // game_screen.dart's isSessionOver build-guard), tearing down the
+    // long-running TimerBar that would otherwise never let this settle.
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ResultsScreen), findsOneWidget);
+  });
+
+  testWidgets('Daily Challenge does not show an End button', (tester) async {
+    final controller = GameController(
+      totalQuestions: 3,
+      isDailyChallenge: true,
+      rng: RngService.seeded('gs-6'),
+    );
+    await tester.pumpWidget(_wrap(GameScreen(debugController: controller)));
+    await tester.pump();
+
+    expect(find.text('End'), findsNothing);
+  });
 }

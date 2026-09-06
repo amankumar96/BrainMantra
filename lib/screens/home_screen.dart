@@ -50,17 +50,25 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void _navigateToGame({required bool isDailyChallenge}) {
+  Future<void> _navigateToGame({required bool isDailyChallenge}) async {
+    // Play resumes from the player's persisted score; Daily Challenge
+    // always starts fresh at 0, per its fairness rules.
+    final startingScore =
+        isDailyChallenge ? 0 : await AuthService.fetchCurrentScore();
+    if (!mounted) return;
+
     // Reload stats once this pushed route is replaced (GameScreen
-    // replaces itself with ResultsScreen when the test ends, which
+    // replaces itself with ResultsScreen when the session ends, which
     // resolves this push's Future) — by then StorageService.saveStats
     // has already run, so the refreshed high score/streak are ready the
     // next time this screen is actually visible again.
-    Navigator.of(context)
-        .push(MaterialPageRoute(
-          builder: (_) => GameScreen(isDailyChallenge: isDailyChallenge),
-        ))
-        .then((_) => _loadStats());
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => GameScreen(
+        isDailyChallenge: isDailyChallenge,
+        startingScore: startingScore,
+      ),
+    ));
+    _loadStats();
   }
 
   void _navigateToLeaderboard() {

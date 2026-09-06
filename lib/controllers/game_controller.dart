@@ -7,10 +7,13 @@ import '../services/difficulty_curve.dart';
 import '../services/puzzle_generator.dart';
 import '../services/rng_service.dart';
 
-/// The entire game-rules engine for one test: loading questions, scoring
-/// answers, tracking progress, and building the final [TestSession] once
-/// all questions are done. Every widget on `game_screen` is just a view
-/// over this — none of them contain game logic themselves.
+/// The entire game-rules engine for one session: loading questions,
+/// scoring answers, tracking progress, and building the final
+/// [TestSession] once the session is over — either a fixed-length Daily
+/// Challenge reaching its question cap, or a never-ending Play session
+/// the player manually stops via [endSession]. Every widget on
+/// `game_screen` is just a view over this — none of them contain game
+/// logic themselves.
 ///
 /// A [ChangeNotifier] rather than plain fields so several independent
 /// widgets (the timer, the marks indicator, the answer buttons) can each
@@ -18,8 +21,9 @@ import '../services/rng_service.dart';
 /// screen-wide rebuild on every change.
 class GameController extends ChangeNotifier {
   GameController({
-    this.totalQuestions = 10, // TUNABLE — no question-count spec exists
+    this.totalQuestions, // null = no cap (Play); a number = fixed-length (Daily Challenge passes 10)
     required this.isDailyChallenge,
+    this.startingScore = 0, // Play resumes from the player's last-saved score; Daily Challenge always starts at 0
     RngService? rng,
   })  : _rng = rng ??
             (isDailyChallenge
@@ -32,8 +36,12 @@ class GameController extends ChangeNotifier {
     _loadNextPuzzle();
   }
 
-  final int totalQuestions;
+  /// Null means this session never ends on its own (Play mode) — the only
+  /// way out is [endSession]. A number means a fixed-length test (Daily
+  /// Challenge).
+  final int? totalQuestions;
   final bool isDailyChallenge;
+  final int startingScore;
   final RngService _rng;
 
   /// Only set for a Daily Challenge — recorded so [TestSession] can carry
@@ -47,6 +55,7 @@ class GameController extends ChangeNotifier {
   Puzzle? _currentPuzzle;
   String? _selectedOption; // chosen but not yet submitted
   bool _isSubmitted = false; // true while feedback is showing
+  bool _isEnded = false; // set by endSession() — Play mode's manual stop
 
   final List<Puzzle> _puzzlesShown = [];
   final List<AnswerOutcome> _outcomes = [];
@@ -62,19 +71,41 @@ class GameController extends ChangeNotifier {
   bool get hasSelection => _selectedOption != null;
   bool get isSubmitted => _isSubmitted;
 
-  int get totalMarks => _marksAwarded.fold(0, (sum, marks) => sum + marks);
+  /// [startingScore] plus everything scored so far this session — this is
+  /// what makes Play mode's score continue across sessions rather than
+  /// always restarting at 0, while Daily Challenge (startingScore always
+  /// 0) behaves exactly as before.
+  int get totalMarks =>
+      startingScore + _marksAwarded.fold(0, (sum, marks) => sum + marks);
 
   /// The outcome of the most recently submitted/skipped question — used
   /// by `game_screen` to decide which [FeedbackOverlay] variant to show.
   /// Null until the first answer is scored.
   AnswerOutcome? get lastOutcome => _outcomes.isEmpty ? null : _outcomes.last;
 
-  bool get isTestComplete => _questionIndex >= totalQuestions;
+  /// True once [totalQuestions] questions have been answered (fixed-length
+  /// Daily Challenge only — always false when [totalQuestions] is null).
+  bool get isTestComplete =>
+      totalQuestions != null && _questionIndex >= totalQuestions!;
 
-  /// The finished test, ready to persist/submit — only non-null once
-  /// [isTestComplete] is true.
+  /// True once the session is over for *any* reason — reaching the
+  /// question cap, or the player manually pressing End. This is what
+  /// `game_screen` actually watches to decide when to navigate away.
+  bool get isSessionOver => isTestComplete || _isEnded;
+
+  /// The finished session, ready to persist/submit — only non-null once
+  /// [isSessionOver] is true.
   TestSession? get finalTestSession =>
-      isTestComplete ? _buildTestSession() : null;
+      isSessionOver ? _buildTestSession() : null;
+
+  /// Manually stops an in-progress (never-ending, Play-mode) session — the
+  /// End button's action. Whatever question is currently on screen and
+  /// unanswered is simply discarded, uncounted; no penalty either way.
+  void endSession() {
+    if (isSessionOver) return;
+    _isEnded = true;
+    notifyListeners();
+  }
 
   /// Records a tap on an option button. Only *selects* it — nothing is
   /// scored until [submitSelected] is called. Ignored once an answer has
@@ -131,30 +162,30 @@ class GameController extends ChangeNotifier {
   }
 
   /// Called by `FeedbackOverlay.onAnimationComplete` once the feedback
-  /// animation finishes — advances to the next question, or finishes the
-  /// test if that was the last one.
+  /// animation finishes — advances to the next question, or ends the
+  /// session if that was the last one (fixed-length mode) or the player
+  /// had already pressed End in the meantime.
   void onFeedbackAnimationComplete() {
     _questionIndex++;
     _selectedOption = null;
     _isSubmitted = false;
 
-    if (isTestComplete) {
-      notifyListeners(); // game_screen sees isTestComplete and navigates
+    if (isSessionOver) {
+      notifyListeners(); // game_screen sees isSessionOver and navigates
       return;
     }
     _loadNextPuzzle();
   }
 
-  /// Generates the next question. Difficulty is looked up from the
-  /// running marks total (reusing Phase 1's DifficultyCurve unchanged —
-  /// tierForScore already treats a negative score as tier 1, so an early
-  /// wrong answer's -2 doesn't need special-casing here). The question
-  /// type is picked uniformly at random across all 8 types (mixed
-  /// math/reasoning pool — the mode confirmed during Phase 2 planning),
-  /// with a light one-reroll anti-repeat so the same type rarely appears
-  /// twice in a row.
+  /// Generates the next question. Difficulty tier is randomized within a
+  /// score-dependent band (see `DifficultyCurve.randomTierForScore`) —
+  /// negative/low scores never crash, they just land in the easiest band.
+  /// The question type is picked uniformly at random across all 8 types
+  /// (mixed math/reasoning pool — the mode confirmed during Phase 2
+  /// planning), with a light one-reroll anti-repeat so the same type
+  /// rarely appears twice in a row.
   void _loadNextPuzzle() {
-    final tier = DifficultyCurve.tierForScore(totalMarks);
+    final tier = DifficultyCurve.randomTierForScore(totalMarks, _rng);
     final type = _pickNextType();
     _currentPuzzle = PuzzleGenerator.generate(tier: tier, type: type, rng: _rng);
     notifyListeners();

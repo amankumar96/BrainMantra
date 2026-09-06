@@ -87,7 +87,7 @@ class AnswerButton extends StatelessWidget {
         AnswerButtonState.normal => (
             Colors.white,
             Colors.black87,
-            Colors.black26,
+            AppColors.silver,
           ),
         AnswerButtonState.selected => (
             AppColors.primary.withValues(alpha: 0.12),

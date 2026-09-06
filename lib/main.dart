@@ -7,6 +7,7 @@ import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'services/auth_service.dart';
 import 'services/supabase_config.dart';
+import 'utils/constants.dart';
 
 /// Entry point. Connects to Supabase before anything else runs — every
 /// screen assumes `Supabase.instance.client` is already initialized.
@@ -26,9 +27,32 @@ class MathBlitzApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
       title: 'MathBlitz',
-      home: _AuthGate(),
+      theme: _buildTheme(),
+      home: const _AuthGate(),
+    );
+  }
+
+  /// Light blue + silver theme — chosen to be easier on the eyes over long
+  /// play sessions than the original off-white/plain-Material look.
+  /// AppColors.background/silver are the two colors that actually matter
+  /// here; the rest of the seeded scheme just keeps buttons/inputs/etc.
+  /// visually consistent with them.
+  ThemeData _buildTheme() {
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: AppColors.background,
+      primary: AppColors.primary,
+      surface: AppColors.silver,
+    );
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: colorScheme,
+      scaffoldBackgroundColor: AppColors.background,
+      appBarTheme: AppBarTheme(
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+      ),
     );
   }
 }

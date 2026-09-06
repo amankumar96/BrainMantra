@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 /// Colors shared across screens/widgets — kept in one place so the game's
 /// palette can be retuned without hunting through every file.
 abstract final class AppColors {
-  static const Color background = Color(0xFFF7F7FB);
+  // Light blue + silver theme — easier on the eyes for long play sessions
+  // than the original off-white background.
+  static const Color background = Color(0xFFE3F2FD); // soft light blue
+  static const Color silver = Color(0xFFC7CDD1); // surfaces/cards/dividers
   static const Color primary = Color(0xFF3F51B5);
   static const Color correct = Color(0xFF2E7D32);
   static const Color wrong = Color(0xFFC62828);

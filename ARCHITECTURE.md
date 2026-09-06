@@ -218,28 +218,33 @@ This is the most important phase. Build and test each service **in this exact or
 
 ---
 
-## 4. Phase 2 — Playable UI (manual test checklist, not just automated)
+## 4. Phase 2 — Playable UI + Accounts + Ranking ✅ Built
 
-Build screens in this order; each has both an automated widget test where practical and a manual checklist, since gameplay feel needs human verification.
+> **Amendment:** Phase 2's scope grew substantially partway through — from "just the offline screens" to also include negative-marking scoring, a 30-day-active leaderboard, and real accounts (Supabase, replacing the originally-sketched Firebase in what was Phase 5 — see that section below, now superseded and folded in here). The subsections below describe what was actually built, not the original lighter sketch.
 
-### Step 2.1 — `home_screen.dart`
-- Shows high score, streak, "Play" and "Daily Challenge" buttons.
-- **Manual test:** launching app with no prior data shows 0/0 gracefully; tapping Play navigates to `game_screen`.
+Built in two internally-gated parts: **Part A** (offline gameplay — screens/widgets/controller, no network) then **Part B** (Supabase accounts + leaderboard).
 
-### Step 2.2 — `game_screen.dart`
-- Pulls a `Puzzle` from `PuzzleGenerator` (math or reasoning category), renders question + 4-option MCQ / free-input, countdown via `timer_bar.dart`, tracks lives/combo via `GameSession`.
-- On answer selection, triggers `feedback_overlay.dart`: a custom-built balloon-burst animation on correct, a custom-built red-cross animation on wrong (no new pub dependency).
-- **Manual test checklist:**
-  - [ ] Timer counts down and auto-submits wrong on expiry.
-  - [ ] Correct answer → balloon-burst feedback, increments score + combo; wrong answer → red-cross feedback, decrements lives and resets combo.
-  - [ ] 3 wrong answers → navigates to `results_screen`.
-  - [ ] Difficulty visibly increases as score crosses tier thresholds (verify against `difficulty_curve` params), for both math and reasoning categories.
+### Part A — offline gameplay
+- **Scoring redesign:** lives/combo replaced entirely by a fixed-length marks test — `+4` correct, `-2` wrong, `0` if the timer runs out unanswered (skipping is free; guessing wrong is not). `totalQuestions` defaults to 10 (`TUNABLE`, `lib/controllers/game_controller.dart`).
+- **Timing redesign:** `difficulty_curve.dart`'s time limits moved from an 8–20 *second* fast-blitz range to a 2–30 *minute* exam-pacing range (tier1=2min … tier4=30min, `TUNABLE`) — and the difficulty relationship flipped: harder now means *more* time, not less.
+- **Two-step answering:** tapping an option only selects it (`answer_button.dart`'s `selected` state); a separate `submit_button.dart` locks it in — "only 1 attempt before Submit."
+- `timer_bar.dart` — live `MM:SS` countdown + progress bar, `AnimationController`-driven, keyed per `puzzle.id` for an automatic per-question reset.
+- `marks_indicator.dart` — "Question N of TOTAL · running marks" readout, replacing the old combo/lives indicator.
+- `feedback_overlay.dart` — balloon-burst (correct) / red-cross (wrong) / a plain non-punitive icon (skipped, since no marks were lost) — still fully custom-built, no new pub dependency.
+- `rules_dialog.dart` — the scoring/timing/submit rules, shown automatically once and reachable anytime via an info icon (item 6 of the product requirements).
+- `lib/models/test_session.dart` — a small **additive** model (`AnswerOutcome` enum + `TestSession` wrapping `GameSession`) so 3-outcome marks scoring is representable without changing `GameSession`'s own tested shape.
+- `home_screen.dart` / `game_screen.dart` / `results_screen.dart` wire all of the above together; state managed via `provider` (`ChangeNotifierProvider` + `GameController`).
+- **Part A gate:** 201 automated tests passing, `flutter analyze` clean, app boots cleanly (verified via `flutter run -d chrome`).
 
-### Step 2.3 — `results_screen.dart`
-- Shows final score, best score comparison, "Play Again" / "Watch ad to revive" (revive logic wired later in Phase 4) / share.
-- **Manual test:** score correctly persisted via `storage_service` after each session; high score updates only when beaten.
+### Part B — Supabase accounts + ranking
+- **Player identity:** full sign-up required (`sign_up_screen.dart`/`login_screen.dart`) — email/password (email confirmation disabled per product decision, so sign-up logs in immediately) plus Google sign-in (`AuthService.signInWithGoogle`, web-ready; Android/iOS need their own URL-scheme registration before it works there). Sessions persist automatically (`supabase_flutter`'s default), so a signed-up player stays logged in until they explicitly sign out.
+- **Schema** (run directly in the Supabase SQL Editor, not tracked as a repo file): `profiles` (id/display_name, readable by everyone, writable only by its owner), `daily_test_results` (one row per player per UTC day, unique on `(user_id, test_date)`, **readable by everyone, writable only by its owner** — an early version mistakenly used one blanket RLS policy for both read and write, which would have made every player only ever see their own row on the leaderboard; fixed to separate select/insert/update policies, mirroring `profiles`), and a `leaderboard_last_30_days` view (sum of marks per player across submissions in the last 30 days — "active" simply means "has ≥1 row in that window" via the join).
+- `leaderboard_service.dart` — `submitDailyResult` (upserts today's row) and `fetchTopRankings` (reads the ranked view).
+- **Only Daily Challenge results are ranked** — `Play` uses freely-random questions and isn't a fair, comparable test across players the way a shared-seed Daily Challenge is; both modes still save locally regardless.
+- `leaderboard_screen.dart` — ranked list, current player's row highlighted.
+- **Part B gate:** live REST check against the real project confirms the schema/RLS are reachable end-to-end; a full sign-up → Daily Challenge → leaderboard playthrough is the final manual check.
 
-**Phase 2 exit criteria:** a human can play a full game start-to-finish (both categories) with no crashes, and `PlayerStats` persists correctly across app restarts (kill and relaunch the app to verify).
+**Phase 2 exit criteria:** a human can sign up, see the rules once, play a full test (both Play and Daily Challenge, both categories) with no crashes, see a Daily Challenge result appear correctly ranked on the leaderboard, and have `PlayerStats` persist across app restarts.
 
 ---
 
@@ -267,12 +272,9 @@ Build screens in this order; each has both an automated widget test where practi
 
 ---
 
-## 7. Phase 5 — Optional Firebase Leaderboard
+## 7. Phase 5 — Optional Firebase Leaderboard — **Superseded, folded into Phase 2**
 
-Only start this after Phase 4 is done and the game is fun to play standalone.
-- Firestore collection `leaderboard_daily/{date}/scores/{uid}`.
-- Cloud Function (or client-side write with security rules) to prevent score spoofing — validate score against max-possible-score-per-tier server-side before accepting a write.
-- **Test:** attempt to submit an impossible score (e.g. exceeds max theoretical score for puzzles-answered count) → rejected by security rule/function.
+This phase's original idea (a leaderboard, with server-side anti-cheat) was pulled forward into Phase 2 Part B and built on Supabase instead of Firebase — see that section above for what actually exists. One item from this original sketch is **not yet done** and remains real future work: **server-side score validation** (rejecting a submitted score that exceeds the max theoretically possible for the questions answered). Right now `LeaderboardService.submitDailyResult` trusts whatever `totalMarks` the client computed — a Postgres check constraint or a Supabase Edge Function validating `marks` against `questions_total * 4` (the max possible) before accepting a write would close this gap, matching this section's original anti-spoofing test intent.
 
 ---
 
@@ -293,13 +295,12 @@ Only start this after Phase 4 is done and the game is fun to play standalone.
 - [x] Step 1.4: puzzle_generator (math + reasoning branches) + fuzz tests (500 iterations/type/tier)
 - [x] Step 1.5: storage_service + tests
 - [x] **Gate: `flutter test` 100% green before any UI work** — 148 tests passing, `flutter analyze` clean
-- [ ] Step 2.1: home_screen
-- [ ] Step 2.2: game_screen + feedback_overlay (manual checklist above)
-- [ ] Step 2.3: results_screen
-- [ ] **Gate: full manual playthrough + restart-persistence check**
-- [ ] Step 3: daily challenge determinism + streak logic
+- [x] Phase 2 Part A: offline gameplay (marks scoring, 2-30min timers, select-then-submit, all screens/widgets) — 201 tests passing
+- [x] Phase 2 Part B: Supabase accounts (email + Google) + daily-challenge leaderboard, schema verified live
+- [ ] **Gate: full manual sign-up → Daily Challenge → leaderboard playthrough + restart-persistence check**
+- [ ] Step 3: streak logic (daily-seed determinism already exists via `GameController`'s date-seeded RNG, reused from what was planned here)
 - [ ] Step 4: ads_service with test ad units + frequency-cap test
-- [ ] Step 5 (optional): Firebase leaderboard + anti-cheat validation
+- [ ] Server-side score validation on `daily_test_results` writes (anti-cheat gap noted in the superseded Phase 5 section above)
 - [ ] Step 6: polish + store assets
 - [ ] Submit to Play Console (internal → closed → production)
 

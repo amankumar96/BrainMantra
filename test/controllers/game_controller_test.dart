@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:math_blitz/controllers/game_controller.dart';
+import 'package:math_blitz/models/puzzle.dart';
 import 'package:math_blitz/models/test_session.dart';
 import 'package:math_blitz/services/rng_service.dart';
 
@@ -67,6 +68,43 @@ void main() {
 
       expect(controller.isSubmitted, isFalse);
       expect(controller.lastOutcome, isNull);
+    });
+
+    test(
+        'a correct answer to a trueFalse question still scores +4 '
+        'despite the True/False vs true/false case mismatch between the '
+        'displayed option and bool.toString()', () {
+      // Regression test: PuzzleType.trueFalse's options are "True"/
+      // "False" (capitalized for display) but correctAnswer.toString()
+      // on a bool yields lowercase "true"/"false" — a case-sensitive
+      // compare in submitSelected() would silently mark every true/false
+      // question wrong. Search seeds for a trueFalse puzzle to exercise
+      // this specific path end-to-end.
+      GameController? controller;
+      for (var seed = 0; seed < 200; seed++) {
+        final candidate = GameController(
+          totalQuestions: 1,
+          isDailyChallenge: false,
+          rng: RngService.seeded('truefalse-search-$seed'),
+        );
+        if (candidate.currentPuzzle!.type == PuzzleType.trueFalse) {
+          controller = candidate;
+          break;
+        }
+      }
+      expect(controller, isNotNull,
+          reason: 'no trueFalse puzzle found in 200 seeds - unexpected');
+
+      final puzzle = controller!.currentPuzzle!;
+      final correctLabel = puzzle.options.firstWhere(
+        (o) => o.toLowerCase() == puzzle.correctAnswer.toString(),
+      );
+
+      controller.selectOption(correctLabel);
+      controller.submitSelected();
+
+      expect(controller.totalMarks, equals(4));
+      expect(controller.lastOutcome, equals(AnswerOutcome.correct));
     });
 
     test('a second select/submit is ignored once an answer is locked in',

@@ -91,8 +91,15 @@ class GameController extends ChangeNotifier {
   /// as a real gate, not just a formality.
   void submitSelected() {
     if (_selectedOption == null || _isSubmitted) return;
-    final isCorrect =
-        _selectedOption == _currentPuzzle!.correctAnswer.toString();
+    // Case-insensitive: PuzzleType.trueFalse's displayed options are
+    // "True"/"False" (capitalized, for readability) while Dart's own
+    // `bool.toString()` produces lowercase "true"/"false" — a
+    // case-sensitive compare here would silently mark every true/false
+    // question wrong regardless of what the player picked. Harmless for
+    // every other type (numeric strings and the family-tree/shape
+    // vocabularies are already consistently lowercase).
+    final isCorrect = _selectedOption!.toLowerCase() ==
+        _currentPuzzle!.correctAnswer.toString().toLowerCase();
     _score(isCorrect);
   }
 

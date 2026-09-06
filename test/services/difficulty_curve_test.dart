@@ -131,4 +131,32 @@ void main() {
       expect(sequenceA, equals(sequenceB));
     });
   });
+
+  group('randomHighTier', () {
+    test('only ever picks tier 3 or 4', () {
+      final rng = RngService.seeded('high-tier');
+      for (var i = 0; i < 300; i++) {
+        expect(DifficultyCurve.randomHighTier(rng), anyOf(3, 4));
+      }
+    });
+
+    test('both tier 3 and tier 4 actually occur (not always the same one)', () {
+      final rng = RngService.seeded('high-tier-spread');
+      final seen = <int>{};
+      for (var i = 0; i < 200; i++) {
+        seen.add(DifficultyCurve.randomHighTier(rng));
+      }
+      expect(seen, equals({3, 4}));
+    });
+
+    test('same seed produces the same tier sequence', () {
+      final rngA = RngService.seeded('shared-high-tier-seed');
+      final rngB = RngService.seeded('shared-high-tier-seed');
+      final sequenceA =
+          List.generate(20, (_) => DifficultyCurve.randomHighTier(rngA));
+      final sequenceB =
+          List.generate(20, (_) => DifficultyCurve.randomHighTier(rngB));
+      expect(sequenceA, equals(sequenceB));
+    });
+  });
 }

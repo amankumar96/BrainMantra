@@ -28,16 +28,13 @@ class RulesDialog extends StatelessWidget {
           children: [
             _RuleItem(
               icon: Icons.check_circle_outline,
-              text: 'Correct answer: +4 marks.',
-            ),
-            _RuleItem(
-              icon: Icons.cancel_outlined,
-              text: 'Wrong answer: -2 marks.',
+              text: 'Play: +4 marks for a correct answer, -2 for a wrong '
+                  'one.',
             ),
             _RuleItem(
               icon: Icons.timer_off_outlined,
               text: 'Time runs out before you answer: 0 marks — '
-                  'no penalty for skipping.',
+                  'no penalty for skipping, in either mode.',
             ),
             _RuleItem(
               icon: Icons.touch_app_outlined,
@@ -51,10 +48,17 @@ class RulesDialog extends StatelessWidget {
                   'minutes, depending on its difficulty.',
             ),
             _RuleItem(
+              icon: Icons.calendar_month_outlined,
+              text: 'Daily Challenge: tougher questions only (tier 3+), '
+                  '+10 marks for a correct answer, 0 for a wrong one — no '
+                  'deduction. What you earn is added straight onto your '
+                  'regular Play score.',
+            ),
+            _RuleItem(
               icon: Icons.leaderboard_outlined,
-              text: 'Daily Challenge results count toward the leaderboard, '
-                  'ranked among players active in the last 30 days. '
-                  'Regular Play does not.',
+              text: 'Daily Challenge results also count toward the '
+                  'leaderboard, ranked among players active in the last '
+                  '30 days.',
             ),
           ],
         ),

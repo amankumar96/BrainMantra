@@ -22,12 +22,13 @@ class ResultsScreen extends StatelessWidget {
   final TestSession testSession;
 
   /// The headline number to show — deliberately **not**
-  /// `testSession.totalMarks` (which is only this session's delta): for
-  /// Play mode, this is the player's cumulative persisted score
-  /// (`GameController.totalMarks`, i.e. "score till now"), so ending a
-  /// session shows the real running total, not just what was earned in
-  /// this one sitting. For Daily Challenge, which always starts at 0,
-  /// this happens to equal `testSession.totalMarks` anyway.
+  /// `testSession.totalMarks` (which is only this session's delta). This
+  /// is always the player's cumulative persisted score: for Play mode
+  /// it's `GameController.totalMarks` ("score till now"); for Daily
+  /// Challenge it's that same persistent total *plus* what this
+  /// challenge just earned — Daily Challenge no longer keeps an isolated
+  /// score of its own, its marks are a bonus on top of the one running
+  /// total (see `game_screen.dart`'s `_persistAndShowResults`).
   final int currentScore;
   final int previousHighScore;
   final VoidCallback onPlayAgain;
@@ -71,7 +72,14 @@ class ResultsScreen extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              Text(isDailyChallenge ? 'total marks' : 'score so far'),
+              const Text('score so far'),
+              if (isDailyChallenge) ...[
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  '+${testSession.totalMarks} from today\'s Daily Challenge',
+                  style: const TextStyle(fontSize: 12, color: Colors.black54),
+                ),
+              ],
               const SizedBox(height: AppSpacing.lg),
               _StatRow(
                 label: 'Correct',

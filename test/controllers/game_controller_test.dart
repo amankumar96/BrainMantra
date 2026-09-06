@@ -179,6 +179,64 @@ void main() {
     });
   });
 
+  group('Daily Challenge scoring and difficulty', () {
+    test('a correct submission awards +10 marks, not +4', () {
+      final controller = GameController(
+        totalQuestions: 3,
+        isDailyChallenge: true,
+        rng: RngService.seeded('daily-score-1'),
+      );
+      final correctAnswer =
+          controller.currentPuzzle!.correctAnswer.toString();
+      controller.selectOption(correctAnswer);
+      controller.submitSelected();
+
+      expect(controller.totalMarks, equals(10));
+      expect(controller.lastOutcome, equals(AnswerOutcome.correct));
+    });
+
+    test('a wrong submission awards 0 marks (no deduction), not -2', () {
+      final controller = GameController(
+        totalQuestions: 3,
+        isDailyChallenge: true,
+        rng: RngService.seeded('daily-score-2'),
+      );
+      final puzzle = controller.currentPuzzle!;
+      final wrongOption = puzzle.options
+          .firstWhere((o) => o != puzzle.correctAnswer.toString());
+      controller.selectOption(wrongOption);
+      controller.submitSelected();
+
+      expect(controller.totalMarks, equals(0));
+      expect(controller.lastOutcome, equals(AnswerOutcome.wrong));
+    });
+
+    test('skipDueToTimeout still awards 0 marks, same as Play', () {
+      final controller = GameController(
+        totalQuestions: 3,
+        isDailyChallenge: true,
+        rng: RngService.seeded('daily-score-3'),
+      );
+      controller.skipDueToTimeout();
+      expect(controller.totalMarks, equals(0));
+      expect(controller.lastOutcome, equals(AnswerOutcome.skipped));
+    });
+
+    test('every question is tier 3 or above, unlike a low/mid Play score '
+        'which would mostly land in tiers 1-2', () {
+      final controller = GameController(
+        totalQuestions: 40,
+        isDailyChallenge: true,
+        rng: RngService.seeded('daily-tier-1'),
+      );
+      for (var i = 0; i < 40; i++) {
+        expect(controller.currentPuzzle!.difficultyTier, anyOf(3, 4));
+        controller.skipDueToTimeout();
+        controller.onFeedbackAnimationComplete();
+      }
+    });
+  });
+
   group('infinite mode (Play, totalQuestions == null)', () {
     test('never becomes test-complete on its own, however many questions '
         'are answered', () {

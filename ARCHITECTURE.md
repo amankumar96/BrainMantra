@@ -267,6 +267,18 @@ Four changes on top of the above, **scoped to "Play" only** — Daily Challenge 
 - `AuthService.signUp` now returns a `SignUpResult` (`signedIn` or `confirmationEmailSent`) instead of assuming an immediate session. `sign_up_screen.dart` switches to a dedicated "check your email" view when confirmation is pending, rather than silently doing nothing or throwing. The display name typed at sign-up is carried in Supabase user metadata (`data: {'display_name': ...}`) so `ensureProfileExists` — which only actually runs once a session exists, i.e. after the link is clicked, via the `signedIn` listener in `main.dart` — still picks up the right name.
 - `login_screen.dart` catches `AuthException` for an unconfirmed account (`email_not_confirmed`) and shows a friendly "click the confirmation link we emailed you" message instead of Supabase's raw error text.
 
+### 4b. Daily Challenge redesign — no longer an isolated score
+
+Daily Challenge stopped being a separate, isolated tally and became a bonus round layered on top of the one persistent Play score:
+1. **Tier 3+ only.** `DifficultyCurve.randomHighTier(rng)` (tier 3 or 4, evenly weighted) replaces `randomTierForScore` for Daily Challenge specifically — score-independent, always hard. `GameController._loadNextPuzzle` branches on `isDailyChallenge` to pick between the two.
+2. **Flat +10/no-deduction scoring**, mode-dependent in `GameController._score`: Daily Challenge is +10 correct / 0 wrong / 0 skipped, vs. Play's existing +4/-2/0.
+3. **Earned marks now add onto the persistent score**, not just the leaderboard. `game_screen.dart`'s `_persistAndShowResults`: Daily Challenge still submits to `daily_test_results` (leaderboard unchanged), but now also fetches the player's current `profiles.current_score`, adds this session's earned marks, and persists that sum back — the same field Play resumes from. `results_screen.dart`'s headline number is that unified total for both modes now, with a small "+N from today's Daily Challenge" line shown only for Daily Challenge.
+4. **Leaderboard**: added a "N players ranked" header row to `leaderboard_screen.dart` (was previously answerable only per-row via "N test(s) taken", no participant count anywhere on screen).
+
+**Found and fixed along the way (pre-existing bugs, not introduced by this change):**
+- `game_screen.dart` was persisting `testSession.totalMarks` (this session's delta only) to `profiles.current_score` for Play mode — not `testSession.session.score` (the true cumulative figure). This silently discarded `startingScore` on every single Play session end, in production (not caught by any test, since the Supabase call is wrapped in try/catch and swallowed in the test environment where Supabase isn't initialized). Fixed.
+- The local "new high score" check compared `testSession.totalMarks` (session-local delta) against `PlayerStats.highScore` instead of the true cumulative score — meaning the Home screen's "High Score" was tracking the wrong quantity. Fixed to compare/store the same cumulative `updatedScore` used for persistence.
+
 ---
 
 ## 5. Phase 3 — Daily Challenge & Meta Layer
@@ -323,6 +335,7 @@ This phase's original idea (a leaderboard, with server-side anti-cheat) was pull
 - [x] Gameplay redesign: schema SQL run, `delete-inactive-users` deployed, cron scheduled (§4a)
 - [x] **Gate: Play → End → resume-same-score check; manually-backdated-account deletion check** — both passed
 - [x] Follow-up: "Confirm email" kept ON by decision — Google steered as primary sign-up/login path, "check your email" state built into `sign_up_screen.dart` (see §4a)
+- [x] Daily Challenge redesign: tier 3+ only, +10/no-deduction scoring, earned marks now add onto the persistent Play score instead of staying isolated (225 tests passing) — see §4b
 - [ ] Step 3: streak logic (daily-seed determinism already exists via `GameController`'s date-seeded RNG, reused from what was planned here)
 - [ ] Step 4: ads_service with test ad units + frequency-cap test
 - [ ] Server-side score validation on `daily_test_results` writes (anti-cheat gap noted in the superseded Phase 5 section above)

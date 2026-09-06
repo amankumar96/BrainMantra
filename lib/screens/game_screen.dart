@@ -95,6 +95,14 @@ class _GameScreenState extends State<GameScreen> {
     // debugController's own flag could otherwise diverge from the
     // widget's separate constructor parameter.
     //
+    // Daily Challenge no longer keeps an isolated score of its own — its
+    // marks (tier 3+, +10/no-penalty, scored by GameController) are a
+    // bonus added straight onto the same persistent Play score, so
+    // "regular play" is the one running total that matters either way.
+    // Defaults to the cumulative Play total; only overwritten below if
+    // this is a Daily Challenge and the fetch+add succeeds.
+    var updatedScore = testSession.session.score;
+
     // Wrapped in try/catch: local persistence and navigation must succeed
     // regardless of Supabase reachability (offline, a dropped connection,
     // or — in widget tests — Supabase never being initialized at all).
@@ -109,11 +117,17 @@ class _GameScreenState extends State<GameScreen> {
           // force-unwrap of the nullable field here.
           questionsTotal: dailyChallengeQuestionCount,
         );
+        final baseScore = await AuthService.fetchCurrentScore();
+        updatedScore = baseScore + testSession.totalMarks;
+        await AuthService.updateCurrentScore(updatedScore);
       } else {
         // Play mode: persist the new running total to the player's
         // account so their next Play session resumes from exactly here,
-        // not 0.
-        await AuthService.updateCurrentScore(testSession.totalMarks);
+        // not 0. testSession.session.score is the cumulative figure
+        // (startingScore + everything earned this session) — deliberately
+        // not testSession.totalMarks, which is only this session's delta
+        // and would silently discard the starting score.
+        await AuthService.updateCurrentScore(updatedScore);
       }
       // Every session (either mode) marks the player as active — this is
       // what the 30-day inactive-account deletion job checks.
@@ -121,17 +135,17 @@ class _GameScreenState extends State<GameScreen> {
     } catch (_) {
       // Best-effort sync — local stats (below) are the source of truth
       // for what the player sees right now regardless of whether this
-      // succeeded.
+      // succeeded. updatedScore keeps its pre-try default in this case.
     }
 
     final currentStats = await StorageService.loadStats();
-    final isNewHighScore = testSession.totalMarks > currentStats.highScore;
+    final isNewHighScore = updatedScore > currentStats.highScore;
     // lastPlayedDate is updated regardless of whether this was a new high
     // score — full day-streak logic (increment/reset based on the gap
     // since the previous play date) is Phase 3 scope; this just keeps
     // the raw date current so that logic has something to build on.
     await StorageService.saveStats(PlayerStats(
-      highScore: isNewHighScore ? testSession.totalMarks : currentStats.highScore,
+      highScore: isNewHighScore ? updatedScore : currentStats.highScore,
       currentStreakDays: currentStats.currentStreakDays,
       lastPlayedDate: DateTime.now(),
       totalCoins: currentStats.totalCoins,
@@ -142,11 +156,6 @@ class _GameScreenState extends State<GameScreen> {
     // Captured before pushReplacement disposes _controller (see dispose()
     // below) — Continue Playing needs these to resume from the right spot.
     final isDailyChallenge = _controller.isDailyChallenge;
-    // testSession.session.score is the cumulative total (see
-    // GameController._buildTestSession), unlike testSession.totalMarks
-    // which is only this session's delta — see ResultsScreen.currentScore's
-    // doc comment for why that distinction matters.
-    final updatedScore = testSession.session.score;
     Navigator.of(context).pushReplacement(MaterialPageRoute(
       builder: (_) => ResultsScreen(
         testSession: testSession,

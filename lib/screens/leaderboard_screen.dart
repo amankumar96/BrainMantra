@@ -51,16 +51,33 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           }
           return ListView.separated(
             padding: const EdgeInsets.all(AppSpacing.md),
-            itemCount: entries.length,
+            // +1 for the participant-count header row.
+            itemCount: entries.length + 1,
             separatorBuilder: (_, _) => const Divider(height: 1),
             itemBuilder: (context, index) {
-              final entry = entries[index];
+              if (index == 0) {
+                // entries is capped at fetchTopRankings' limit (50) — this
+                // count is exact only up to that cap, "50+" beyond it.
+                final label = entries.length >= 50 ? '50+' : '${entries.length}';
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                  child: Text(
+                    '$label player${entries.length == 1 ? '' : 's'} ranked',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                );
+              }
+              final rank = index - 1; // 0-based, since index 0 is the header
+              final entry = entries[rank];
               final isCurrentUser = entry.userId == currentUserId;
               return ListTile(
                 tileColor: isCurrentUser
                     ? AppColors.primary.withValues(alpha: 0.08)
                     : null,
-                leading: CircleAvatar(child: Text('${index + 1}')),
+                leading: CircleAvatar(child: Text('${rank + 1}')),
                 title: Text(
                   entry.displayName,
                   style: TextStyle(

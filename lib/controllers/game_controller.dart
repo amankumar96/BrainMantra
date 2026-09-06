@@ -144,13 +144,18 @@ class GameController extends ChangeNotifier {
 
   /// Records one question's outcome. [isCorrect] is null for a timeout
   /// (skipped), true/false for an actual submitted answer.
+  ///
+  /// Marks differ by mode: Play uses the standard +4/-2/0 system; Daily
+  /// Challenge is flat +10 for correct and 0 otherwise (wrong or
+  /// skipped) — deliberately no penalty, since its questions are already
+  /// drawn from the hardest tiers (see `_loadNextPuzzle`).
   void _score(bool? isCorrect) {
     final outcome = isCorrect == null
         ? AnswerOutcome.skipped
         : (isCorrect ? AnswerOutcome.correct : AnswerOutcome.wrong);
     final marks = switch (outcome) {
-      AnswerOutcome.correct => 4,
-      AnswerOutcome.wrong => -2,
+      AnswerOutcome.correct => isDailyChallenge ? 10 : 4,
+      AnswerOutcome.wrong => isDailyChallenge ? 0 : -2,
       AnswerOutcome.skipped => 0,
     };
 
@@ -177,15 +182,19 @@ class GameController extends ChangeNotifier {
     _loadNextPuzzle();
   }
 
-  /// Generates the next question. Difficulty tier is randomized within a
-  /// score-dependent band (see `DifficultyCurve.randomTierForScore`) —
-  /// negative/low scores never crash, they just land in the easiest band.
-  /// The question type is picked uniformly at random across all 8 types
-  /// (mixed math/reasoning pool — the mode confirmed during Phase 2
-  /// planning), with a light one-reroll anti-repeat so the same type
-  /// rarely appears twice in a row.
+  /// Generates the next question. Play's difficulty tier is randomized
+  /// within a score-dependent band (see `DifficultyCurve.randomTierForScore`)
+  /// — negative/low scores never crash, they just land in the easiest
+  /// band. Daily Challenge ignores score entirely and always draws from
+  /// tier 3+ (`DifficultyCurve.randomHighTier`) — it's meant to be
+  /// consistently hard, not ramped. The question type is picked uniformly
+  /// at random across all 8 types (mixed math/reasoning pool — the mode
+  /// confirmed during Phase 2 planning), with a light one-reroll
+  /// anti-repeat so the same type rarely appears twice in a row.
   void _loadNextPuzzle() {
-    final tier = DifficultyCurve.randomTierForScore(totalMarks, _rng);
+    final tier = isDailyChallenge
+        ? DifficultyCurve.randomHighTier(_rng)
+        : DifficultyCurve.randomTierForScore(totalMarks, _rng);
     final type = _pickNextType();
     _currentPuzzle = PuzzleGenerator.generate(tier: tier, type: type, rng: _rng);
     notifyListeners();

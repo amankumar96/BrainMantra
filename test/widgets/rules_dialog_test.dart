@@ -19,8 +19,10 @@ void main() {
 
     expect(find.text('How MathBlitz Works'), findsOneWidget);
     expect(find.textContaining('+4 marks'), findsOneWidget);
-    expect(find.textContaining('-2 marks'), findsOneWidget);
+    expect(find.textContaining('-2 for a wrong'), findsOneWidget);
     expect(find.textContaining('no penalty'), findsOneWidget);
+    expect(find.textContaining('tier 3+'), findsOneWidget);
+    expect(find.textContaining('+10 marks'), findsOneWidget);
   });
 
   testWidgets('"I understand" dismisses the dialog', (tester) async {

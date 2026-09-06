@@ -177,10 +177,8 @@ abstract final class DifficultyCurve {
   /// single deterministic tier [tierForScore] returns — this is what lets
   /// a player occasionally see an easier or harder question than their
   /// score alone would imply, instead of a strict ladder. Used by
-  /// `GameController` for every question, in both Play and Daily
-  /// Challenge (drawn from the same per-day seeded [rng] in the latter
-  /// case, so every player still gets an identical sequence — randomness
-  /// doesn't break fairness here, only *which* fixed sequence is fair).
+  /// `GameController` for **Play mode only** — Daily Challenge always
+  /// uses [randomHighTier] instead, regardless of score.
   ///
   /// TUNABLE — initial bands/weights, not derived from an external spec:
   /// - score < 30: tiers 1-2 (60/40, easy-leaning)
@@ -203,6 +201,15 @@ abstract final class DifficultyCurve {
         weights: const [1, 2, 4, 4],
       );
     }
+  }
+
+  /// Daily Challenge's tier picker — always tier 3 or 4 (evenly weighted),
+  /// regardless of the player's score. Unlike [randomTierForScore], this
+  /// ignores score entirely: Daily Challenge is meant to be consistently
+  /// hard, not ramped like Play. TUNABLE: 50/50 is an initial default,
+  /// easy to skew later without touching any caller.
+  static int randomHighTier(RngService rng) {
+    return _weightedPick(rng, tiers: const [3, 4], weights: const [1, 1]);
   }
 
   /// Rolls one value from [tiers], weighted by the parallel [weights] list

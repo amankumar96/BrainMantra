@@ -7,7 +7,11 @@ plugins {
 android {
     namespace = "com.mathblitz.math_blitz"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    // Pinned to the NDK version actually installed on this machine via
+    // Android Studio's SDK Manager - flutter.ndkVersion's own default
+    // (28.2.13676358) isn't installed here, and letting Gradle
+    // auto-download it crashes the deprecated sdkmanager.bat outright.
+    ndkVersion = "30.0.16138531"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

@@ -1,5 +1,8 @@
 import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'supabase_config.dart';
 
 /// Wraps Supabase Auth so the rest of the app never touches the
 /// `supabase_flutter` client directly. "Confirm email" is turned ON for
@@ -56,17 +59,53 @@ abstract final class AuthService {
     return _client.auth.signInWithPassword(email: email, password: password);
   }
 
-  /// Opens Google's sign-in flow. On web this redirects within the same
-  /// tab; on Android/iOS it opens the system browser and redirects back
-  /// via [redirectTo] — actually receiving that redirect on mobile needs
-  /// the corresponding URL-scheme registered in AndroidManifest.xml /
-  /// Info.plist, which is a separate platform-config step not yet done
-  /// (this app has only been run on web/desktop so far). Works as-is on
-  /// web with no further setup.
-  static Future<void> signInWithGoogle() {
-    return _client.auth.signInWithOAuth(
-      OAuthProvider.google,
-      redirectTo: kIsWeb ? null : 'io.mathblitz.app://login-callback',
+  static const List<String> _googleScopes = ['email', 'profile'];
+
+  /// Google sign-in. Web redirects within the same tab via
+  /// `signInWithOAuth` (unchanged, already working). Android/iOS use
+  /// **native** sign-in instead — `google_sign_in`'s Credential
+  /// Manager-backed flow talks to Google Play Services directly on-device
+  /// and hands Supabase an ID token via [signInWithIdToken], with no
+  /// browser redirect at all. This deliberately replaces an earlier
+  /// browser-redirect approach for mobile, which needed a custom
+  /// URL-scheme deep link (`io.mathblitz.app://login-callback`) that was
+  /// never actually registered in AndroidManifest.xml/Info.plist and so
+  /// stranded the player on a blank browser page after signing in.
+  ///
+  /// Requires [SupabaseConfig.googleWebClientId] to be set to a real Web
+  /// OAuth Client ID, and — for Android specifically — that Client ID's
+  /// project to also have an **Android** OAuth Client ID registered
+  /// (package name + the signing certificate's SHA-1 fingerprint) in
+  /// Google Cloud Console, with both Client IDs added to Supabase's
+  /// Google provider settings. See ARCHITECTURE.md for the exact values
+  /// used for this project.
+  ///
+  /// iOS additionally needs its own iOS Client ID and a matching
+  /// URL-scheme in Info.plist for `initialize()`'s `clientId:` — not
+  /// wired here yet, since this project's dev machine (Windows) can't
+  /// build or test iOS at all.
+  static Future<void> signInWithGoogle() async {
+    if (kIsWeb) {
+      await _client.auth.signInWithOAuth(OAuthProvider.google);
+      return;
+    }
+
+    final googleSignIn = GoogleSignIn.instance;
+    await googleSignIn.initialize(serverClientId: SupabaseConfig.googleWebClientId);
+    final googleUser = await googleSignIn.authenticate();
+
+    final authorization = await googleUser.authorizationClient
+            .authorizationForScopes(_googleScopes) ??
+        await googleUser.authorizationClient.authorizeScopes(_googleScopes);
+    final idToken = googleUser.authentication.idToken;
+    if (idToken == null) {
+      throw StateError('Google sign-in did not return an ID token.');
+    }
+
+    await _client.auth.signInWithIdToken(
+      provider: OAuthProvider.google,
+      idToken: idToken,
+      accessToken: authorization.accessToken,
     );
   }
 

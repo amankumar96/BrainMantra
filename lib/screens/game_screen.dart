@@ -13,6 +13,7 @@ import '../services/storage_service.dart';
 import '../services/streak_service.dart';
 import '../utils/constants.dart';
 import '../widgets/answer_button.dart';
+import '../widgets/diagram_painter.dart';
 import '../widgets/feedback_overlay.dart';
 import '../widgets/marks_indicator.dart';
 import '../widgets/submit_button.dart';
@@ -328,9 +329,12 @@ class _QuestionAndOptions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasDiagram = puzzle.diagramData != null;
     return SingleChildScrollView(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment:
+            hasDiagram ? CrossAxisAlignment.stretch : CrossAxisAlignment.center,
         children: [
           Text(
             puzzle.questionText,
@@ -340,20 +344,89 @@ class _QuestionAndOptions extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
+          if (puzzle.hint != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            _buildHint(puzzle.hint!),
+          ],
           const SizedBox(height: AppSpacing.lg),
-          for (final option in puzzle.options)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-              child: AnswerButton(
-                label: option,
-                state: _stateFor(option),
-                onTap: controller.isSubmitted
-                    ? null
-                    : () => controller.selectOption(option),
-              ),
-            ),
+          // The diagram sits after the question, side-by-side with the
+          // options rather than stacked above them — options left
+          // (left-aligned), diagram right. Every non-diagram question
+          // type keeps the plain centered single-column layout below.
+          if (hasDiagram) _buildOptionsWithDiagram() else _buildOptionsOnly(),
         ],
       ),
+    );
+  }
+
+  Widget _buildHint(String hint) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Icon(Icons.lightbulb_outline, size: 16, color: AppColors.neutral),
+        const SizedBox(width: AppSpacing.xs),
+        Flexible(
+          child: Text(
+            hint,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 12, color: AppColors.neutral),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOptionsOnly() {
+    return Column(
+      children: [
+        for (final option in puzzle.options)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+            child: AnswerButton(
+              label: option,
+              state: _stateFor(option),
+              onTap: controller.isSubmitted
+                  ? null
+                  : () => controller.selectOption(option),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildOptionsWithDiagram() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          // stretch (not just start) so every button shares the same left
+          // AND right edge — a clean left-hand block, not ragged-width
+          // buttons merely hugging the left side.
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final option in puzzle.options)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+                  child: AnswerButton(
+                    label: option,
+                    state: _stateFor(option),
+                    onTap: controller.isSubmitted
+                        ? null
+                        : () => controller.selectOption(option),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(width: AppSpacing.md),
+        Expanded(
+          child: SizedBox(
+            height: 180,
+            child: CustomPaint(painter: DiagramPainter(puzzle.diagramData!)),
+          ),
+        ),
+      ],
     );
   }
 

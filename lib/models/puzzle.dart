@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
+import 'diagram_data.dart';
+
 /// Top-level test category. Kept separate from [PuzzleType] so stats,
 /// difficulty curves, and UI can branch on category cheaply without
 /// inspecting every possible type value.
@@ -17,6 +19,17 @@ enum PuzzleType {
   oddOneOut,
   sequence,
   targetNumber,
+  // mathTest — expanded topic library (ROADMAP_PHASE2.md Phase 7)
+  bodmas,
+  speedDistance,
+  profitLoss,
+  interest,
+  // mathTest — diagram-based (ROADMAP_PHASE2.md Phase 8, Stage 1: diagram
+  // in the question body, options stay plain text)
+  angleFinding,
+  areaVolume,
+  coordinateDistance,
+  graphReading,
   // reasoningTest
   familyTree,
   shapeIdentification,
@@ -41,6 +54,17 @@ class Puzzle {
   final int difficultyTier;
   final int timeLimitSeconds;
 
+  /// Non-null only for Phase 8 Stage 1 diagram-based types (angleFinding,
+  /// areaVolume, coordinateDistance, graphReading) — the raw geometry a
+  /// `DiagramPainter` renders. Null for every other puzzle type.
+  final DiagramData? diagramData;
+
+  /// A short formula/theorem-name nudge, populated only at tier 3-4 (the
+  /// generator's own call — see e.g. `diagram_geometry_generator.dart`).
+  /// Null at tier 1-2: the format alone is the exercise there, and a hint
+  /// would just give the answer away.
+  final String? hint;
+
   Puzzle({
     String? id,
     required this.category,
@@ -50,6 +74,8 @@ class Puzzle {
     required this.correctAnswer,
     required this.difficultyTier,
     required this.timeLimitSeconds,
+    this.diagramData,
+    this.hint,
   }) : id = id ?? _uuid.v4();
 
   Map<String, dynamic> toJson() => {
@@ -61,6 +87,8 @@ class Puzzle {
         'correctAnswer': correctAnswer,
         'difficultyTier': difficultyTier,
         'timeLimitSeconds': timeLimitSeconds,
+        'diagramData': diagramData?.toJson(),
+        'hint': hint,
       };
 
   factory Puzzle.fromJson(Map<String, dynamic> json) {
@@ -73,6 +101,7 @@ class Puzzle {
         'got ${correctAnswer.runtimeType}',
       );
     }
+    final diagramJson = json['diagramData'] as Map<String, dynamic>?;
     return Puzzle(
       id: json['id'] as String,
       category: PuzzleCategory.values.byName(json['category'] as String),
@@ -82,6 +111,8 @@ class Puzzle {
       correctAnswer: correctAnswer,
       difficultyTier: json['difficultyTier'] as int,
       timeLimitSeconds: json['timeLimitSeconds'] as int,
+      diagramData: diagramJson == null ? null : DiagramData.fromJson(diagramJson),
+      hint: json['hint'] as String?,
     );
   }
 
@@ -96,7 +127,9 @@ class Puzzle {
         listEquals(other.options, options) &&
         other.correctAnswer == correctAnswer &&
         other.difficultyTier == difficultyTier &&
-        other.timeLimitSeconds == timeLimitSeconds;
+        other.timeLimitSeconds == timeLimitSeconds &&
+        other.diagramData == diagramData &&
+        other.hint == hint;
   }
 
   @override
@@ -109,6 +142,8 @@ class Puzzle {
         correctAnswer,
         difficultyTier,
         timeLimitSeconds,
+        diagramData,
+        hint,
       );
 
   @override
@@ -116,5 +151,6 @@ class Puzzle {
       'Puzzle(id: $id, category: $category, type: $type, '
       'questionText: $questionText, options: $options, '
       'correctAnswer: $correctAnswer, difficultyTier: $difficultyTier, '
-      'timeLimitSeconds: $timeLimitSeconds)';
+      'timeLimitSeconds: $timeLimitSeconds, diagramData: $diagramData, '
+      'hint: $hint)';
 }

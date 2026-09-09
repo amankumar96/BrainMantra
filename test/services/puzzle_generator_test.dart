@@ -1,4 +1,7 @@
+import 'dart:math' show pow, sqrt;
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:math_blitz/models/diagram_data.dart';
 import 'package:math_blitz/models/puzzle.dart';
 import 'package:math_blitz/services/expression_evaluator.dart';
 import 'package:math_blitz/services/puzzle_generator.dart';
@@ -157,6 +160,116 @@ void _independentlyVerify(Puzzle puzzle) {
           puzzle.questionText.substring(0, puzzle.questionText.length - 4);
       expect(evaluate(expr).round(), equals(puzzle.correctAnswer));
 
+    case PuzzleType.bodmas:
+      // Same " = ?" (4-char) suffix convention as targetNumber above —
+      // evaluate() itself is the independent check here (a hand-rolled
+      // left-to-right recompute in the test would just repeat whatever
+      // precedence bug the generator might have).
+      final expr =
+          puzzle.questionText.substring(0, puzzle.questionText.length - 4);
+      expect(evaluate(expr).round(), equals(puzzle.correctAnswer));
+
+    case PuzzleType.speedDistance:
+      final m = RegExp(r'Train A runs at (\d+) km/h, Train B at (\d+) km/h, '
+              r'(in the same direction|in opposite directions)')
+          .firstMatch(puzzle.questionText)!;
+      final a = int.parse(m.group(1)!);
+      final b = int.parse(m.group(2)!);
+      final sameDirection = m.group(3) == 'in the same direction';
+      expect(sameDirection ? (a - b).abs() : a + b, equals(puzzle.correctAnswer));
+
+    case PuzzleType.profitLoss:
+      final m = RegExp(r'buys an item for ₹(\d+) and sells it for ₹(\d+)\. '
+              r'Find the (profit|loss) %')
+          .firstMatch(puzzle.questionText)!;
+      final cp = int.parse(m.group(1)!);
+      final sp = int.parse(m.group(2)!);
+      final isProfit = m.group(3) == 'profit';
+      final diff = isProfit ? sp - cp : cp - sp;
+      expect((diff * 100 / cp).round(), equals(puzzle.correctAnswer));
+
+    case PuzzleType.interest:
+      final ci = RegExp(r'compound interest on ₹(\d+) at (\d+)% for (\d+) year')
+          .firstMatch(puzzle.questionText);
+      if (ci != null) {
+        final p = int.parse(ci.group(1)!);
+        final r = int.parse(ci.group(2)!);
+        final t = int.parse(ci.group(3)!);
+        final amount = p * pow(1 + r / 100, t);
+        expect((amount - p).round(), equals(puzzle.correctAnswer));
+      } else {
+        final si = RegExp(r'simple interest on ₹(\d+) at (\d+)% for (\d+) year')
+            .firstMatch(puzzle.questionText)!;
+        final p = int.parse(si.group(1)!);
+        final r = int.parse(si.group(2)!);
+        final t = int.parse(si.group(3)!);
+        expect((p * r * t) ~/ 100, equals(puzzle.correctAnswer));
+      }
+
+    case PuzzleType.angleFinding:
+      // Independently re-derives the third angle from the two *known*
+      // angles parsed out of questionText (Angle Sum Property) — not by
+      // reading diagramData.angles, which came from the same generator
+      // call and so wouldn't actually catch a shared bug.
+      final m = RegExp(r'are (\d+)° and (\d+)°').firstMatch(puzzle.questionText)!;
+      final k0 = int.parse(m.group(1)!);
+      final k1 = int.parse(m.group(2)!);
+      expect(180 - k0 - k1, equals(puzzle.correctAnswer));
+      expect(puzzle.diagramData?.kind, equals(DiagramKind.triangle));
+
+    case PuzzleType.areaVolume:
+      final rect = RegExp(r'rectangle with length (\d+) cm and width (\d+) cm')
+          .firstMatch(puzzle.questionText);
+      final cylinder = RegExp(
+              r'cylinder with radius (\d+) cm and height (\d+) cm')
+          .firstMatch(puzzle.questionText);
+      if (rect != null) {
+        final length = int.parse(rect.group(1)!);
+        final width = int.parse(rect.group(2)!);
+        expect(length * width, equals(puzzle.correctAnswer));
+        expect(puzzle.diagramData?.kind, equals(DiagramKind.rectangle));
+      } else if (cylinder != null) {
+        final radius = int.parse(cylinder.group(1)!);
+        final height = int.parse(cylinder.group(2)!);
+        expect((3.141592653589793 * radius * radius * height).round(),
+            equals(puzzle.correctAnswer));
+        expect(puzzle.diagramData?.kind, equals(DiagramKind.cylinder));
+      } else {
+        final m = RegExp(r'circle with radius (\d+) cm')
+            .firstMatch(puzzle.questionText)!;
+        final radius = int.parse(m.group(1)!);
+        expect((3.141592653589793 * radius * radius).round(),
+            equals(puzzle.correctAnswer));
+        expect(puzzle.diagramData?.kind, equals(DiagramKind.circle));
+      }
+
+    case PuzzleType.coordinateDistance:
+      final m = RegExp(r'plotted at \((\d+), (\d+)\)')
+          .firstMatch(puzzle.questionText)!;
+      final x = int.parse(m.group(1)!);
+      final y = int.parse(m.group(2)!);
+      expect(sqrt(x * x + y * y).round(), equals(puzzle.correctAnswer));
+      expect(puzzle.diagramData?.kind, equals(DiagramKind.coordinatePoint));
+
+    case PuzzleType.graphReading:
+      final data = puzzle.diagramData!;
+      expect(data.kind, equals(DiagramKind.barGraph));
+      final categories = data.categories!;
+      final values = data.values!;
+      if (puzzle.questionText.startsWith('Which category')) {
+        final ranked = List.generate(values.length, (i) => i)
+          ..sort((a, b) => values[b].compareTo(values[a]));
+        final askSecond = puzzle.questionText.contains('second-highest');
+        expect(categories[ranked[askSecond ? 1 : 0]],
+            equals(puzzle.correctAnswer));
+      } else {
+        final m = RegExp(r'category (\w) and category (\w)')
+            .firstMatch(puzzle.questionText)!;
+        final i = categories.indexOf(m.group(1)!);
+        final j = categories.indexOf(m.group(2)!);
+        expect((values[i] - values[j]).abs(), equals(puzzle.correctAnswer));
+      }
+
     case PuzzleType.familyTree:
       // The relationship-resolution algorithm itself is already
       // exhaustively tested against fixed fixtures in
@@ -212,11 +325,40 @@ void main() {
           expect(puzzle.difficultyTier, equals(tier));
           if (type == PuzzleType.trueFalse) {
             expect(puzzle.options, equals(['True', 'False']));
+          } else if (type == PuzzleType.graphReading) {
+            // Option count is the bar count (3-5, tier-scaled) here, not
+            // always 4 — every category is a genuine option, no filler
+            // distractors needed.
+            _checkWellFormedMc(puzzle);
           } else {
             expect(puzzle.options, hasLength(4));
             _checkWellFormedMc(puzzle);
           }
           _independentlyVerify(puzzle);
+
+          // Hint rule (all-modes): null below tier 3, present at tier 3+
+          // — except graphReading, which never has one (reading a graph
+          // isn't formula-driven) and the pre-existing types, which never
+          // populate hint at all.
+          const hintedTypes = {
+            PuzzleType.bodmas,
+            PuzzleType.speedDistance,
+            PuzzleType.profitLoss,
+            PuzzleType.interest,
+            PuzzleType.angleFinding,
+            PuzzleType.areaVolume,
+            PuzzleType.coordinateDistance,
+          };
+          if (hintedTypes.contains(type)) {
+            if (tier >= 3) {
+              expect(puzzle.hint, isNotNull);
+              expect(puzzle.hint, isNotEmpty);
+            } else {
+              expect(puzzle.hint, isNull);
+            }
+          } else {
+            expect(puzzle.hint, isNull);
+          }
         }
       });
     }
@@ -242,13 +384,24 @@ void main() {
   });
 
   group('anti-duplicate', () {
-    // shapeIdentification is deliberately excluded here — its small
-    // (16-text) possibility space makes a literal "10 draws, zero
-    // duplicates" check flaky by the birthday paradox, not a sign of a
-    // broken generator. See shape_reasoning_generator_test.dart for its
-    // dedicated variety check instead.
+    // shapeIdentification, coordinateDistance, and graphReading are
+    // deliberately excluded here. shapeIdentification/coordinateDistance:
+    // small possibility spaces (16 texts; a handful of Pythagorean triples
+    // × 2 for the x/y swap) that make a literal "10 draws, zero
+    // duplicates" check flaky by the birthday paradox. graphReading: its
+    // "which category has the highest/second-highest value?" question
+    // variant deliberately doesn't name a category in the text (the
+    // answer itself is the category), so only 2 distinct texts exist for
+    // that variant regardless of which values were actually generated —
+    // real variety lives in diagramData/correctAnswer instead, checked in
+    // graph_reading_generator_test.dart. See
+    // shape_reasoning_generator_test.dart for the same
+    // dedicated-variety-check pattern.
     for (final type in PuzzleType.values.where(
-      (t) => t != PuzzleType.shapeIdentification,
+      (t) =>
+          t != PuzzleType.shapeIdentification &&
+          t != PuzzleType.coordinateDistance &&
+          t != PuzzleType.graphReading,
     )) {
       test('$type: 10 sequential generations have no duplicate '
           'questionText', () {

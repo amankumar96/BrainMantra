@@ -353,6 +353,8 @@ This phase's original idea (a leaderboard, with server-side anti-cheat) was pull
 - [ ] Step 6: polish + store assets
 - [ ] Submit to Play Console (internal → closed → production)
 
+**Post-launch feature expansion (Phases 7-9) is tracked separately in `ROADMAP_PHASE2.md`** — expanded math topics (BODMAS, speed/distance, profit/loss, interest — built) and diagram-based questions (triangle/area-volume/coordinate-distance/bar-graph, `CustomPainter`-rendered, tier 3-4 hints — Stage 1 built, manual on-device review pending). Not duplicated here to avoid the two documents drifting out of sync.
+
 ---
 
 ## 10. How to Hand This to Claude Code

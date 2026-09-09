@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:math_blitz/models/diagram_data.dart';
 import 'package:math_blitz/models/puzzle.dart';
 
 /// Round-trips [puzzle] through a *real* jsonEncode/jsonDecode boundary —
@@ -148,6 +149,43 @@ void main() {
     expect(puzzle.id, isNotEmpty);
     expect(_uuidPattern.hasMatch(puzzle.id), isTrue,
         reason: '${puzzle.id} is not a valid UUID v4');
+  });
+
+  test('diagramData and hint round-trip through a real JSON boundary', () {
+    final original = Puzzle(
+      category: PuzzleCategory.mathTest,
+      type: PuzzleType.angleFinding,
+      questionText: "Two angles of a triangle are 50° and 65°. Find the third.",
+      options: const ['55', '60', '65', '70'],
+      correctAnswer: 65,
+      difficultyTier: 4,
+      timeLimitSeconds: 1800,
+      diagramData: const DiagramData(
+        kind: DiagramKind.triangle,
+        angles: [50, 65, 65],
+        unknownAngleIndex: 2,
+      ),
+      hint: 'Angle Sum Property: angles of a triangle add to 180°',
+    );
+    final decoded = roundTrip(original);
+    expect(decoded, equals(original));
+    expect(decoded.diagramData, equals(original.diagramData));
+    expect(decoded.hint, equals(original.hint));
+  });
+
+  test('diagramData and hint are null when absent, not a decode error', () {
+    final original = Puzzle(
+      category: PuzzleCategory.mathTest,
+      type: PuzzleType.arithmetic,
+      questionText: '1 + 1',
+      options: const ['1', '2', '3', '4'],
+      correctAnswer: 2,
+      difficultyTier: 1,
+      timeLimitSeconds: 15,
+    );
+    final decoded = roundTrip(original);
+    expect(decoded.diagramData, isNull);
+    expect(decoded.hint, isNull);
   });
 
   test('fromJson throws on an unrecognized type string', () {

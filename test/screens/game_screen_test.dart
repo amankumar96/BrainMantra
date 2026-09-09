@@ -6,7 +6,24 @@ import 'package:math_blitz/screens/game_screen.dart';
 import 'package:math_blitz/screens/results_screen.dart';
 import 'package:math_blitz/services/rng_service.dart';
 import 'package:math_blitz/utils/constants.dart';
+import 'package:math_blitz/widgets/diagram_painter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+const _diagramTypes = {
+  PuzzleType.angleFinding,
+  PuzzleType.areaVolume,
+  PuzzleType.coordinateDistance,
+  PuzzleType.graphReading,
+};
+
+// Non-diagram types that populate a tier 3-4 hint, for the "no diagram,
+// still shows a hint" half of the layout test.
+const _hintedNonDiagramTypes = {
+  PuzzleType.bodmas,
+  PuzzleType.speedDistance,
+  PuzzleType.profitLoss,
+  PuzzleType.interest,
+};
 
 Widget _wrap(Widget child) => MaterialApp(home: child);
 
@@ -158,6 +175,82 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(ResultsScreen), findsOneWidget);
+  });
+
+  testWidgets(
+      'a diagram-based question renders the diagram alongside the options, '
+      'plus a hint (Daily Challenge always draws tier 3-4)', (tester) async {
+    // Daily Challenge always uses randomHighTier (tier 3-4 only, see
+    // difficulty_curve.dart) - guarantees the tier>=3 hint condition on
+    // every draw, so this only needs to seed-search for the *type*, same
+    // pattern as the trueFalse case-sensitivity regression test in
+    // game_controller_test.dart.
+    GameController? controller;
+    for (var seed = 0; seed < 200; seed++) {
+      final candidate = GameController(
+        totalQuestions: 10,
+        isDailyChallenge: true,
+        rng: RngService.seeded('gs-diagram-search-$seed'),
+      );
+      if (_diagramTypes.contains(candidate.currentPuzzle!.type)) {
+        controller = candidate;
+        break;
+      }
+    }
+    expect(controller, isNotNull,
+        reason: 'no diagram-type puzzle found in 200 seeds - unexpected');
+
+    await tester.pumpWidget(_wrap(GameScreen(debugController: controller!)));
+    await tester.pump();
+
+    expect(find.byType(CustomPaint), findsWidgets);
+    expect(
+      tester
+          .widgetList<CustomPaint>(find.byType(CustomPaint))
+          .any((w) => w.painter is DiagramPainter),
+      isTrue,
+      reason: 'expected a DiagramPainter CustomPaint in the tree',
+    );
+    // The Row-based side-by-side layout only applies to diagram
+    // questions (see _QuestionAndOptions.build's hasDiagram branch) -
+    // every option button should still be present and tappable.
+    for (final option in controller.currentPuzzle!.options) {
+      expect(find.text(option), findsOneWidget);
+    }
+    expect(controller.currentPuzzle!.hint, isNotNull);
+    expect(find.textContaining(controller.currentPuzzle!.hint!), findsOneWidget);
+  });
+
+  testWidgets(
+      'a hinted non-diagram question (tier 3-4) shows the hint without a '
+      'diagram', (tester) async {
+    GameController? controller;
+    for (var seed = 0; seed < 200; seed++) {
+      final candidate = GameController(
+        totalQuestions: 10,
+        isDailyChallenge: true,
+        rng: RngService.seeded('gs-hint-search-$seed'),
+      );
+      if (_hintedNonDiagramTypes.contains(candidate.currentPuzzle!.type)) {
+        controller = candidate;
+        break;
+      }
+    }
+    expect(controller, isNotNull,
+        reason: 'no hinted non-diagram puzzle found in 200 seeds - unexpected');
+
+    await tester.pumpWidget(_wrap(GameScreen(debugController: controller!)));
+    await tester.pump();
+
+    expect(controller.currentPuzzle!.diagramData, isNull);
+    expect(controller.currentPuzzle!.hint, isNotNull);
+    expect(find.textContaining(controller.currentPuzzle!.hint!), findsOneWidget);
+    expect(
+      tester
+          .widgetList<CustomPaint>(find.byType(CustomPaint))
+          .any((w) => w.painter is DiagramPainter),
+      isFalse,
+    );
   });
 
   testWidgets('Daily Challenge does not show an End button', (tester) async {

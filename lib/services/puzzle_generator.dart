@@ -1,6 +1,13 @@
 import '../models/puzzle.dart';
+import 'angle_finding_generator.dart';
+import 'area_volume_generator.dart';
+import 'bodmas_generator.dart';
+import 'coordinate_distance_generator.dart';
 import 'difficulty_curve.dart';
 import 'family_tree_generator.dart';
+import 'graph_reading_generator.dart';
+import 'interest_generator.dart';
+import 'profit_loss_generator.dart';
 import 'puzzle_generator_basic_math.dart';
 import 'puzzle_generator_odd_one_out.dart';
 import 'puzzle_generator_sequence_target.dart';
@@ -8,6 +15,7 @@ import 'relationship_resolver.dart';
 import 'rng_service.dart';
 import 'rng_utils.dart';
 import 'shape_reasoning_generator.dart';
+import 'speed_distance_generator.dart';
 
 /// The single "front door" for building a puzzle: "give me a puzzle of
 /// this [PuzzleType] at this difficulty tier". Routes to the right
@@ -28,6 +36,20 @@ abstract final class PuzzleGenerator {
       PuzzleType.oddOneOut => generateOddOneOut(tier, rng),
       PuzzleType.sequence => generateSequence(tier, rng),
       PuzzleType.targetNumber => generateTargetNumber(tier, rng),
+      PuzzleType.bodmas => BodmasGenerator.generate(tier: tier, rng: rng),
+      PuzzleType.speedDistance =>
+        SpeedDistanceGenerator.generate(tier: tier, rng: rng),
+      PuzzleType.profitLoss =>
+        ProfitLossGenerator.generate(tier: tier, rng: rng),
+      PuzzleType.interest => InterestGenerator.generate(tier: tier, rng: rng),
+      PuzzleType.angleFinding =>
+        AngleFindingGenerator.generate(tier: tier, rng: rng),
+      PuzzleType.areaVolume =>
+        AreaVolumeGenerator.generate(tier: tier, rng: rng),
+      PuzzleType.coordinateDistance =>
+        CoordinateDistanceGenerator.generate(tier: tier, rng: rng),
+      PuzzleType.graphReading =>
+        GraphReadingGenerator.generate(tier: tier, rng: rng),
       PuzzleType.familyTree => _generateFamilyTree(tier, rng),
       PuzzleType.shapeIdentification =>
         ShapeReasoningGenerator.generate(tier: tier, rng: rng),

@@ -484,9 +484,22 @@ class _QuestionAndOptionsState extends State<_QuestionAndOptions> {
         ),
         const SizedBox(width: AppSpacing.md),
         Expanded(
-          child: SizedBox(
-            height: 180,
-            child: CustomPaint(painter: DiagramPainter(puzzle.diagramData!)),
+          // A visible frame around the diagram, plus a hard ClipRect —
+          // DiagramPainter itself now fits every shape to the box it's
+          // actually given (see its own doc comment), but the frame+clip
+          // here is a backstop: nothing painted can ever visually escape
+          // this box, regardless of any future edge case in the painter.
+          child: Container(
+            height: 200,
+            padding: const EdgeInsets.all(AppSpacing.xs),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: AppColors.silver, width: 1.5),
+              borderRadius: BorderRadius.circular(AppSpacing.sm),
+            ),
+            child: ClipRect(
+              child: CustomPaint(painter: DiagramPainter(puzzle.diagramData!)),
+            ),
           ),
         ),
       ],

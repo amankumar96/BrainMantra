@@ -81,9 +81,11 @@ Every numeric answer stays an `int`, matching every pre-existing generator (`Puz
 - `lib/widgets/diagram_painter.dart`: `test/widgets/diagram_painter_test.dart` — a paints-without-throwing smoke test per `DiagramKind` (including every triangle `unknownAngleIndex` position) plus `shouldRepaint` unit tests.
 - `test/screens/game_screen_test.dart`: two end-to-end tests through the real `GameScreen` — a diagram question renders both the `DiagramPainter` and every option, plus its hint; a hinted non-diagram question shows the hint with no diagram present.
 
-**Manual gate — not yet done:** visually reviewing ~20 rendered diagrams on a real device for label legibility/overlap, and confirming the layout (question → hint → options-left/diagram-right) actually looks right — this is a "look at the real screen" check, same pattern already used for ads/sign-in verification, not something a unit test can catch.
+**Manual gate — done, on-device.** Real-device review of the on-screen result turned up two UX gaps, both fixed:
+- **Hints now sit behind a "Show hint" button**, not shown automatically — a player taps to reveal the formula/theorem name, rather than seeing it the instant a tier 3-4 question loads (which was closer to giving the answer away than a nudge). `_QuestionAndOptions` became a `StatefulWidget` (`_hintRevealed`, reset per question via a `ValueKey(puzzle.id)` on the widget itself, same "fresh state per question" pattern `TimerBar`/`FeedbackOverlay` already use).
+- **A Skip button** was added next to Submit (`GameController.skipManually()`, identical scoring to `skipDueToTimeout` — 0 marks, `AnswerOutcome.skipped` — just triggered by the player instead of the clock) — there was previously no way to move past a question without either answering or waiting out the full timer.
 
-**Phase 8 exit criteria:** Stage 1 code/tests done; the manual on-device visual review above is the only remaining item.
+**Phase 8 exit criteria:** met — Stage 1 code/tests done, on-device review done, both gaps it surfaced fixed and tested.
 
 ---
 

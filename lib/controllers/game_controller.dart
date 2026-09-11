@@ -142,6 +142,17 @@ class GameController extends ChangeNotifier {
     _score(null);
   }
 
+  /// Called when the player taps the Skip button, choosing to bypass the
+  /// current question rather than wait out the timer. Scores identically
+  /// to [skipDueToTimeout] (0 marks, recorded as [AnswerOutcome.skipped])
+  /// — skipping is always free, whether the player or the clock decided
+  /// it. A separate method (not just reusing skipDueToTimeout's name)
+  /// purely for call-site clarity about *why* a question was skipped.
+  void skipManually() {
+    if (_isSubmitted) return;
+    _score(null);
+  }
+
   /// Records one question's outcome. [isCorrect] is null for a timeout
   /// (skipped), true/false for an actual submitted answer.
   ///

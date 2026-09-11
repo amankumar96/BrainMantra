@@ -4,9 +4,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/leaderboard_service.dart';
 import '../utils/constants.dart';
 
-/// Shows everyone ranked by total Daily Challenge marks in the last 30
-/// days (the `leaderboard_last_30_days` Supabase view already does the
-/// filtering/sorting — this screen just displays what it returns).
+/// Shows everyone ranked by their persistent total score (Play + Daily
+/// Challenge combined — see `LeaderboardService`'s own doc comment) among
+/// players active in the last 30 days.
 class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({super.key});
 
@@ -46,7 +46,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           final entries = snapshot.data ?? const [];
           if (entries.isEmpty) {
             return const Center(
-              child: Text('No Daily Challenge results yet in the last 30 days.'),
+              child: Text('No players active in the last 30 days yet.'),
             );
           }
           return ListView.separated(
@@ -85,9 +85,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                         isCurrentUser ? FontWeight.bold : FontWeight.normal,
                   ),
                 ),
-                subtitle: Text('${entry.testsTaken} test(s) taken'),
                 trailing: Text(
-                  '${entry.totalMarks} marks',
+                  '${entry.totalScore} pts',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               );

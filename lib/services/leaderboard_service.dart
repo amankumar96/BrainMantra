@@ -1,40 +1,38 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// One row of the ranked leaderboard — a player's total marks across
-/// Daily Challenges completed in the last 30 days.
+/// One row of the ranked leaderboard — a player's persistent total score
+/// (Play + Daily Challenge combined; see ARCHITECTURE.md's Daily Challenge
+/// redesign, which folds Daily Challenge's earned marks into the same
+/// `profiles.current_score` Play resumes from — there's no separate
+/// "Daily Challenge only" total anymore).
 class LeaderboardEntry {
   final String userId;
   final String displayName;
-  final int totalMarks;
-  final int testsTaken;
+  final int totalScore;
 
   const LeaderboardEntry({
     required this.userId,
     required this.displayName,
-    required this.totalMarks,
-    required this.testsTaken,
+    required this.totalScore,
   });
 
   factory LeaderboardEntry.fromRow(Map<String, dynamic> row) => LeaderboardEntry(
-        userId: row['user_id'] as String,
+        userId: row['id'] as String,
         displayName: row['display_name'] as String,
-        totalMarks: row['total_marks'] as int,
-        testsTaken: row['tests_taken'] as int,
+        totalScore: row['current_score'] as int,
       );
 }
 
 /// Wraps the two Supabase tables Part B added: submitting a Daily
-/// Challenge result, and reading the ranked `leaderboard_last_30_days`
-/// view (see ARCHITECTURE.md's Phase 2 amendment for the SQL that
-/// defines it — "active in the last 30 days" simply means "has at least
-/// one row in that window", which the view's join already guarantees).
+/// Challenge result (still recorded for history/audit even though the
+/// leaderboard itself no longer ranks by it — see [fetchTopRankings]),
+/// and reading the ranked leaderboard.
 abstract final class LeaderboardService {
   static SupabaseClient get _client => Supabase.instance.client;
 
   /// Records today's Daily Challenge result for the signed-in player.
   /// Upserts on (user_id, test_date) — replaying the same day's challenge
-  /// overwrites that day's row rather than creating a duplicate, so the
-  /// leaderboard always reflects each player's latest submission per day.
+  /// overwrites that day's row rather than creating a duplicate.
   static Future<void> submitDailyResult({
     required int marks,
     required int questionsTotal,
@@ -53,12 +51,20 @@ abstract final class LeaderboardService {
     );
   }
 
-  /// The ranked leaderboard, highest marks first.
+  /// The ranked leaderboard: every player's persistent total score
+  /// (`profiles.current_score`, Play + Daily Challenge combined), highest
+  /// first, restricted to players active in the last 30 days
+  /// (`profiles.last_active_at` — the same field the 30-day inactive-
+  /// account deletion job checks). Queries `profiles` directly rather
+  /// than the now-superseded `leaderboard_last_30_days` view, which only
+  /// ever summed Daily Challenge marks.
   static Future<List<LeaderboardEntry>> fetchTopRankings({int limit = 50}) async {
+    final cutoff = DateTime.now().toUtc().subtract(const Duration(days: 30));
     final rows = await _client
-        .from('leaderboard_last_30_days')
-        .select()
-        .order('total_marks', ascending: false)
+        .from('profiles')
+        .select('id, display_name, current_score')
+        .gte('last_active_at', cutoff.toIso8601String())
+        .order('current_score', ascending: false)
         .limit(limit);
     return (rows as List)
         .map((row) => LeaderboardEntry.fromRow(row as Map<String, dynamic>))

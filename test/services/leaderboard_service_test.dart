@@ -8,30 +8,26 @@ import 'package:math_blitz/services/leaderboard_service.dart';
 // 2 amendment). LeaderboardEntry.fromRow is the one piece of pure parsing
 // logic here, and is worth covering on its own.
 void main() {
-  test('fromRow parses a leaderboard_last_30_days row correctly', () {
+  test('fromRow parses a profiles row correctly', () {
     final entry = LeaderboardEntry.fromRow({
-      'user_id': 'abc-123',
+      'id': 'abc-123',
       'display_name': 'Aarav',
-      'total_marks': 42,
-      'tests_taken': 5,
-      'last_active': '2026-09-05T10:00:00Z', // present in the row, unused
+      'current_score': 140,
     });
 
     expect(entry.userId, equals('abc-123'));
     expect(entry.displayName, equals('Aarav'));
-    expect(entry.totalMarks, equals(42));
-    expect(entry.testsTaken, equals(5));
+    expect(entry.totalScore, equals(140));
   });
 
   test('fromRow handles a negative total (more wrong than correct answers)',
       () {
     final entry = LeaderboardEntry.fromRow({
-      'user_id': 'abc-456',
+      'id': 'abc-456',
       'display_name': 'Priya',
-      'total_marks': -6,
-      'tests_taken': 3,
+      'current_score': -6,
     });
 
-    expect(entry.totalMarks, equals(-6));
+    expect(entry.totalScore, equals(-6));
   });
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:math_blitz/controllers/game_controller.dart';
 import 'package:math_blitz/models/puzzle.dart';
+import 'package:math_blitz/models/test_session.dart';
 import 'package:math_blitz/screens/game_screen.dart';
 import 'package:math_blitz/screens/results_screen.dart';
 import 'package:math_blitz/services/rng_service.dart';
@@ -116,6 +117,28 @@ void main() {
     expect(find.text('-2 marks'), findsOneWidget);
   });
 
+  testWidgets('tapping Skip advances to the next question without scoring',
+      (tester) async {
+    final controller = GameController(
+      totalQuestions: 3,
+      isDailyChallenge: false,
+      rng: RngService.seeded('gs-skip-1'),
+    );
+    await tester.pumpWidget(_wrap(GameScreen(debugController: controller)));
+    await tester.pump();
+
+    expect(controller.questionNumber, equals(1));
+    expect(find.text('Skip'), findsOneWidget);
+
+    await tester.tap(find.text('Skip'));
+    await tester.pump();
+    await _pumpMillis(tester, AppDurations.feedbackDuration.inMilliseconds + 200);
+
+    expect(controller.totalMarks, equals(0));
+    expect(controller.lastOutcome, equals(AnswerOutcome.skipped));
+    expect(controller.questionNumber, equals(2));
+  });
+
   testWidgets('completing every question navigates to ResultsScreen',
       (tester) async {
     final controller = GameController(
@@ -218,7 +241,16 @@ void main() {
       expect(find.text(option), findsOneWidget);
     }
     expect(controller.currentPuzzle!.hint, isNotNull);
+    // Hints start hidden behind a button, not shown automatically - see
+    // _QuestionAndOptionsState._hintRevealed.
+    expect(find.text('Show hint'), findsOneWidget);
+    expect(find.textContaining(controller.currentPuzzle!.hint!), findsNothing);
+
+    await tester.tap(find.text('Show hint'));
+    await tester.pump();
+
     expect(find.textContaining(controller.currentPuzzle!.hint!), findsOneWidget);
+    expect(find.text('Show hint'), findsNothing);
   });
 
   testWidgets(
@@ -244,6 +276,11 @@ void main() {
 
     expect(controller.currentPuzzle!.diagramData, isNull);
     expect(controller.currentPuzzle!.hint, isNotNull);
+    expect(find.text('Show hint'), findsOneWidget);
+
+    await tester.tap(find.text('Show hint'));
+    await tester.pump();
+
     expect(find.textContaining(controller.currentPuzzle!.hint!), findsOneWidget);
     expect(
       tester

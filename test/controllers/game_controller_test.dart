@@ -57,6 +57,40 @@ void main() {
       expect(controller.hasSelection, isFalse);
     });
 
+    test('skipManually awards 0 marks and records outcome.skipped, same as '
+        'skipDueToTimeout', () {
+      final controller = GameController(
+        totalQuestions: 3,
+        isDailyChallenge: false,
+        rng: RngService.seeded('test-seed-skip-manual'),
+      );
+
+      controller.skipManually();
+
+      expect(controller.totalMarks, equals(0));
+      expect(controller.lastOutcome, equals(AnswerOutcome.skipped));
+      expect(controller.hasSelection, isFalse);
+    });
+
+    test('skipManually is a no-op once an answer has already been '
+        'submitted for the current question', () {
+      final controller = GameController(
+        totalQuestions: 3,
+        isDailyChallenge: false,
+        rng: RngService.seeded('test-seed-skip-manual-2'),
+      );
+      final correctAnswer =
+          controller.currentPuzzle!.correctAnswer.toString();
+      controller.selectOption(correctAnswer);
+      controller.submitSelected();
+      expect(controller.totalMarks, equals(4));
+
+      controller.skipManually(); // must not double-score or overwrite
+
+      expect(controller.totalMarks, equals(4));
+      expect(controller.lastOutcome, equals(AnswerOutcome.correct));
+    });
+
     test('submitSelected does nothing without a prior selection', () {
       final controller = GameController(
         totalQuestions: 3,

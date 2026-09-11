@@ -288,11 +288,24 @@ class _GameScreenBody extends StatelessWidget {
                 isRunning: !controller.isSubmitted,
                 onExpired: controller.skipDueToTimeout,
               ),
+              // Banner: top of the screen, after the marks/timer bar and
+              // before the question — by explicit product decision (this
+              // was previously Home-only; see ARCHITECTURE.md's Phase 4
+              // write-up for the superseded reasoning).
+              AdsService.instance.bannerAdWidget(),
               const SizedBox(height: AppSpacing.lg),
               Expanded(
                 child: Stack(
                   children: [
-                    _QuestionAndOptions(controller: controller, puzzle: puzzle),
+                    _QuestionAndOptions(
+                      // A fresh key per question resets the hint-revealed
+                      // state below — otherwise Flutter would reuse the
+                      // same State object (and its "hint already shown"
+                      // flag) across an unrelated new question.
+                      key: ValueKey('question-${puzzle.id}'),
+                      controller: controller,
+                      puzzle: puzzle,
+                    ),
                     if (controller.isSubmitted)
                       Positioned.fill(
                         child: FeedbackOverlay(
@@ -309,9 +322,29 @@ class _GameScreenBody extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
-              SubmitButton(
-                hasSelection: controller.hasSelection,
-                onSubmit: controller.submitSelected,
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed:
+                          controller.isSubmitted ? null : controller.skipManually,
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppSpacing.md,
+                        ),
+                      ),
+                      child: const Text('Skip'),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    flex: 2,
+                    child: SubmitButton(
+                      hasSelection: controller.hasSelection,
+                      onSubmit: controller.submitSelected,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -321,11 +354,30 @@ class _GameScreenBody extends StatelessWidget {
   }
 }
 
-class _QuestionAndOptions extends StatelessWidget {
-  const _QuestionAndOptions({required this.controller, required this.puzzle});
+class _QuestionAndOptions extends StatefulWidget {
+  const _QuestionAndOptions({
+    super.key,
+    required this.controller,
+    required this.puzzle,
+  });
 
   final GameController controller;
   final Puzzle puzzle;
+
+  @override
+  State<_QuestionAndOptions> createState() => _QuestionAndOptionsState();
+}
+
+class _QuestionAndOptionsState extends State<_QuestionAndOptions> {
+  // Hints start hidden — a button reveals them on tap, rather than
+  // showing the formula/theorem name automatically, so the player tries
+  // first. Reset per question via this widget's ValueKey(puzzle.id) in
+  // game_screen.dart, which forces a fresh State (and thus this flag)
+  // each time the puzzle changes.
+  bool _hintRevealed = false;
+
+  GameController get controller => widget.controller;
+  Puzzle get puzzle => widget.puzzle;
 
   @override
   Widget build(BuildContext context) {
@@ -346,7 +398,7 @@ class _QuestionAndOptions extends StatelessWidget {
           ),
           if (puzzle.hint != null) ...[
             const SizedBox(height: AppSpacing.sm),
-            _buildHint(puzzle.hint!),
+            _hintRevealed ? _buildHintText(puzzle.hint!) : _buildHintButton(),
           ],
           const SizedBox(height: AppSpacing.lg),
           // The diagram sits after the question, side-by-side with the
@@ -359,7 +411,18 @@ class _QuestionAndOptions extends StatelessWidget {
     );
   }
 
-  Widget _buildHint(String hint) {
+  Widget _buildHintButton() {
+    return Center(
+      child: TextButton.icon(
+        onPressed: () => setState(() => _hintRevealed = true),
+        icon: const Icon(Icons.lightbulb_outline, size: 16),
+        label: const Text('Show hint'),
+        style: TextButton.styleFrom(foregroundColor: AppColors.neutral),
+      ),
+    );
+  }
+
+  Widget _buildHintText(String hint) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [

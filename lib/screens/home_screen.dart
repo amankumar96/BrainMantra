@@ -6,6 +6,7 @@ import '../services/auth_service.dart';
 import '../services/storage_service.dart';
 import '../utils/constants.dart';
 import '../widgets/rules_dialog.dart';
+import 'delete_account_screen.dart';
 import 'game_screen.dart';
 import 'leaderboard_screen.dart';
 
@@ -78,46 +79,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Confirms (a destructive, irreversible action needs an explicit
-  /// second step — never just one tap) then permanently deletes the
-  /// player's account. This is the in-app half of Google Play's required
-  /// account-deletion flow; see `AuthService.deleteAccount`.
-  Future<void> _confirmAndDeleteAccount() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete your account?'),
-        content: const Text(
-          'This permanently deletes your account and all your data — '
-          'score, streak, and leaderboard history. This cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.wrong),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+  void _navigateToDeleteAccount() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const DeleteAccountScreen()),
     );
-    if (confirmed != true || !mounted) return;
-
-    try {
-      await AuthService.deleteAccount();
-      // No further navigation here: deleteAccount() signs out on success,
-      // and the root _AuthGate in main.dart reacts to that the same way
-      // it does for a normal sign-out, swapping back to the login flow
-      // on its own.
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not delete account: $e')),
-      );
-    }
   }
 
   @override
@@ -133,80 +98,75 @@ class _HomeScreenState extends State<HomeScreen> {
             tooltip: 'Rules',
             onPressed: () => RulesDialog.show(context),
           ),
-          // Grouped behind a menu (rather than a bare icon next to Sign
-          // out) specifically so "Delete account" isn't one accidental
-          // tap away — a destructive, irreversible action deserves more
-          // friction than the everyday sign-out action next to it.
-          PopupMenuButton<_AccountMenuAction>(
-            icon: const Icon(Icons.account_circle_outlined),
-            tooltip: 'Account',
-            onSelected: (action) {
-              switch (action) {
-                case _AccountMenuAction.signOut:
-                  AuthService.signOut();
-                case _AccountMenuAction.deleteAccount:
-                  _confirmAndDeleteAccount();
-              }
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem(
-                value: _AccountMenuAction.signOut,
-                child: Text('Sign out'),
-              ),
-              PopupMenuItem(
-                value: _AccountMenuAction.deleteAccount,
-                child: Text(
-                  'Delete account',
-                  style: TextStyle(color: AppColors.wrong),
-                ),
-              ),
-            ],
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Sign out',
+            onPressed: () => AuthService.signOut(),
           ),
         ],
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'High Score: ${stats.highScore}',
-                style: const TextStyle(
-                  fontSize: AppText.score,
-                  fontWeight: FontWeight.bold,
-                ),
+      // A Stack (not just the centered content on its own) so the
+      // corner "Delete Account" button can be pinned independently of
+      // the main, centered menu — it's deliberately off to the side and
+      // out of the primary flow, not sitting among Play/Daily
+      // Challenge/Leaderboard where it could be mistaken for one of them.
+      body: Stack(
+        children: [
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'High Score: ${stats.highScore}',
+                    style: const TextStyle(
+                      fontSize: AppText.score,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text('Streak: ${stats.currentStreakDays} days'),
+                  const SizedBox(height: AppSpacing.xl),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => _navigateToGame(isDailyChallenge: false),
+                      child: const Text('Play'),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () => _navigateToGame(isDailyChallenge: true),
+                      child: const Text('Daily Challenge'),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  SizedBox(
+                    width: double.infinity,
+                    child: TextButton.icon(
+                      onPressed: _navigateToLeaderboard,
+                      icon: const Icon(Icons.leaderboard_outlined),
+                      label: const Text('Leaderboard'),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: AppSpacing.xs),
-              Text('Streak: ${stats.currentStreakDays} days'),
-              const SizedBox(height: AppSpacing.xl),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => _navigateToGame(isDailyChallenge: false),
-                  child: const Text('Play'),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: () => _navigateToGame(isDailyChallenge: true),
-                  child: const Text('Daily Challenge'),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              SizedBox(
-                width: double.infinity,
-                child: TextButton.icon(
-                  onPressed: _navigateToLeaderboard,
-                  icon: const Icon(Icons.leaderboard_outlined),
-                  label: const Text('Leaderboard'),
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
+          Positioned(
+            right: AppSpacing.md,
+            bottom: AppSpacing.md,
+            child: TextButton.icon(
+              onPressed: _navigateToDeleteAccount,
+              icon: const Icon(Icons.delete_outline, size: 18),
+              label: const Text('Delete Account'),
+              style: TextButton.styleFrom(foregroundColor: AppColors.wrong),
+            ),
+          ),
+        ],
       ),
       // Banner ads are confined to Home only — never gameplay's countdown
       // or results' Play-Again/Home decision (see ARCHITECTURE.md's
@@ -216,5 +176,3 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
-
-enum _AccountMenuAction { signOut, deleteAccount }

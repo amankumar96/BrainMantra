@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:math_blitz/screens/delete_account_screen.dart';
 import 'package:math_blitz/screens/game_screen.dart';
 import 'package:math_blitz/screens/home_screen.dart';
 import 'package:math_blitz/services/storage_service.dart';
@@ -84,62 +85,29 @@ void main() {
     expect(find.text('How MathBlitz Works'), findsOneWidget);
   });
 
-  testWidgets('the account menu offers Sign out and Delete account',
+  testWidgets(
+      'the corner Delete Account button navigates to DeleteAccountScreen',
       (tester) async {
     SharedPreferences.setMockInitialValues({'has_seen_rules': true});
     await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.account_circle_outlined));
+    expect(find.text('Delete Account'), findsOneWidget);
+    await tester.tap(find.text('Delete Account'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Sign out'), findsOneWidget);
-    expect(find.text('Delete account'), findsOneWidget);
+    expect(find.byType(DeleteAccountScreen), findsOneWidget);
   });
 
-  testWidgets(
-      'Delete account opens a confirmation dialog; Cancel dismisses it '
-      'without deleting anything', (tester) async {
-    SharedPreferences.setMockInitialValues({'has_seen_rules': true});
-    await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byIcon(Icons.account_circle_outlined));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete account'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Delete your account?'), findsOneWidget);
-    expect(find.text('Cancel'), findsOneWidget);
-    // Two "Delete account"-flavored controls now coexist: the (dismissed
-    // but not yet gone from the tree) menu item and the dialog's own
-    // "Delete" button — searching for the dialog's exact button text
-    // avoids ambiguity between them.
-    expect(find.text('Delete'), findsOneWidget);
-
-    await tester.tap(find.text('Cancel'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Delete your account?'), findsNothing);
-  });
-
-  testWidgets(
-      'confirming Delete surfaces an error (Supabase is not initialized '
-      'in this test) rather than crashing or silently signing out',
+  testWidgets('the Sign out icon is still a direct, one-tap action',
       (tester) async {
+    // Not exercising what it actually does (that's Supabase-bound, same
+    // as elsewhere in this codebase) - just confirming it's still a
+    // plain, always-visible icon rather than tucked behind a menu.
     SharedPreferences.setMockInitialValues({'has_seen_rules': true});
     await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.account_circle_outlined));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete account'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete'));
-    await tester.pumpAndSettle();
-
-    expect(find.textContaining('Could not delete account'), findsOneWidget);
-    // Still on Home - a failed delete must not navigate away or sign out.
-    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(find.byIcon(Icons.logout), findsOneWidget);
   });
 }

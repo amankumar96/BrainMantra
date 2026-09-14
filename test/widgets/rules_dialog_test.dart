@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:math_blitz/widgets/rules_dialog.dart';
+import 'package:brain_mantra/widgets/rules_dialog.dart';
 
 void main() {
   testWidgets('show() opens the dialog with the scoring rules visible',
@@ -17,7 +17,7 @@ void main() {
     await tester.tap(find.text('Open rules'));
     await tester.pumpAndSettle();
 
-    expect(find.text('How MathBlitz Works'), findsOneWidget);
+    expect(find.text('How Brain Mantra Works'), findsOneWidget);
     expect(find.textContaining('+4 marks'), findsOneWidget);
     expect(find.textContaining('-2 for a wrong'), findsOneWidget);
     expect(find.textContaining('no penalty'), findsOneWidget);
@@ -37,11 +37,11 @@ void main() {
 
     await tester.tap(find.text('Open rules'));
     await tester.pumpAndSettle();
-    expect(find.text('How MathBlitz Works'), findsOneWidget);
+    expect(find.text('How Brain Mantra Works'), findsOneWidget);
 
     await tester.tap(find.text('I understand'));
     await tester.pumpAndSettle();
 
-    expect(find.text('How MathBlitz Works'), findsNothing);
+    expect(find.text('How Brain Mantra Works'), findsNothing);
   });
 }

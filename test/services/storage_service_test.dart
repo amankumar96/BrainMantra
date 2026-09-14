@@ -1,10 +1,10 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:math_blitz/models/game_session.dart';
-import 'package:math_blitz/models/player_stats.dart';
-import 'package:math_blitz/models/puzzle.dart';
-import 'package:math_blitz/services/storage_service.dart';
+import 'package:brain_mantra/models/game_session.dart';
+import 'package:brain_mantra/models/player_stats.dart';
+import 'package:brain_mantra/models/puzzle.dart';
+import 'package:brain_mantra/services/storage_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {

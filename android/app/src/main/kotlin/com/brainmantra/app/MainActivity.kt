@@ -1,4 +1,4 @@
-package com.mathblitz.math_blitz
+package com.brainmantra.app
 
 import io.flutter.embedding.android.FlutterActivity
 

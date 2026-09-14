@@ -91,7 +91,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('MathBlitz'),
+        title: const Text('Brain Mantra'),
         actions: [
           IconButton(
             icon: const Icon(Icons.info_outline),

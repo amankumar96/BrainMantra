@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:math_blitz/models/diagram_data.dart';
-import 'package:math_blitz/widgets/diagram_painter.dart';
+import 'package:brain_mantra/models/diagram_data.dart';
+import 'package:brain_mantra/widgets/diagram_painter.dart';
 
 Widget _wrap(Widget child) => MaterialApp(
       home: Scaffold(body: SizedBox(width: 300, height: 200, child: child)),

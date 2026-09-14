@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:math_blitz/services/family_tree.dart';
-import 'package:math_blitz/services/family_tree_generator.dart';
-import 'package:math_blitz/services/rng_service.dart';
+import 'package:brain_mantra/services/family_tree.dart';
+import 'package:brain_mantra/services/family_tree_generator.dart';
+import 'package:brain_mantra/services/rng_service.dart';
 
 // Checks the structural invariants a generated tree must always satisfy,
 // regardless of tier or seed.

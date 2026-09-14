@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:math_blitz/services/rng_service.dart';
+import 'package:brain_mantra/services/rng_service.dart';
 
 // Draws an interleaved sequence of nextInt/nextBool calls, so a test can
 // compare "did these two RngServices behave identically" in one shot.

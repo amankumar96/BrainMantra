@@ -1,6 +1,6 @@
-# math_blitz
+# Brain Mantra
 
-A new Flutter project.
+Brain Mantra: a math and IQ reasoning quiz game, built with Flutter.
 
 ## Getting Started
 

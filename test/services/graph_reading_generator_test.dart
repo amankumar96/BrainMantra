@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:math_blitz/models/diagram_data.dart';
-import 'package:math_blitz/services/graph_reading_generator.dart';
-import 'package:math_blitz/services/rng_service.dart';
+import 'package:brain_mantra/models/diagram_data.dart';
+import 'package:brain_mantra/services/graph_reading_generator.dart';
+import 'package:brain_mantra/services/rng_service.dart';
 
 void main() {
   group('structural invariants, across both question variants', () {

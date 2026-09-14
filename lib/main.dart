@@ -23,16 +23,16 @@ Future<void> main() async {
   // Best-effort: AdsService.initialize() never throws (see its own doc
   // comment) — an ad SDK issue must never block the app from starting.
   await AdsService.instance.initialize();
-  runApp(const MathBlitzApp());
+  runApp(const BrainMantraApp());
 }
 
-class MathBlitzApp extends StatelessWidget {
-  const MathBlitzApp({super.key});
+class BrainMantraApp extends StatelessWidget {
+  const BrainMantraApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'MathBlitz',
+      title: 'Brain Mantra',
       theme: _buildTheme(),
       home: const _AuthGate(),
     );

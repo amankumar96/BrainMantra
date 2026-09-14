@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:math_blitz/screens/delete_account_screen.dart';
-import 'package:math_blitz/screens/game_screen.dart';
-import 'package:math_blitz/screens/home_screen.dart';
-import 'package:math_blitz/services/storage_service.dart';
+import 'package:brain_mantra/screens/delete_account_screen.dart';
+import 'package:brain_mantra/screens/game_screen.dart';
+import 'package:brain_mantra/screens/home_screen.dart';
+import 'package:brain_mantra/services/storage_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -41,14 +41,14 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.text('How MathBlitz Works'), findsOneWidget);
+    expect(find.text('How Brain Mantra Works'), findsOneWidget);
     expect(await StorageService.hasSeenRules(), isFalse,
         reason: 'should only be marked seen once the dialog is dismissed');
 
     await tester.tap(find.text('I understand'));
     await tester.pumpAndSettle();
 
-    expect(find.text('How MathBlitz Works'), findsNothing);
+    expect(find.text('How Brain Mantra Works'), findsNothing);
     expect(await StorageService.hasSeenRules(), isTrue);
   });
 
@@ -77,12 +77,12 @@ void main() {
     SharedPreferences.setMockInitialValues({'has_seen_rules': true});
     await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
     await tester.pumpAndSettle();
-    expect(find.text('How MathBlitz Works'), findsNothing);
+    expect(find.text('How Brain Mantra Works'), findsNothing);
 
     await tester.tap(find.byIcon(Icons.info_outline));
     await tester.pumpAndSettle();
 
-    expect(find.text('How MathBlitz Works'), findsOneWidget);
+    expect(find.text('How Brain Mantra Works'), findsOneWidget);
   });
 
   testWidgets(

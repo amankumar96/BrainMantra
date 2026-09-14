@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:math_blitz/services/ad_frequency_cap.dart';
+import 'package:brain_mantra/services/ad_frequency_cap.dart';
 
 void main() {
   group('AdFrequencyCap', () {

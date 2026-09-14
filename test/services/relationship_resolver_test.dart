@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:math_blitz/services/family_tree.dart';
-import 'package:math_blitz/services/relationship_resolver.dart';
+import 'package:brain_mantra/services/family_tree.dart';
+import 'package:brain_mantra/services/relationship_resolver.dart';
 
 // A small, fixed family tree built by hand (not via the generator) so
 // every relationship shape can be checked against a known-correct answer:

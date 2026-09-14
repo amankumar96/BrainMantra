@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:math_blitz/controllers/game_controller.dart';
-import 'package:math_blitz/models/puzzle.dart';
-import 'package:math_blitz/models/test_session.dart';
-import 'package:math_blitz/screens/game_screen.dart';
-import 'package:math_blitz/screens/results_screen.dart';
-import 'package:math_blitz/services/rng_service.dart';
-import 'package:math_blitz/utils/constants.dart';
-import 'package:math_blitz/widgets/diagram_painter.dart';
+import 'package:brain_mantra/controllers/game_controller.dart';
+import 'package:brain_mantra/models/puzzle.dart';
+import 'package:brain_mantra/models/test_session.dart';
+import 'package:brain_mantra/screens/game_screen.dart';
+import 'package:brain_mantra/screens/results_screen.dart';
+import 'package:brain_mantra/services/rng_service.dart';
+import 'package:brain_mantra/utils/constants.dart';
+import 'package:brain_mantra/widgets/diagram_painter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _diagramTypes = {

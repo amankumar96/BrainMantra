@@ -1,11 +1,11 @@
 import 'dart:math' show pow, sqrt;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:math_blitz/models/diagram_data.dart';
-import 'package:math_blitz/models/puzzle.dart';
-import 'package:math_blitz/services/expression_evaluator.dart';
-import 'package:math_blitz/services/puzzle_generator.dart';
-import 'package:math_blitz/services/rng_service.dart';
+import 'package:brain_mantra/models/diagram_data.dart';
+import 'package:brain_mantra/models/puzzle.dart';
+import 'package:brain_mantra/services/expression_evaluator.dart';
+import 'package:brain_mantra/services/puzzle_generator.dart';
+import 'package:brain_mantra/services/rng_service.dart';
 
 // A side-count table re-typed independently here (not imported from
 // shape_reasoning_generator.dart), same rationale as

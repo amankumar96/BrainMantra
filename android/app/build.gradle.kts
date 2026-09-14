@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.mathblitz.math_blitz"
+    namespace = "com.brainmantra.app"
     compileSdk = flutter.compileSdkVersion
     // Pinned to the NDK version actually installed on this machine via
     // Android Studio's SDK Manager - flutter.ndkVersion's own default
@@ -19,8 +19,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.mathblitz.math_blitz"
+        applicationId = "com.brainmantra.app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

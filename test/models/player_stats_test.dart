@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:math_blitz/models/player_stats.dart';
+import 'package:brain_mantra/models/player_stats.dart';
 
 PlayerStats roundTrip(PlayerStats stats) {
   final encoded = jsonEncode(stats.toJson());

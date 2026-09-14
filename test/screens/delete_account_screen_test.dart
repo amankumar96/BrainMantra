@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:math_blitz/screens/delete_account_screen.dart';
+import 'package:brain_mantra/screens/delete_account_screen.dart';
 
 void main() {
   Widget wrap() => const MaterialApp(home: DeleteAccountScreen());

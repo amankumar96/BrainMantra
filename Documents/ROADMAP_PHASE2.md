@@ -1,4 +1,4 @@
-# MathBlitz — Phase 2 Roadmap (Post-Launch Feature Expansion)
+# Brain Mantra — Phase 2 Roadmap (Post-Launch Feature Expansion)
 
 **Status context:** Phases 0–6 from `ARCHITECTURE.md` (core logic, playable UI, daily challenge, ads, polish, store submission) are treated as **done**. This document picks up from there. Same rule as before applies: **build in order, gate each step behind a passing test, don't start the next step until the current one is green.**
 

@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:math_blitz/controllers/game_controller.dart';
-import 'package:math_blitz/models/puzzle.dart';
-import 'package:math_blitz/models/test_session.dart';
-import 'package:math_blitz/services/rng_service.dart';
+import 'package:brain_mantra/controllers/game_controller.dart';
+import 'package:brain_mantra/models/puzzle.dart';
+import 'package:brain_mantra/models/test_session.dart';
+import 'package:brain_mantra/services/rng_service.dart';
 
 void main() {
   group('answering', () {

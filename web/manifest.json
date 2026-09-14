@@ -1,11 +1,11 @@
 {
-    "name": "math_blitz",
-    "short_name": "math_blitz",
+    "name": "Brain Mantra",
+    "short_name": "Brain Mantra",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Brain Mantra: a math and IQ reasoning quiz game.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

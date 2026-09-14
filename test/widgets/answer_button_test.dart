@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:math_blitz/widgets/answer_button.dart';
+import 'package:brain_mantra/widgets/answer_button.dart';
 
 // Wraps the widget under test in the minimal scaffolding it needs
 // (Material app + a Scaffold) so it renders realistically.

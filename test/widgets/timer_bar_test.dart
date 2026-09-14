@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:math_blitz/widgets/timer_bar.dart';
+import 'package:brain_mantra/widgets/timer_bar.dart';
 
 Widget _wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
 

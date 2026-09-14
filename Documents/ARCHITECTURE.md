@@ -1,5 +1,5 @@
-# MathBlitz — Technical Architecture
-**Purpose of this document:** This is the source-of-truth spec for building MathBlitz using Claude Code. Every module below has a defined contract (inputs/outputs), a file location, and a test that must pass before moving to the next step. Build strictly in the order given — each phase depends only on phases before it, never after.
+# Brain Mantra — Technical Architecture
+**Purpose of this document:** This is the source-of-truth spec for building Brain Mantra using Claude Code (originally built and shipped under the working name "MathBlitz," renamed pre-launch). Every module below has a defined contract (inputs/outputs), a file location, and a test that must pass before moving to the next step. Build strictly in the order given — each phase depends only on phases before it, never after.
 
 **Stack:** Flutter (Dart), local-first with optional Firebase backend, AdMob for ads.
 
@@ -19,7 +19,7 @@
 ## 1. Project Structure
 
 ```
-math_blitz/
+brain_mantra/
 ├── lib/
 │   ├── main.dart
 │   ├── models/

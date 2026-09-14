@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:math_blitz/models/puzzle.dart';
-import 'package:math_blitz/services/difficulty_curve.dart';
-import 'package:math_blitz/services/rng_service.dart';
-import 'package:math_blitz/services/shape_reasoning_generator.dart';
+import 'package:brain_mantra/models/puzzle.dart';
+import 'package:brain_mantra/services/difficulty_curve.dart';
+import 'package:brain_mantra/services/rng_service.dart';
+import 'package:brain_mantra/services/shape_reasoning_generator.dart';
 
 // A small side-count table re-typed independently here (not imported from
 // the generator) so a bug in the generator's own table would actually be

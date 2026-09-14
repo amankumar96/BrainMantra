@@ -20,7 +20,7 @@ class RulesDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('How MathBlitz Works'),
+      title: const Text('How Brain Mantra Works'),
       content: const SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

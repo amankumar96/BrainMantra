@@ -1,8 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:math_blitz/models/game_session.dart';
-import 'package:math_blitz/models/puzzle.dart';
+import 'package:brain_mantra/models/game_session.dart';
+import 'package:brain_mantra/models/puzzle.dart';
 
 GameSession roundTrip(GameSession session) {
   final encoded = jsonEncode(session.toJson());

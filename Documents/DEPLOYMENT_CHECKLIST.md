@@ -1,6 +1,6 @@
-# MathBlitz — Pre-Deployment Checklist
+# Brain Mantra — Pre-Deployment Checklist
 
-Everything left to do before MathBlitz can go live on the Play Store, grouped by
+Everything left to do before Brain Mantra can go live on the Play Store, grouped by
 area, in the order it makes sense to tackle them. ✅ = done, ⬜ = still open.
 For anything involving an external dashboard (Google Play Console, AdMob,
 Supabase), this doc explains *what* needs doing — when you're ready to
@@ -83,25 +83,28 @@ the real IDs is more efficient as one live session than doing it piecemeal.
 
 ## 5. Store presence & assets
 
-- ⬜ **App icon** — still Flutter's default icon. Needs a real MathBlitz icon
-  (the `flutter_launcher_icons` package is the standard way to generate all
-  required Android/iOS sizes from one source image).
+- ⬜ **App icon** — still Flutter's default icon. Needs a real Brain Mantra
+  icon (the `flutter_launcher_icons` package is the standard way to
+  generate all required Android/iOS sizes from one source image) — see the
+  Brain Mantra Rebrand & Visual Redesign plan for the artwork prompt and
+  wiring steps.
 - ⬜ **Screenshots** (phone, and tablet if you want tablet listing) — easiest
   captured straight off your test device once the icon/branding is final.
 - ⬜ **Feature graphic** (1024×500, shown at the top of the Play listing).
 - ⬜ **Store description** — short + full description, matching what the app
   actually does (Play/Daily Challenge/leaderboard/streaks — no need to
   oversell).
-- ⬜ **App name/package review** — `applicationId` is currently
-  `com.mathblitz.math_blitz` (Flutter's generated default pattern, not
-  necessarily wrong, but worth a deliberate "yes, this is what I want
-  published" decision, since it can't be changed after the first release).
+- ✅ **App name/package review** — renamed pre-launch: display name "Brain
+  Mantra", `applicationId`/`namespace` `com.brainmantra.app` (Android),
+  bundle ID `com.brainmantra.app` (iOS). Done deliberately before any
+  AdMob/Play Console registration, since both register an app by package
+  name.
 
 ## 6. Legal & compliance
 
 - ⬜ **Privacy Policy** — must be hosted at a public URL (this can reuse the
   same Claude Artifact approach as the account-deletion page, or any static
-  host) and must accurately describe what MathBlitz actually collects
+  host) and must accurately describe what Brain Mantra actually collects
   (email, display name, score/streak history) and how account deletion
   works.
 - ⬜ **Play Console Data Safety form** — must match the Privacy Policy

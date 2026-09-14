@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:math_blitz/services/difficulty_curve.dart';
-import 'package:math_blitz/services/rng_service.dart';
+import 'package:brain_mantra/services/difficulty_curve.dart';
+import 'package:brain_mantra/services/rng_service.dart';
 
 void main() {
   group('tierForScore', () {

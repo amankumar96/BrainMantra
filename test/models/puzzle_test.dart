@@ -1,8 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:math_blitz/models/diagram_data.dart';
-import 'package:math_blitz/models/puzzle.dart';
+import 'package:brain_mantra/models/diagram_data.dart';
+import 'package:brain_mantra/models/puzzle.dart';
 
 /// Round-trips [puzzle] through a *real* jsonEncode/jsonDecode boundary —
 /// not just fromJson(toJson()) in memory — so a type-preservation bug in

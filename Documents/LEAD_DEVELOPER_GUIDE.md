@@ -1,4 +1,4 @@
-# MathBlitz — A Lead Developer's Guide to This Project
+# Brain Mantra — A Lead Developer's Guide to This Project
 
 This document exists to teach *you* how this application was built — not as
 a feature log (that's `ARCHITECTURE.md` and `ROADMAP_PHASE2.md`), but as a
@@ -10,7 +10,8 @@ once end to end, then keep it as a reference.
 
 ## 1. What was actually built
 
-**MathBlitz** is a cross-platform (Android-first, iOS-capable) mobile math
+**Brain Mantra** (built under the working name "MathBlitz," renamed
+pre-launch) is a cross-platform (Android-first, iOS-capable) mobile math
 and reasoning quiz game, built with Flutter. In plain terms, a player:
 
 - Signs up (email/password or Google Sign-In) or plays as a guest locally.

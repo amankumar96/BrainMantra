@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:math_blitz/utils/constants.dart';
-import 'package:math_blitz/widgets/feedback_overlay.dart';
+import 'package:brain_mantra/utils/constants.dart';
+import 'package:brain_mantra/widgets/feedback_overlay.dart';
 
 Widget _wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
 

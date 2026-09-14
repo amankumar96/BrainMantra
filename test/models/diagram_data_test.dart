@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:math_blitz/models/diagram_data.dart';
+import 'package:brain_mantra/models/diagram_data.dart';
 
 DiagramData roundTrip(DiagramData data) {
   final encoded = jsonEncode(data.toJson());

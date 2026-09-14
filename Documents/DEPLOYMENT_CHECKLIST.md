@@ -49,11 +49,10 @@ deliberate and safe for development (serving real ads without a real AdMob
 account risks getting your future account banned), but every one of these
 needs to be swapped before a release build:
 
-- ⬜ **Create a real AdMob account** and register the app in it (different
-  from a Google Play Console account, though they can share a Google login).
-- ⬜ Create real ad units (banner, interstitial, rewarded) in that account and
-  swap their IDs into `lib/services/ads_service.dart` and the real App ID into
-  `android/app/src/main/AndroidManifest.xml`.
+- ✅ **Real AdMob account created**, Brain Mantra (Android) registered in it,
+  real App ID + banner/interstitial/rewarded ad unit IDs created and wired
+  into `AndroidManifest.xml`/`ads_service.dart`. iOS still on TEST IDs — no
+  iOS app registered in AdMob yet (Android-first).
 - ⬜ **Blocking controls → Sensitive categories** in the AdMob dashboard —
   this is where content/sensitivity filtering is handled for this app (by
   deliberate design, `AdsService` sets no `maxAdContentRating` in code).

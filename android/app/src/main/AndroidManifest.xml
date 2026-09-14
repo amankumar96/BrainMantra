@@ -30,13 +30,13 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-        <!-- Google's published Android TEST App ID (ca-app-pub-3940256099942544~...)
-             - works with no AdMob account, needs no setup. MUST be swapped for the
-             real AdMob App ID before any release build - see ARCHITECTURE.md's
-             Phase 4 write-up and its Phase 6 release gate. -->
+        <!-- Real AdMob Android App ID (Brain Mantra's own AdMob account) -
+             swapped in from the earlier TEST App ID (ca-app-pub-3940256099942544~...).
+             Ad units below in ads_service.dart are still TEST IDs until the
+             real ones are created and wired in too. -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713" />
+            android:value="ca-app-pub-8749509325638633~6604203227" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

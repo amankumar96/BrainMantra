@@ -22,36 +22,39 @@ class AdsService {
   AdsService._();
   static final AdsService instance = AdsService._();
 
-  // TUNABLE — Google's own published TEST ad-unit IDs
-  // (ca-app-pub-3940256099942544/...). No AdMob account needed for these;
-  // they work out of the box. MUST be swapped for real IDs before any
-  // release build — see ARCHITECTURE.md's Phase 4 write-up and Phase 6's
-  // release gate.
-  static const String _testInterstitialAndroid =
-      'ca-app-pub-3940256099942544/1033173712';
+  // Real Android ad units — Brain Mantra's own AdMob account
+  // (ca-app-pub-8749509325638633/...), created once the app was renamed
+  // and its package ID finalized (AdMob registers an app by package
+  // name, so this had to wait for that rename — see the rebrand plan).
+  static const String _realInterstitialAndroid =
+      'ca-app-pub-8749509325638633/4818322143';
+  static const String _realBannerAndroid =
+      'ca-app-pub-8749509325638633/5794071478';
+  static const String _realRewardedAndroid =
+      'ca-app-pub-8749509325638633/9879077134';
+
+  // iOS: no AdMob app/ad units registered yet (this project is
+  // Android-first) — TUNABLE, still Google's published TEST ad-unit IDs.
+  // MUST be swapped for real ones before any iOS release build.
   static const String _testInterstitialIOS =
       'ca-app-pub-3940256099942544/4411468910';
-  static const String _testBannerAndroid =
-      'ca-app-pub-3940256099942544/6300978111';
   static const String _testBannerIOS =
       'ca-app-pub-3940256099942544/2934735716';
-  static const String _testRewardedAndroid =
-      'ca-app-pub-3940256099942544/5224354917';
   static const String _testRewardedIOS =
       'ca-app-pub-3940256099942544/1712485313';
 
   static String get _interstitialAdUnitId =>
       defaultTargetPlatform == TargetPlatform.iOS
           ? _testInterstitialIOS
-          : _testInterstitialAndroid;
+          : _realInterstitialAndroid;
 
   static String get _bannerAdUnitId => defaultTargetPlatform == TargetPlatform.iOS
       ? _testBannerIOS
-      : _testBannerAndroid;
+      : _realBannerAndroid;
 
   static String get _rewardedAdUnitId => defaultTargetPlatform == TargetPlatform.iOS
       ? _testRewardedIOS
-      : _testRewardedAndroid;
+      : _realRewardedAndroid;
 
   // Play Console's Target Audience declaration is a legal/business call —
   // flip this if that declaration ever includes children. Sexual/mature

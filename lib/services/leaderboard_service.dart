@@ -70,6 +70,35 @@ abstract final class LeaderboardService {
         .map((row) => LeaderboardEntry.fromRow(row as Map<String, dynamic>))
         .toList();
   }
+
+  /// The signed-in player's own leaderboard row plus their exact global
+  /// rank (1-based) among players active in the last 30 days — computed
+  /// as a count, not by scanning [fetchTopRankings]' capped list, so it's
+  /// accurate even for a player far outside the top 50. `null` if nobody
+  /// is signed in. Same RLS posture as [fetchTopRankings]: that call
+  /// already reads `current_score` across every profile, not just the
+  /// caller's own row, so a `count()` aggregate needs no new policy.
+  static Future<({LeaderboardEntry entry, int rank})?> fetchMyEntryAndRank() async {
+    final user = _client.auth.currentUser;
+    if (user == null) return null;
+
+    final profileRow = await _client
+        .from('profiles')
+        .select('id, display_name, current_score')
+        .eq('id', user.id)
+        .single();
+    final entry = LeaderboardEntry.fromRow(profileRow);
+
+    final cutoff = DateTime.now().toUtc().subtract(const Duration(days: 30));
+    final countResponse = await _client
+        .from('profiles')
+        .select('id')
+        .gt('current_score', entry.totalScore)
+        .gte('last_active_at', cutoff.toIso8601String())
+        .count(CountOption.exact);
+
+    return (entry: entry, rank: countResponse.count + 1);
+  }
 }
 
 /// Today's date as `yyyy-MM-dd` (UTC) — matches the format Postgres

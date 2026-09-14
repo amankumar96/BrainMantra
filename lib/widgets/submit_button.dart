@@ -21,14 +21,24 @@ class SubmitButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // A light fill (not a solid-indigo one) so an explicitly *dark*
+    // foreground is unambiguously legible against it, rather than relying
+    // on Material's seed-derived `onPrimary` against a dark button (the
+    // contrast bug this specific styling fixes) — the indigo border keeps
+    // it visually tied to the brand's primary color without needing the
+    // text to sit on top of it.
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
         onPressed: hasSelection ? onSubmit : null,
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
+          backgroundColor: Colors.white,
+          foregroundColor: AppColors.submitButtonText,
           disabledBackgroundColor: Colors.black12,
+          disabledForegroundColor: Colors.black38,
+          side: const BorderSide(color: AppColors.primary, width: 2),
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+          textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         child: const Text('Submit'),
       ),

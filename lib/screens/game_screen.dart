@@ -69,11 +69,13 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void initState() {
     super.initState();
-    _controller = widget.debugController ??
+    _controller =
+        widget.debugController ??
         GameController(
           isDailyChallenge: widget.isDailyChallenge,
-          totalQuestions:
-              widget.isDailyChallenge ? dailyChallengeQuestionCount : null,
+          totalQuestions: widget.isDailyChallenge
+              ? dailyChallengeQuestionCount
+              : null,
           startingScore: widget.isDailyChallenge ? 0 : widget.startingScore,
         );
     _lastSeenQuestionNumber = _controller.questionNumber;
@@ -183,35 +185,39 @@ class _GameScreenState extends State<GameScreen> {
       lastPlayedDate: currentStats.lastPlayedDate,
       now: playedAt,
     );
-    await StorageService.saveStats(PlayerStats(
-      highScore: isNewHighScore ? updatedScore : currentStats.highScore,
-      currentStreakDays: newStreakDays,
-      lastPlayedDate: playedAt,
-      totalCoins: currentStats.totalCoins,
-      bestScoreByTier: currentStats.bestScoreByTier,
-    ));
+    await StorageService.saveStats(
+      PlayerStats(
+        highScore: isNewHighScore ? updatedScore : currentStats.highScore,
+        currentStreakDays: newStreakDays,
+        lastPlayedDate: playedAt,
+        totalCoins: currentStats.totalCoins,
+        bestScoreByTier: currentStats.bestScoreByTier,
+      ),
+    );
 
     if (!mounted) return;
     // Captured before pushReplacement disposes _controller (see dispose()
     // below) — Continue Playing needs these to resume from the right spot.
     final isDailyChallenge = _controller.isDailyChallenge;
-    Navigator.of(context).pushReplacement(MaterialPageRoute(
-      builder: (_) => ResultsScreen(
-        testSession: testSession,
-        currentScore: updatedScore,
-        previousHighScore: currentStats.highScore,
-        onPlayAgain: () => Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => GameScreen(
-              isDailyChallenge: isDailyChallenge,
-              // Resume from the just-updated cumulative score, not the
-              // score this session originally started from.
-              startingScore: isDailyChallenge ? 0 : updatedScore,
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => ResultsScreen(
+          testSession: testSession,
+          currentScore: updatedScore,
+          previousHighScore: currentStats.highScore,
+          onPlayAgain: () => Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => GameScreen(
+                isDailyChallenge: isDailyChallenge,
+                // Resume from the just-updated cumulative score, not the
+                // score this session originally started from.
+                startingScore: isDailyChallenge ? 0 : updatedScore,
+              ),
             ),
           ),
         ),
       ),
-    ));
+    );
   }
 
   @override
@@ -253,7 +259,13 @@ class _GameScreenBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      // Fallback solid color (shown for an instant before the gradient
+      // below paints, and wherever the gradient doesn't reach) — a light
+      // green-to-light-blue gradient is the actual Play-screen background,
+      // deliberately distinct from Home/End's flat AppColors.background:
+      // this is the screen a player spends the most sustained focus time
+      // on, so it gets its own calmer, two-tone field.
+      backgroundColor: AppColors.playBackgroundBottom,
       appBar: AppBar(
         title: Text(controller.isDailyChallenge ? 'Daily Challenge' : 'Play'),
         actions: [
@@ -268,88 +280,103 @@ class _GameScreenBody extends StatelessWidget {
             ),
         ],
       ),
-      body: SafeArea(
-        child: Padding(
-          // Trimmed from AppSpacing.lg - every bit of vertical room here
-          // helps keep a full question + options on-screen without
-          // scrolling, now that a banner ad also sits above the marks bar.
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: Column(
-            children: [
-              // Banner: very top of the screen, above the marks/timer bar
-              // — by explicit product decision (this was previously
-              // Home-only; see ARCHITECTURE.md's Phase 4 write-up for the
-              // superseded reasoning).
-              AdsService.instance.bannerAdWidget(),
-              MarksIndicator(
-                currentQuestionNumber: controller.questionNumber,
-                totalQuestions: controller.totalQuestions,
-                marksSoFar: controller.totalMarks,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              TimerBar(
-                // A new key per question gives each one a fresh,
-                // correctly-timed countdown automatically — see
-                // timer_bar.dart's own doc comment.
-                key: ValueKey(puzzle.id),
-                durationSeconds: puzzle.timeLimitSeconds,
-                isRunning: !controller.isSubmitted,
-                onExpired: controller.skipDueToTimeout,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Expanded(
-                child: Stack(
-                  children: [
-                    _QuestionAndOptions(
-                      // A fresh key per question resets the hint-revealed
-                      // state below — otherwise Flutter would reuse the
-                      // same State object (and its "hint already shown"
-                      // flag) across an unrelated new question.
-                      key: ValueKey('question-${puzzle.id}'),
-                      controller: controller,
-                      puzzle: puzzle,
-                    ),
-                    if (controller.isSubmitted)
-                      Positioned.fill(
-                        child: FeedbackOverlay(
-                          // A fresh key per question so a new overlay
-                          // (and its AnimationController) is created
-                          // each time, rather than reusing stale state.
-                          key: ValueKey('feedback-${controller.questionNumber}'),
-                          kind: _feedbackKindFor(controller.lastOutcome!),
-                          onAnimationComplete:
-                              controller.onFeedbackAnimationComplete,
-                        ),
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              AppColors.playBackgroundTop,
+              AppColors.playBackgroundBottom,
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Padding(
+            // Trimmed from AppSpacing.lg - every bit of vertical room here
+            // helps keep a full question + options on-screen without
+            // scrolling, now that a banner ad also sits above the marks bar.
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              children: [
+                // Banner: very top of the screen, above the marks/timer bar
+                // — by explicit product decision (this was previously
+                // Home-only; see ARCHITECTURE.md's Phase 4 write-up for the
+                // superseded reasoning).
+                AdsService.instance.bannerAdWidget(),
+                MarksIndicator(
+                  currentQuestionNumber: controller.questionNumber,
+                  totalQuestions: controller.totalQuestions,
+                  marksSoFar: controller.totalMarks,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                TimerBar(
+                  // A new key per question gives each one a fresh,
+                  // correctly-timed countdown automatically — see
+                  // timer_bar.dart's own doc comment.
+                  key: ValueKey(puzzle.id),
+                  durationSeconds: puzzle.timeLimitSeconds,
+                  isRunning: !controller.isSubmitted,
+                  onExpired: controller.skipDueToTimeout,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Expanded(
+                  child: Stack(
+                    children: [
+                      _QuestionAndOptions(
+                        // A fresh key per question resets the hint-revealed
+                        // state below — otherwise Flutter would reuse the
+                        // same State object (and its "hint already shown"
+                        // flag) across an unrelated new question.
+                        key: ValueKey('question-${puzzle.id}'),
+                        controller: controller,
+                        puzzle: puzzle,
                       ),
+                      if (controller.isSubmitted)
+                        Positioned.fill(
+                          child: FeedbackOverlay(
+                            // A fresh key per question so a new overlay
+                            // (and its AnimationController) is created
+                            // each time, rather than reusing stale state.
+                            key: ValueKey(
+                              'feedback-${controller.questionNumber}',
+                            ),
+                            kind: _feedbackKindFor(controller.lastOutcome!),
+                            onAnimationComplete:
+                                controller.onFeedbackAnimationComplete,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: controller.isSubmitted
+                            ? null
+                            : controller.skipManually,
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: AppSpacing.md,
+                          ),
+                        ),
+                        child: const Text('Skip'),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      flex: 2,
+                      child: SubmitButton(
+                        hasSelection: controller.hasSelection,
+                        onSubmit: controller.submitSelected,
+                      ),
+                    ),
                   ],
                 ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed:
-                          controller.isSubmitted ? null : controller.skipManually,
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: AppSpacing.md,
-                        ),
-                      ),
-                      child: const Text('Skip'),
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    flex: 2,
-                    child: SubmitButton(
-                      hasSelection: controller.hasSelection,
-                      onSubmit: controller.submitSelected,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -388,8 +415,9 @@ class _QuestionAndOptionsState extends State<_QuestionAndOptions> {
     return SingleChildScrollView(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment:
-            hasDiagram ? CrossAxisAlignment.stretch : CrossAxisAlignment.center,
+        crossAxisAlignment: hasDiagram
+            ? CrossAxisAlignment.stretch
+            : CrossAxisAlignment.center,
         children: [
           Text(
             puzzle.questionText,
@@ -543,7 +571,7 @@ class _QuestionAndOptionsState extends State<_QuestionAndOptions> {
 }
 
 FeedbackKind _feedbackKindFor(AnswerOutcome outcome) => switch (outcome) {
-      AnswerOutcome.correct => FeedbackKind.correct,
-      AnswerOutcome.wrong => FeedbackKind.wrong,
-      AnswerOutcome.skipped => FeedbackKind.neutral,
-    };
+  AnswerOutcome.correct => FeedbackKind.correct,
+  AnswerOutcome.wrong => FeedbackKind.wrong,
+  AnswerOutcome.skipped => FeedbackKind.neutral,
+};

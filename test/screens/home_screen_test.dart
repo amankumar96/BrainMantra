@@ -6,12 +6,24 @@ import 'package:brain_mantra/screens/home_screen.dart';
 import 'package:brain_mantra/services/storage_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Home now paints a `FloatingNumbersBackground` that repeats forever
+/// (`AnimationController(...)..repeat()`), so `pumpAndSettle()` would wait
+/// indefinitely for it to "finish" and eventually time out — the same
+/// class of problem `game_screen_test.dart`'s Play-button test already
+/// works around for `TimerBar`'s long-running controller. A couple of
+/// bounded manual pumps (enough for a dialog fade-in or a route
+/// transition to complete) replaces every `pumpAndSettle()` below.
+Future<void> _settle(WidgetTester tester) async {
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 500));
+}
+
 void main() {
   testWidgets('shows 0/0 gracefully on a fresh install (no prior data)',
       (tester) async {
     SharedPreferences.setMockInitialValues({});
     await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
-    await tester.pumpAndSettle();
+    await _settle(tester);
 
     expect(find.text('High Score: 0'), findsOneWidget);
     expect(find.text('Streak: 0 days'), findsOneWidget);
@@ -28,7 +40,7 @@ void main() {
       'has_seen_rules': true,
     });
     await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
-    await tester.pumpAndSettle();
+    await _settle(tester);
 
     expect(find.text('High Score: 250'), findsOneWidget);
     expect(find.text('Streak: 3 days'), findsOneWidget);
@@ -39,14 +51,14 @@ void main() {
       'not shown again on the next launch', (tester) async {
     SharedPreferences.setMockInitialValues({});
     await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
-    await tester.pumpAndSettle();
+    await _settle(tester);
 
     expect(find.text('How Brain Mantra Works'), findsOneWidget);
     expect(await StorageService.hasSeenRules(), isFalse,
         reason: 'should only be marked seen once the dialog is dismissed');
 
     await tester.tap(find.text('I understand'));
-    await tester.pumpAndSettle();
+    await _settle(tester);
 
     expect(find.text('How Brain Mantra Works'), findsNothing);
     expect(await StorageService.hasSeenRules(), isTrue);
@@ -59,13 +71,12 @@ void main() {
     // it once).
     SharedPreferences.setMockInitialValues({'has_seen_rules': true});
     await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
-    await tester.pumpAndSettle();
+    await _settle(tester);
 
     await tester.tap(find.text('Play'));
-    // Deliberately not pumpAndSettle() here: GameScreen's TimerBar runs a
-    // genuinely long (up to 30-minute) AnimationController that would
-    // never "settle" within pumpAndSettle's frame-scheduling check — a
-    // couple of plain pumps is enough to let the navigation complete.
+    // GameScreen's own TimerBar runs a genuinely long (up to 30-minute)
+    // AnimationController on top of Home's now-also-infinite background —
+    // a couple of plain pumps is enough to let the navigation complete.
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
@@ -76,11 +87,11 @@ void main() {
       (tester) async {
     SharedPreferences.setMockInitialValues({'has_seen_rules': true});
     await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
-    await tester.pumpAndSettle();
+    await _settle(tester);
     expect(find.text('How Brain Mantra Works'), findsNothing);
 
     await tester.tap(find.byIcon(Icons.info_outline));
-    await tester.pumpAndSettle();
+    await _settle(tester);
 
     expect(find.text('How Brain Mantra Works'), findsOneWidget);
   });
@@ -90,11 +101,11 @@ void main() {
       (tester) async {
     SharedPreferences.setMockInitialValues({'has_seen_rules': true});
     await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
-    await tester.pumpAndSettle();
+    await _settle(tester);
 
     expect(find.text('Delete Account'), findsOneWidget);
     await tester.tap(find.text('Delete Account'));
-    await tester.pumpAndSettle();
+    await _settle(tester);
 
     expect(find.byType(DeleteAccountScreen), findsOneWidget);
   });
@@ -106,7 +117,7 @@ void main() {
     // plain, always-visible icon rather than tucked behind a menu.
     SharedPreferences.setMockInitialValues({'has_seen_rules': true});
     await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
-    await tester.pumpAndSettle();
+    await _settle(tester);
 
     expect(find.byIcon(Icons.logout), findsOneWidget);
   });

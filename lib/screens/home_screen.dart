@@ -5,6 +5,7 @@ import '../services/ads_service.dart';
 import '../services/auth_service.dart';
 import '../services/storage_service.dart';
 import '../utils/constants.dart';
+import '../widgets/floating_numbers_background.dart';
 import '../widgets/rules_dialog.dart';
 import 'delete_account_screen.dart';
 import 'game_screen.dart';
@@ -112,12 +113,22 @@ class _HomeScreenState extends State<HomeScreen> {
       // Challenge/Leaderboard where it could be mistaken for one of them.
       body: Stack(
         children: [
+          // First child — paints behind everything else, so it never
+          // disturbs the centered menu's layout or the pinned Delete
+          // Account button below.
+          const Positioned.fill(child: FloatingNumbersBackground()),
           Center(
             child: Padding(
               padding: const EdgeInsets.all(AppSpacing.lg),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  Image.asset(
+                    'assets/icons/icon.png',
+                    width: 120,
+                    height: 120,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
                   Text(
                     'High Score: ${stats.highScore}',
                     style: const TextStyle(

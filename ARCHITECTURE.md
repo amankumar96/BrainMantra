@@ -291,7 +291,7 @@ Google Play has required, since April 2024 full enforcement, that any app with i
 - **`home_screen.dart`** — Sign out and Delete account now live behind an account menu (`PopupMenuButton`) instead of a bare AppBar icon, specifically so a destructive, irreversible action isn't one accidental tap away. Delete account requires an explicit confirm dialog first.
 - **Not yet deployed** — needs `supabase functions deploy delete-own-account` via the CLI (same pattern as `delete-inactive-users`), then a live verification pass (create a disposable test account, delete it in-app, confirm both the `profiles` row and `auth.users` row are gone).
 
-**Web half — not yet built.** Needs a publicly-reachable page (no app install required) that either performs the deletion or clearly explains how to request it (Google's policy accepts either — a static instructions page with a support contact is compliant, it doesn't have to be a live delete button). Hosting choice not yet made.
+**Web half ✅ built** — a static instructions page (Google's policy accepts either a live delete form or clear instructions; the latter is what this is), published as a Claude Artifact by your choice over GitHub Pages (your main repo is private, which rules out plain Pages there without a paid plan): https://claude.ai/code/artifact/cb260251-5646-4f4d-bafb-edf93005482e — lists exactly what's stored (account, display name, score, streak, Daily Challenge/leaderboard history) and both deletion paths (in-app self-service, immediate; email request, 14 days). **Must be set to public via the page's share menu before it's usable for Play Console** — it publishes private by default. Contact email defaults to your own (`amank1996@gmail.com`) — swap it for a dedicated support address if/when you have one.
 
 ---
 
@@ -366,8 +366,9 @@ This phase's original idea (a leaderboard, with server-side anti-cheat) was pull
 - [ ] Real AdMob account + app registration, Blocking controls → Sensitive categories configured, Play Console Target Audience declaration set (business/legal steps, guided when reached — see §6)
 - [x] Step 4 follow-up: rewarded ads added ("Watch Ad for Hint" — see §6) — 334 tests passing
 - [x] Account deletion, in-app half: `delete-own-account` Edge Function + `AuthService.deleteAccount` + Home's account menu/confirm dialog (see §4c) — 337 tests passing
-- [ ] Account deletion: deploy `delete-own-account` via CLI + live verification (see §4c)
-- [ ] Account deletion, web half: public page (inside or outside the app) satisfying Play's external-URL requirement — hosting choice not yet made (see §4c)
+- [x] Account deletion: `delete-own-account` deployed and ACTIVE on the live project (see §4c)
+- [ ] Account deletion: live verification (disposable test account, delete in-app, confirm both `profiles` and `auth.users` rows are gone)
+- [x] Account deletion, web half: public instructions page published (see §4c) — needs to be set public via its share menu before use
 - [ ] Server-side score validation on `daily_test_results` writes (anti-cheat gap noted in the superseded Phase 5 section above)
 - [ ] Step 6: polish + store assets (app icon still the Flutter default; screenshots, feature graphic, description not started)
 - [ ] Release build prep: real signing key (currently signs release builds with the debug key — see the `// TODO` in `android/app/build.gradle.kts`) + Play App Signing enrollment

@@ -31,10 +31,11 @@ step by step, rather than you following written instructions alone.
 
 - ✅ In-app deletion built and deployed (`delete-own-account` Edge Function,
   confirmed `ACTIVE`) — see `ARCHITECTURE.md` §4c.
-- ✅ Public web instructions page published as a Claude Artifact.
-- ⬜ **Flip that Artifact to public.** It's private by default — Play Console
-  won't accept a link reviewers can't open. This is a one-click toggle in the
-  Artifact's own share menu; say the word and I'll open it with you.
+- ✅ Public web instructions page published as a Claude Artifact, flipped to
+  public/shared via its share menu, and republished with the current
+  corner-button deletion flow (§4c).
+- ⬜ **Still says "MathBlitz" throughout** — needs a republish with Brain
+  Mantra branding now that the rename is done.
 - ⬜ **Live verification**: create a throwaway test account, delete it from
   inside the app, then confirm in the Supabase dashboard that both its
   `profiles` row and its `auth.users` row are actually gone. This is the one
@@ -83,11 +84,8 @@ the real IDs is more efficient as one live session than doing it piecemeal.
 
 ## 5. Store presence & assets
 
-- ⬜ **App icon** — still Flutter's default icon. Needs a real Brain Mantra
-  icon (the `flutter_launcher_icons` package is the standard way to
-  generate all required Android/iOS sizes from one source image) — see the
-  Brain Mantra Rebrand & Visual Redesign plan for the artwork prompt and
-  wiring steps.
+- ✅ **App icon** — the brain-and-wand logo, wired in via `flutter_launcher_icons`
+  across Android/iOS/web.
 - ⬜ **Screenshots** (phone, and tablet if you want tablet listing) — easiest
   captured straight off your test device once the icon/branding is final.
 - ⬜ **Feature graphic** (1024×500, shown at the top of the Play listing).

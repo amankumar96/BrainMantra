@@ -78,6 +78,48 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// Confirms (a destructive, irreversible action needs an explicit
+  /// second step — never just one tap) then permanently deletes the
+  /// player's account. This is the in-app half of Google Play's required
+  /// account-deletion flow; see `AuthService.deleteAccount`.
+  Future<void> _confirmAndDeleteAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete your account?'),
+        content: const Text(
+          'This permanently deletes your account and all your data — '
+          'score, streak, and leaderboard history. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.wrong),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await AuthService.deleteAccount();
+      // No further navigation here: deleteAccount() signs out on success,
+      // and the root _AuthGate in main.dart reacts to that the same way
+      // it does for a normal sign-out, swapping back to the login flow
+      // on its own.
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not delete account: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final stats = _stats ?? PlayerStats();
@@ -91,10 +133,34 @@ class _HomeScreenState extends State<HomeScreen> {
             tooltip: 'Rules',
             onPressed: () => RulesDialog.show(context),
           ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Sign out',
-            onPressed: () => AuthService.signOut(),
+          // Grouped behind a menu (rather than a bare icon next to Sign
+          // out) specifically so "Delete account" isn't one accidental
+          // tap away — a destructive, irreversible action deserves more
+          // friction than the everyday sign-out action next to it.
+          PopupMenuButton<_AccountMenuAction>(
+            icon: const Icon(Icons.account_circle_outlined),
+            tooltip: 'Account',
+            onSelected: (action) {
+              switch (action) {
+                case _AccountMenuAction.signOut:
+                  AuthService.signOut();
+                case _AccountMenuAction.deleteAccount:
+                  _confirmAndDeleteAccount();
+              }
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: _AccountMenuAction.signOut,
+                child: Text('Sign out'),
+              ),
+              PopupMenuItem(
+                value: _AccountMenuAction.deleteAccount,
+                child: Text(
+                  'Delete account',
+                  style: TextStyle(color: AppColors.wrong),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -150,3 +216,5 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
+
+enum _AccountMenuAction { signOut, deleteAccount }

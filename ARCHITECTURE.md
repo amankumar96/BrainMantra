@@ -281,6 +281,18 @@ Daily Challenge stopped being a separate, isolated tally and became a bonus roun
 
 **Follow-up fix (found during on-device testing after §4b shipped):** the leaderboard itself was never updated to match — `leaderboard_service.dart` still ranked by the `leaderboard_last_30_days` view (a sum of Daily Challenge marks only), so a player with a much higher combined total could still show a lower leaderboard number than their real score. Fixed: `LeaderboardService.fetchTopRankings` now queries `profiles` directly (`id, display_name, current_score`, filtered to `last_active_at` within 30 days, ordered by `current_score` descending) — the same unified total this section made persistent. `LeaderboardEntry` dropped `testsTaken` (no longer meaningful against this source) and renamed `totalMarks` → `totalScore`. `daily_test_results`/`submitDailyResult` are unchanged and still recorded, just no longer what the leaderboard itself reads. The superseded `leaderboard_last_30_days` view was left in place in Supabase (unused, not dropped) — no app code queries it anymore.
 
+### 4c. Account deletion (Play Store requirement) — in-app half ✅ built, web half pending
+
+Google Play has required, since April 2024 full enforcement, that any app with in-app account creation also let a player request account + data deletion **both from inside the app and from a public web page reachable without installing the app**. The 30-day inactivity auto-deletion job (§4a) doesn't satisfy this — that's a background cleanup job, not something a player can trigger on demand.
+
+**In-app half, built:**
+- **`supabase/functions/delete-own-account`** (new Edge Function) — resolves the caller's identity from their own JWT (`adminClient.auth.getUser(jwt)`, service-role client but only ever used to validate whatever token the request actually carries) and deletes *only* that account via the Auth Admin API. Never trusts a client-supplied user id — a player can only ever delete themselves. Same FK `on delete cascade` chain as `delete-inactive-users` cleans up `profiles`/`daily_test_results` automatically.
+- **`AuthService.deleteAccount()`** — calls the function, lets any failure propagate (unlike most of this file's best-effort reads, a failed deletion must surface to the UI, not fail silently), signs out locally only once the server confirms success.
+- **`home_screen.dart`** — Sign out and Delete account now live behind an account menu (`PopupMenuButton`) instead of a bare AppBar icon, specifically so a destructive, irreversible action isn't one accidental tap away. Delete account requires an explicit confirm dialog first.
+- **Not yet deployed** — needs `supabase functions deploy delete-own-account` via the CLI (same pattern as `delete-inactive-users`), then a live verification pass (create a disposable test account, delete it in-app, confirm both the `profiles` row and `auth.users` row are gone).
+
+**Web half — not yet built.** Needs a publicly-reachable page (no app install required) that either performs the deletion or clearly explains how to request it (Google's policy accepts either — a static instructions page with a support contact is compliant, it doesn't have to be a live delete button). Hosting choice not yet made.
+
 ---
 
 ## 5. Phase 3 — Daily Challenge & Meta Layer ✅ Built
@@ -352,8 +364,14 @@ This phase's original idea (a leaderboard, with server-side anti-cheat) was pull
 - [x] Step 4: `ad_frequency_cap.dart` + `ads_service.dart` (banner + interstitial, TEST ad-unit IDs, UMP consent) — see §6 (240 tests passing, `flutter analyze` clean)
 - [ ] **Gate: manual Android emulator/iOS simulator check** — banner/interstitial placement, frequency, and UMP consent form (this dev loop has been Chrome-only so far; `google_mobile_ads` has no web support) — see §6's manual checklist
 - [ ] Real AdMob account + app registration, Blocking controls → Sensitive categories configured, Play Console Target Audience declaration set (business/legal steps, guided when reached — see §6)
+- [x] Step 4 follow-up: rewarded ads added ("Watch Ad for Hint" — see §6) — 334 tests passing
+- [x] Account deletion, in-app half: `delete-own-account` Edge Function + `AuthService.deleteAccount` + Home's account menu/confirm dialog (see §4c) — 337 tests passing
+- [ ] Account deletion: deploy `delete-own-account` via CLI + live verification (see §4c)
+- [ ] Account deletion, web half: public page (inside or outside the app) satisfying Play's external-URL requirement — hosting choice not yet made (see §4c)
 - [ ] Server-side score validation on `daily_test_results` writes (anti-cheat gap noted in the superseded Phase 5 section above)
-- [ ] Step 6: polish + store assets
+- [ ] Step 6: polish + store assets (app icon still the Flutter default; screenshots, feature graphic, description not started)
+- [ ] Release build prep: real signing key (currently signs release builds with the debug key — see the `// TODO` in `android/app/build.gradle.kts`) + Play App Signing enrollment
+- [ ] Privacy Policy (hosted, public URL) + Play Console Data Safety form (must match the policy exactly) + content rating questionnaire + Target Audience/ads declarations
 - [ ] Submit to Play Console (internal → closed → production)
 
 **Post-launch feature expansion (Phases 7-9) is tracked separately in `ROADMAP_PHASE2.md`** — expanded math topics (BODMAS, speed/distance, profit/loss, interest — built) and diagram-based questions (triangle/area-volume/coordinate-distance/bar-graph, `CustomPainter`-rendered, tier 3-4 hints — Stage 1 built, manual on-device review pending). Not duplicated here to avoid the two documents drifting out of sync.

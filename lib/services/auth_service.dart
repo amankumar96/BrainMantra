@@ -111,6 +111,28 @@ abstract final class AuthService {
 
   static Future<void> signOut() => _client.auth.signOut();
 
+  /// Permanently deletes the signed-in player's account and all their
+  /// data (profile, persistent score, Daily Challenge history) — the
+  /// in-app half of Google Play's required account-deletion flow (the
+  /// other half is a public web page reachable outside the app; see
+  /// ARCHITECTURE.md). Calls the `delete-own-account` Edge Function,
+  /// which resolves and deletes *only* the caller's own identity from
+  /// their JWT — this client never sends and the function never trusts
+  /// any explicit user id.
+  ///
+  /// Deliberately lets a failure propagate rather than swallowing it like
+  /// most other calls in this file — `functions.invoke` itself throws a
+  /// `FunctionException` on any non-2xx response, and the UI must know a
+  /// delete request didn't actually go through rather than signing the
+  /// player out of an account that still exists. Signs out locally only
+  /// after `invoke` returns successfully (i.e. the server has confirmed
+  /// deletion), since supabase_flutter's local session has no way to
+  /// notice a server-side deletion on its own.
+  static Future<void> deleteAccount() async {
+    await _client.functions.invoke('delete-own-account');
+    await signOut();
+  }
+
   /// Creates this player's `profiles` row if one doesn't already exist.
   /// Called after [signUp] (with the name they typed in the form) and
   /// again from the auth-state listener on every sign-in (covering

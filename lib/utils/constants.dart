@@ -75,9 +75,16 @@ abstract final class AppSpacing {
 
 /// Shared animation/timing durations.
 abstract final class AppDurations {
-  /// How long the balloon-burst / red-cross / neutral feedback plays for
+  /// How long the balloon-burst (correct) / neutral feedback plays for
   /// before the game moves on to the next question.
   static const Duration feedbackDuration = Duration(milliseconds: 900);
+
+  /// A wrong answer holds much longer: the meteor-fall animation plays,
+  /// then the correct answer stays on screen (with a Next button and a
+  /// visible countdown) for the rest of this window before
+  /// auto-advancing — long enough to actually read and register the
+  /// right answer, unlike the quick correct/neutral feedback above.
+  static const Duration wrongFeedbackDuration = Duration(seconds: 5);
 }
 
 /// Shared text sizes.

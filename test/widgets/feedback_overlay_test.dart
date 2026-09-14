@@ -16,9 +16,14 @@ Future<void> _pumpMillis(WidgetTester tester, int totalMillis) async {
 }
 
 void main() {
-  for (final kind in FeedbackKind.values) {
-    testWidgets('$kind: onAnimationComplete fires exactly once',
-        (tester) async {
+  // correct/neutral share the same short AppDurations.feedbackDuration
+  // and "no early-exit path" shape — wrong gets its own group below since
+  // it has a completely different (much longer, two-phase, tappable)
+  // timeline.
+  for (final kind in [FeedbackKind.correct, FeedbackKind.neutral]) {
+    testWidgets(
+        '$kind: onAnimationComplete fires exactly once after the quick '
+        'feedback duration', (tester) async {
       var completeCount = 0;
       await tester.pumpWidget(_wrap(FeedbackOverlay(
         kind: kind,
@@ -39,8 +44,9 @@ void main() {
     });
   }
 
-  testWidgets('does not call onAnimationComplete before the duration elapses',
-      (tester) async {
+  testWidgets(
+      'correct: does not call onAnimationComplete before the quick '
+      'duration elapses', (tester) async {
     var completeCount = 0;
     await tester.pumpWidget(_wrap(FeedbackOverlay(
       kind: FeedbackKind.correct,
@@ -50,5 +56,90 @@ void main() {
     // Well under the feedback duration.
     await _pumpMillis(tester, 100);
     expect(completeCount, equals(0));
+  });
+
+  testWidgets('correct: shows "Correct!" text alongside the balloons',
+      (tester) async {
+    await tester.pumpWidget(_wrap(FeedbackOverlay(
+      kind: FeedbackKind.correct,
+      onAnimationComplete: () {},
+    )));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Correct!'), findsOneWidget);
+  });
+
+  group('wrong answer: meteor fall then a 5s reveal-and-hold', () {
+    testWidgets('does not auto-advance before the full hold elapses',
+        (tester) async {
+      var completeCount = 0;
+      await tester.pumpWidget(_wrap(FeedbackOverlay(
+        kind: FeedbackKind.wrong,
+        correctAnswerText: '42',
+        onAnimationComplete: () => completeCount++,
+      )));
+
+      // Well under AppDurations.wrongFeedbackDuration (5s).
+      await _pumpMillis(tester, 4000);
+      expect(completeCount, equals(0));
+    });
+
+    testWidgets('auto-advances exactly once once the full hold elapses',
+        (tester) async {
+      var completeCount = 0;
+      await tester.pumpWidget(_wrap(FeedbackOverlay(
+        kind: FeedbackKind.wrong,
+        correctAnswerText: '42',
+        onAnimationComplete: () => completeCount++,
+      )));
+
+      await _pumpMillis(
+        tester,
+        AppDurations.wrongFeedbackDuration.inMilliseconds + 300,
+      );
+      expect(completeCount, equals(1));
+
+      // Further pumping shouldn't fire it again.
+      await _pumpMillis(tester, 300);
+      expect(completeCount, equals(1));
+    });
+
+    testWidgets(
+        'reveals the correct answer and a Next button once the meteor '
+        'lands', (tester) async {
+      await tester.pumpWidget(_wrap(FeedbackOverlay(
+        kind: FeedbackKind.wrong,
+        correctAnswerText: '42',
+        onAnimationComplete: () {},
+      )));
+
+      // Past the ~1.1s meteor-landing threshold, still well under the 5s
+      // total hold.
+      await _pumpMillis(tester, 1500);
+
+      expect(find.textContaining('42'), findsWidgets);
+      expect(find.byKey(const Key('feedback-next-button')), findsOneWidget);
+    });
+
+    testWidgets('tapping Next advances immediately, before the hold elapses',
+        (tester) async {
+      var completeCount = 0;
+      await tester.pumpWidget(_wrap(FeedbackOverlay(
+        kind: FeedbackKind.wrong,
+        correctAnswerText: '42',
+        onAnimationComplete: () => completeCount++,
+      )));
+
+      await _pumpMillis(tester, 1500); // the reveal has appeared by now
+      await tester.tap(find.byKey(const Key('feedback-next-button')));
+      await tester.pump();
+
+      expect(completeCount, equals(1));
+
+      // Pumping well past the full 5s hold shouldn't fire it again — the
+      // early tap must be the one and only completion.
+      await _pumpMillis(tester, 4000);
+      expect(completeCount, equals(1));
+    });
   });
 }

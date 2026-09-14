@@ -342,6 +342,7 @@ class _GameScreenBody extends StatelessWidget {
                               'feedback-${controller.questionNumber}',
                             ),
                             kind: _feedbackKindFor(controller.lastOutcome!),
+                            correctAnswerText: puzzle.correctAnswer.toString(),
                             onAnimationComplete:
                                 controller.onFeedbackAnimationComplete,
                           ),

@@ -47,6 +47,13 @@ app.*.map.json
 # Widget Preview related
 .widget_preview/
 
+# Local-only personal notes — deliberately not part of the shipped repo
+# (see 02-journey-so-far.md's own note on this). The project's real docs
+# that DO ship (ARCHITECTURE.md, ROADMAP_PHASE2.md, DEPLOYMENT_CHECKLIST.md,
+# LEAD_DEVELOPER_GUIDE.md) also live in Documents/ but are tracked normally.
+/Documents/01-project-file-guide.md
+/Documents/02-journey-so-far.md
+/Documents/03-roadmap.md
 
 # Local-only throwaway scripts for manually poking at the code
 /dev_scratch/

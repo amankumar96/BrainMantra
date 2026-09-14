@@ -32,10 +32,8 @@ step by step, rather than you following written instructions alone.
 - ✅ In-app deletion built and deployed (`delete-own-account` Edge Function,
   confirmed `ACTIVE`) — see `ARCHITECTURE.md` §4c.
 - ✅ Public web instructions page published as a Claude Artifact, flipped to
-  public/shared via its share menu, and republished with the current
-  corner-button deletion flow (§4c).
-- ⬜ **Still says "MathBlitz" throughout** — needs a republish with Brain
-  Mantra branding now that the rename is done.
+  public/shared via its share menu, and republished with both the current
+  corner-button deletion flow and Brain Mantra branding (§4c).
 - ⬜ **Live verification**: create a throwaway test account, delete it from
   inside the app, then confirm in the Supabase dashboard that both its
   `profiles` row and its `auth.users` row are actually gone. This is the one

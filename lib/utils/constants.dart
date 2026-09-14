@@ -52,7 +52,17 @@ abstract final class AppDurations {
 
 /// Shared text sizes.
 abstract final class AppText {
-  static const double question = 22;
+  // TUNABLE — trimmed down from 22 specifically so a long question plus
+  // 4 answer options never needs scrolling on a real phone screen (the
+  // game screen also now carries a banner ad + marks/timer bar above the
+  // question, which didn't exist when 22 was first picked).
+  static const double question = 18;
   static const double score = 18;
   static const double timer = 20;
+
+  // TUNABLE — deliberately smaller and separate from [score] (which also
+  // drives the Home screen's High Score and the marks indicator, neither
+  // of which needed shrinking) — this is specifically for AnswerButton's
+  // label, the other half of the "no scrolling" fix.
+  static const double answerOption = 15;
 }

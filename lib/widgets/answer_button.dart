@@ -59,8 +59,12 @@ class AnswerButton extends StatelessWidget {
         onTap: effectiveOnTap,
         borderRadius: BorderRadius.circular(AppSpacing.sm),
         child: Container(
+          // Tighter than the original AppSpacing.md on every side —
+          // together with AppText.answerOption's smaller font, this is
+          // what keeps a full question + 4 options fitting on one phone
+          // screen without scrolling.
           padding: const EdgeInsets.symmetric(
-            vertical: AppSpacing.md,
+            vertical: AppSpacing.sm,
             horizontal: AppSpacing.md,
           ),
           decoration: BoxDecoration(
@@ -73,7 +77,7 @@ class AnswerButton extends StatelessWidget {
             style: TextStyle(
               color: foreground,
               fontWeight: FontWeight.w600,
-              fontSize: AppText.score,
+              fontSize: AppText.answerOption,
             ),
           ),
         ),

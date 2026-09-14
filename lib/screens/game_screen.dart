@@ -270,9 +270,17 @@ class _GameScreenBody extends StatelessWidget {
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
+          // Trimmed from AppSpacing.lg - every bit of vertical room here
+          // helps keep a full question + options on-screen without
+          // scrolling, now that a banner ad also sits above the marks bar.
+          padding: const EdgeInsets.all(AppSpacing.md),
           child: Column(
             children: [
+              // Banner: very top of the screen, above the marks/timer bar
+              // — by explicit product decision (this was previously
+              // Home-only; see ARCHITECTURE.md's Phase 4 write-up for the
+              // superseded reasoning).
+              AdsService.instance.bannerAdWidget(),
               MarksIndicator(
                 currentQuestionNumber: controller.questionNumber,
                 totalQuestions: controller.totalQuestions,
@@ -288,12 +296,7 @@ class _GameScreenBody extends StatelessWidget {
                 isRunning: !controller.isSubmitted,
                 onExpired: controller.skipDueToTimeout,
               ),
-              // Banner: top of the screen, after the marks/timer bar and
-              // before the question — by explicit product decision (this
-              // was previously Home-only; see ARCHITECTURE.md's Phase 4
-              // write-up for the superseded reasoning).
-              AdsService.instance.bannerAdWidget(),
-              const SizedBox(height: AppSpacing.lg),
+              const SizedBox(height: AppSpacing.md),
               Expanded(
                 child: Stack(
                   children: [
@@ -400,7 +403,7 @@ class _QuestionAndOptionsState extends State<_QuestionAndOptions> {
             const SizedBox(height: AppSpacing.sm),
             _hintRevealed ? _buildHintText(puzzle.hint!) : _buildHintButton(),
           ],
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: AppSpacing.md),
           // The diagram sits after the question, side-by-side with the
           // options rather than stacked above them — options left
           // (left-aligned), diagram right. Every non-diagram question

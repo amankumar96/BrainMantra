@@ -127,6 +127,22 @@ A small internal script (or a basic authenticated screen, gated behind a debug f
 
 ---
 
+## Phase 10 — Geometry, Probability & Ratio (real-life topics) — ✅ Built
+
+**Goal:** round out the topic library with three more exam-relevant categories, each deliberately framed as a real-life word problem (a fenced garden, a bag of colored balls, a shared allowance) rather than an abstract formula prompt — same non-diagram shape as Phase 7's BODMAS/speed/profit-loss/interest generators, so no new rendering surface was needed.
+
+| Topic | Generator | Real-life sub-cases | Notes |
+|---|---|---|---|
+| Geometry — perimeter | `lib/services/perimeter_generator.dart` | Fencing a rectangular garden; ribbon around a square photo frame; walking the boundary of a triangular park | Deliberately separate from Phase 8's `areaVolume` (distance *around* a shape vs. the space it covers). Triangle sides are drawn close together around a random base so the triangle inequality always holds without a retry loop. |
+| Probability | `lib/services/probability_generator.dart` | Rolling a fair die; drawing from a bag of colored balls; drawing a card from a standard 52-card deck | The only generator in the app whose `correctAnswer` is a fraction string (e.g. `"1/3"`) rather than an int — reduced via a new shared `gcd()` helper in `rng_utils.dart`. Distractors are common real mistakes (the complement/favourable-unfavourable mix-up, off-by-one outcome counts), each independently reduced so none accidentally collides with the correct answer. |
+| Ratio | `lib/services/ratio_generator.dart` | Scaling a recipe for more people; sharing money between two people in a given ratio; reading a map's scale | Same "generate the clean multiplier first, derive the rest" rule as `ProfitLossGenerator` — every answer is an exact integer, never rounded. |
+
+**Testing**: same shared-harness pattern as Phase 7 — `perimeter` and `ratio` got a case added to `puzzle_generator_test.dart`'s `_independentlyVerify` switch and are covered by its existing 500-generation fuzz/determinism/anti-duplicate/hint-gating loop. `probability` is excluded from that file's anti-duplicate check (the die sub-case alone has only 5 possible question texts, a birthday-paradox flake risk the same as `coordinateDistance`/`graphReading`) and instead gets its own `test/services/probability_generator_test.dart` covering text/answer variety over a larger sample and that every fraction option is already in lowest terms.
+
+**Phase 10 exit criteria:** met — `flutter analyze` clean, all tests (359 total) passing.
+
+---
+
 ## Master Checklist
 
 - [x] Phases 0–6 (core build, playable UI, daily challenge, ads, polish, store submission — see `ARCHITECTURE.md`)
@@ -136,6 +152,7 @@ A small internal script (or a basic authenticated screen, gated behind a debug f
 - [ ] **Gate: 20+ diagrams manually reviewed on a real device for legibility/layout correctness** — not yet done
 - [ ] Stage 2 (diagram-as-answer-option: mirror/rotation/figure-series) — separate future scope, not started
 - [ ] Phase 9 (question database) — not started
+- [x] Phase 10: Geometry (perimeter), Probability, Ratio generators — real-life framed, `gcd()` helper added to `rng_utils.dart`, 359 tests passing
 
 ## How to Hand This to Claude Code
 

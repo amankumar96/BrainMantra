@@ -87,3 +87,18 @@ List<String> buildMcOptionsFromCandidates(
   shuffleList(options, rng);
   return options;
 }
+
+/// Greatest common divisor of two non-negative integers (Euclidean
+/// algorithm). Used by [probability_generator.dart] to reduce a
+/// favourable/total outcome count to its simplest fraction form, e.g.
+/// `2/6` -> `1/3`.
+int gcd(int a, int b) {
+  var x = a.abs();
+  var y = b.abs();
+  while (y != 0) {
+    final t = y;
+    y = x % y;
+    x = t;
+  }
+  return x == 0 ? 1 : x; // never divide by 0 if both inputs were 0
+}

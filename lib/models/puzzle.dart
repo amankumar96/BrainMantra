@@ -24,6 +24,12 @@ enum PuzzleType {
   speedDistance,
   profitLoss,
   interest,
+  // mathTest — Geometry/Probability/Ratio topics, framed as real-life
+  // word problems (no diagram — see perimeter_generator.dart,
+  // probability_generator.dart, ratio_generator.dart)
+  perimeter,
+  probability,
+  ratio,
   // mathTest — diagram-based (ROADMAP_PHASE2.md Phase 8, Stage 1: diagram
   // in the question body, options stay plain text)
   angleFinding,

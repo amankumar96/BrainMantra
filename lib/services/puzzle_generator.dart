@@ -7,10 +7,13 @@ import 'difficulty_curve.dart';
 import 'family_tree_generator.dart';
 import 'graph_reading_generator.dart';
 import 'interest_generator.dart';
+import 'perimeter_generator.dart';
+import 'probability_generator.dart';
 import 'profit_loss_generator.dart';
 import 'puzzle_generator_basic_math.dart';
 import 'puzzle_generator_odd_one_out.dart';
 import 'puzzle_generator_sequence_target.dart';
+import 'ratio_generator.dart';
 import 'relationship_resolver.dart';
 import 'rng_service.dart';
 import 'rng_utils.dart';
@@ -42,6 +45,11 @@ abstract final class PuzzleGenerator {
       PuzzleType.profitLoss =>
         ProfitLossGenerator.generate(tier: tier, rng: rng),
       PuzzleType.interest => InterestGenerator.generate(tier: tier, rng: rng),
+      PuzzleType.perimeter =>
+        PerimeterGenerator.generate(tier: tier, rng: rng),
+      PuzzleType.probability =>
+        ProbabilityGenerator.generate(tier: tier, rng: rng),
+      PuzzleType.ratio => RatioGenerator.generate(tier: tier, rng: rng),
       PuzzleType.angleFinding =>
         AngleFindingGenerator.generate(tier: tier, rng: rng),
       PuzzleType.areaVolume =>

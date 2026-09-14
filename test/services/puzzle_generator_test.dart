@@ -206,6 +206,94 @@ void _independentlyVerify(Puzzle puzzle) {
         expect((p * r * t) ~/ 100, equals(puzzle.correctAnswer));
       }
 
+    case PuzzleType.perimeter:
+      final rect = RegExp(
+              r'that is (\d+) m long and (\d+) m wide. How many metres')
+          .firstMatch(puzzle.questionText);
+      final square = RegExp(r'sides of (\d+) cm').firstMatch(puzzle.questionText);
+      final triangle = RegExp(
+              r'sides measuring (\d+) m, (\d+) m and (\d+) m')
+          .firstMatch(puzzle.questionText);
+      if (rect != null) {
+        final length = int.parse(rect.group(1)!);
+        final width = int.parse(rect.group(2)!);
+        expect(2 * (length + width), equals(puzzle.correctAnswer));
+      } else if (square != null) {
+        final side = int.parse(square.group(1)!);
+        expect(4 * side, equals(puzzle.correctAnswer));
+      } else {
+        final m = triangle!;
+        final a = int.parse(m.group(1)!);
+        final b = int.parse(m.group(2)!);
+        final c = int.parse(m.group(3)!);
+        expect(a + b + c, equals(puzzle.correctAnswer));
+      }
+
+    case PuzzleType.probability:
+      int gcdCheck(int a, int b) => b == 0 ? a : gcdCheck(b, a % b);
+      String reduce(int f, int t) {
+        final g = gcdCheck(f, t);
+        return '${f ~/ g}/${t ~/ g}';
+      }
+
+      final die = RegExp(r'rolling a number greater than (\d+)')
+          .firstMatch(puzzle.questionText);
+      final bag = RegExp(r'contains (\d+) red, (\d+) blue and (\d+) green')
+          .firstMatch(puzzle.questionText);
+      if (die != null) {
+        final threshold = int.parse(die.group(1)!);
+        expect(reduce(6 - threshold, 6), equals(puzzle.correctAnswer));
+      } else if (bag != null) {
+        final red = int.parse(bag.group(1)!);
+        final blue = int.parse(bag.group(2)!);
+        final green = int.parse(bag.group(3)!);
+        expect(reduce(red, red + blue + green), equals(puzzle.correctAnswer));
+      } else {
+        final isHeart = puzzle.questionText.contains('a heart');
+        expect(reduce(isHeart ? 13 : 12, 52), equals(puzzle.correctAnswer));
+      }
+      // Every option (correct answer included) must be a well-formed,
+      // already-reduced fraction string — independent of how the
+      // generator built it.
+      for (final option in puzzle.options) {
+        final parts = option.split('/');
+        expect(parts, hasLength(2), reason: 'malformed fraction: $option');
+        final f = int.parse(parts[0]);
+        final t = int.parse(parts[1]);
+        expect(gcdCheck(f, t), equals(1),
+            reason: 'unreduced fraction option: $option');
+      }
+
+    case PuzzleType.ratio:
+      final recipe = RegExp(r'for (\d+) people needs (\d+) cups of flour.+'
+              r'for (\d+) people')
+          .firstMatch(puzzle.questionText);
+      final sharing = RegExp(r'₹(\d+) is shared between Ravi and Sita in '
+              r'the ratio (\d+):(\d+)')
+          .firstMatch(puzzle.questionText);
+      final map = RegExp(r'1 cm represents (\d+) km.+?(\d+) cm apart')
+          .firstMatch(puzzle.questionText);
+      if (recipe != null) {
+        final baseServes = int.parse(recipe.group(1)!);
+        final baseCups = int.parse(recipe.group(2)!);
+        final newServes = int.parse(recipe.group(3)!);
+        expect(newServes % baseServes, equals(0),
+            reason: 'scaling factor must be a clean integer');
+        final factor = newServes ~/ baseServes;
+        expect(baseCups * factor, equals(puzzle.correctAnswer));
+      } else if (sharing != null) {
+        final total = int.parse(sharing.group(1)!);
+        final raviRatio = int.parse(sharing.group(2)!);
+        final sitaRatio = int.parse(sharing.group(3)!);
+        final unit = total ~/ (raviRatio + sitaRatio);
+        expect(raviRatio * unit, equals(puzzle.correctAnswer));
+      } else {
+        final m = map!;
+        final kmPerCm = int.parse(m.group(1)!);
+        final mapDistanceCm = int.parse(m.group(2)!);
+        expect(kmPerCm * mapDistanceCm, equals(puzzle.correctAnswer));
+      }
+
     case PuzzleType.angleFinding:
       // Independently re-derives the third angle from the two *known*
       // angles parsed out of questionText (Angle Sum Property) — not by
@@ -345,6 +433,9 @@ void main() {
             PuzzleType.speedDistance,
             PuzzleType.profitLoss,
             PuzzleType.interest,
+            PuzzleType.perimeter,
+            PuzzleType.probability,
+            PuzzleType.ratio,
             PuzzleType.angleFinding,
             PuzzleType.areaVolume,
             PuzzleType.coordinateDistance,
@@ -384,24 +475,28 @@ void main() {
   });
 
   group('anti-duplicate', () {
-    // shapeIdentification, coordinateDistance, and graphReading are
-    // deliberately excluded here. shapeIdentification/coordinateDistance:
-    // small possibility spaces (16 texts; a handful of Pythagorean triples
-    // × 2 for the x/y swap) that make a literal "10 draws, zero
-    // duplicates" check flaky by the birthday paradox. graphReading: its
-    // "which category has the highest/second-highest value?" question
-    // variant deliberately doesn't name a category in the text (the
-    // answer itself is the category), so only 2 distinct texts exist for
-    // that variant regardless of which values were actually generated —
-    // real variety lives in diagramData/correctAnswer instead, checked in
-    // graph_reading_generator_test.dart. See
+    // shapeIdentification, coordinateDistance, graphReading, and
+    // probability are deliberately excluded here. shapeIdentification/
+    // coordinateDistance: small possibility spaces (16 texts; a handful of
+    // Pythagorean triples × 2 for the x/y swap) that make a literal "10
+    // draws, zero duplicates" check flaky by the birthday paradox.
+    // graphReading: its "which category has the highest/second-highest
+    // value?" question variant deliberately doesn't name a category in the
+    // text (the answer itself is the category), so only 2 distinct texts
+    // exist for that variant regardless of which values were actually
+    // generated — real variety lives in diagramData/correctAnswer instead,
+    // checked in graph_reading_generator_test.dart. probability: the die
+    // sub-case alone has only 5 possible question texts (thresholds 1-5),
+    // and it's a 1-in-3 pick each draw — the same birthday-paradox flake
+    // risk, checked instead in probability_generator_test.dart. See
     // shape_reasoning_generator_test.dart for the same
     // dedicated-variety-check pattern.
     for (final type in PuzzleType.values.where(
       (t) =>
           t != PuzzleType.shapeIdentification &&
           t != PuzzleType.coordinateDistance &&
-          t != PuzzleType.graphReading,
+          t != PuzzleType.graphReading &&
+          t != PuzzleType.probability,
     )) {
       test('$type: 10 sequential generations have no duplicate '
           'questionText', () {

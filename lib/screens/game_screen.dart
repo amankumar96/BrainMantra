@@ -417,12 +417,29 @@ class _QuestionAndOptionsState extends State<_QuestionAndOptions> {
   Widget _buildHintButton() {
     return Center(
       child: TextButton.icon(
-        onPressed: () => setState(() => _hintRevealed = true),
-        icon: const Icon(Icons.lightbulb_outline, size: 16),
-        label: const Text('Show hint'),
+        onPressed: _revealHintViaRewardedAd,
+        icon: const Icon(Icons.ondemand_video, size: 16),
+        label: const Text('Watch Ad for Hint'),
         style: TextButton.styleFrom(foregroundColor: AppColors.neutral),
       ),
     );
+  }
+
+  /// Prefers watching a rewarded ad to unlock the hint — but never hard-
+  /// blocks on it: if no ad happens to be ready (a load in flight, a
+  /// network hiccup, consent not yet resolved), the hint still reveals
+  /// for free. Same "ads are best-effort, never load-bearing" precedent
+  /// `AdsService` already applies everywhere else; a hint is a nice-to-
+  /// have, not something worth stranding a player over.
+  void _revealHintViaRewardedAd() {
+    final shown = AdsService.instance.showRewardedIfLoaded(
+      onReward: () {
+        if (mounted) setState(() => _hintRevealed = true);
+      },
+    );
+    if (!shown) {
+      setState(() => _hintRevealed = true);
+    }
   }
 
   Widget _buildHintText(String hint) {

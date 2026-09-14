@@ -243,14 +243,14 @@ void main() {
     expect(controller.currentPuzzle!.hint, isNotNull);
     // Hints start hidden behind a button, not shown automatically - see
     // _QuestionAndOptionsState._hintRevealed.
-    expect(find.text('Show hint'), findsOneWidget);
+    expect(find.text('Watch Ad for Hint'), findsOneWidget);
     expect(find.textContaining(controller.currentPuzzle!.hint!), findsNothing);
 
-    await tester.tap(find.text('Show hint'));
+    await tester.tap(find.text('Watch Ad for Hint'));
     await tester.pump();
 
     expect(find.textContaining(controller.currentPuzzle!.hint!), findsOneWidget);
-    expect(find.text('Show hint'), findsNothing);
+    expect(find.text('Watch Ad for Hint'), findsNothing);
   });
 
   testWidgets(
@@ -276,9 +276,9 @@ void main() {
 
     expect(controller.currentPuzzle!.diagramData, isNull);
     expect(controller.currentPuzzle!.hint, isNotNull);
-    expect(find.text('Show hint'), findsOneWidget);
+    expect(find.text('Watch Ad for Hint'), findsOneWidget);
 
-    await tester.tap(find.text('Show hint'));
+    await tester.tap(find.text('Watch Ad for Hint'));
     await tester.pump();
 
     expect(find.textContaining(controller.currentPuzzle!.hint!), findsOneWidget);

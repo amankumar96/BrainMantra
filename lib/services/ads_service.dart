@@ -4,9 +4,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
-/// Wraps `google_mobile_ads` (banner + interstitial only — rewarded is out
-/// of scope for now, see ARCHITECTURE.md's Phase 4 write-up) plus its
-/// bundled UMP consent flow (required for EEA/UK users since Jan 2024).
+/// Wraps `google_mobile_ads` (banner, interstitial, and rewarded — see
+/// ARCHITECTURE.md's Phase 4 write-up; rewarded was originally out of
+/// scope for lack of a real reward to attach it to, revisited once
+/// "Watch Ad for Hint" gave it one) plus its bundled UMP consent flow
+/// (required for EEA/UK users since Jan 2024).
 ///
 /// Every public method is deliberately defensive: `google_mobile_ads` has
 /// no Flutter Web support at all (this project's dev loop runs via
@@ -33,6 +35,10 @@ class AdsService {
       'ca-app-pub-3940256099942544/6300978111';
   static const String _testBannerIOS =
       'ca-app-pub-3940256099942544/2934735716';
+  static const String _testRewardedAndroid =
+      'ca-app-pub-3940256099942544/5224354917';
+  static const String _testRewardedIOS =
+      'ca-app-pub-3940256099942544/1712485313';
 
   static String get _interstitialAdUnitId =>
       defaultTargetPlatform == TargetPlatform.iOS
@@ -43,6 +49,10 @@ class AdsService {
       ? _testBannerIOS
       : _testBannerAndroid;
 
+  static String get _rewardedAdUnitId => defaultTargetPlatform == TargetPlatform.iOS
+      ? _testRewardedIOS
+      : _testRewardedAndroid;
+
   // Play Console's Target Audience declaration is a legal/business call —
   // flip this if that declaration ever includes children. Sexual/mature
   // ad-content filtering is deliberately NOT set here at all — handled
@@ -52,6 +62,8 @@ class AdsService {
 
   InterstitialAd? _interstitialAd;
   bool _isLoadingInterstitial = false;
+  RewardedAd? _rewardedAd;
+  bool _isLoadingRewarded = false;
 
   /// Call once from `main()`, after `Supabase.initialize(...)`, before
   /// `runApp`. Never throws — an ad SDK failing to initialize must not
@@ -69,6 +81,7 @@ class AdsService {
       }
       await _requestConsentIfNeeded();
       loadInterstitial();
+      loadRewarded();
     } catch (_) {
       // Ads are best-effort — see class doc comment.
     }
@@ -169,6 +182,68 @@ class AdsService {
     );
     try {
       ad.show();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Pre-caches the next rewarded ad. Safe to call repeatedly — a no-op
+  /// while one is already loaded or a load is already in flight.
+  void loadRewarded() {
+    if (kIsWeb || _rewardedAd != null || _isLoadingRewarded) return;
+    _isLoadingRewarded = true;
+    _canRequestAds().then((allowed) {
+      if (!allowed) {
+        _isLoadingRewarded = false;
+        return;
+      }
+      RewardedAd.load(
+        adUnitId: _rewardedAdUnitId,
+        request: const AdRequest(),
+        rewardedAdLoadCallback: RewardedAdLoadCallback(
+          onAdLoaded: (ad) {
+            _isLoadingRewarded = false;
+            _rewardedAd = ad;
+          },
+          onAdFailedToLoad: (_) {
+            _isLoadingRewarded = false;
+          },
+        ),
+      );
+    }).catchError((_) {
+      _isLoadingRewarded = false;
+    });
+  }
+
+  /// Shows the pre-cached rewarded ad if one is ready. Returns `true` if
+  /// a show was actually attempted, `false` if none was loaded yet.
+  ///
+  /// [onReward] fires only if the player actually watches to completion
+  /// — [RewardedAd]'s own semantics, never for closing/skipping early —
+  /// and is what callers (e.g. the "Watch Ad for Hint" button in
+  /// `game_screen.dart`) should gate the actual reward on, not the
+  /// return value. Unlike the interstitial, callers here are expected to
+  /// have their own free fallback for "no ad ready" (this method never
+  /// blocks on a load), matching the rest of this codebase's "ads are
+  /// best-effort, never load-bearing" precedent — a hint feature must
+  /// still work when ad infrastructure hiccups.
+  bool showRewardedIfLoaded({required VoidCallback onReward}) {
+    final ad = _rewardedAd;
+    if (kIsWeb || ad == null) return false;
+    _rewardedAd = null;
+    ad.fullScreenContentCallback = FullScreenContentCallback(
+      onAdDismissedFullScreenContent: (ad) {
+        ad.dispose();
+        loadRewarded(); // pre-cache the next one
+      },
+      onAdFailedToShowFullScreenContent: (ad, _) {
+        ad.dispose();
+        loadRewarded();
+      },
+    );
+    try {
+      ad.show(onUserEarnedReward: (ad, reward) => onReward());
       return true;
     } catch (_) {
       return false;

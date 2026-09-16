@@ -7,6 +7,7 @@ import 'package:brain_mantra/screens/game_screen.dart';
 import 'package:brain_mantra/screens/results_screen.dart';
 import 'package:brain_mantra/services/rng_service.dart';
 import 'package:brain_mantra/utils/constants.dart';
+import 'package:brain_mantra/widgets/answer_button.dart';
 import 'package:brain_mantra/widgets/diagram_painter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -251,6 +252,57 @@ void main() {
 
     expect(find.textContaining(controller.currentPuzzle!.hint!), findsOneWidget);
     expect(find.text('Watch Ad for Hint'), findsNothing);
+  });
+
+  testWidgets(
+      'a diagram-as-answer-option question (Phase 13) renders a reference '
+      'diagram plus 4 rendered option shapes in a uniform grid, and '
+      'tapping one selects it', (tester) async {
+    GameController? controller;
+    for (var seed = 0; seed < 200; seed++) {
+      final candidate = GameController(
+        totalQuestions: 10,
+        isDailyChallenge: true,
+        rng: RngService.seeded('gs-diagram-option-search-$seed'),
+      );
+      if (candidate.currentPuzzle!.type == PuzzleType.mirrorImage) {
+        controller = candidate;
+        break;
+      }
+    }
+    expect(controller, isNotNull,
+        reason: 'no mirrorImage puzzle found in 200 seeds - unexpected');
+
+    await tester.pumpWidget(_wrap(GameScreen(debugController: controller!)));
+    await tester.pump();
+
+    // 1 reference-shape diagram + 4 option-shape diagrams = 5 total
+    // DiagramPainter-backed CustomPaint widgets.
+    final diagramPaints = tester
+        .widgetList<CustomPaint>(find.byType(CustomPaint))
+        .where((w) => w.painter is DiagramPainter)
+        .toList();
+    expect(diagramPaints.length, equals(5));
+
+    // Every option is its own DiagramAnswerButton (not text) - none of
+    // the internal option id strings should ever be shown to the player.
+    expect(find.byType(DiagramAnswerButton), findsNWidgets(4));
+    for (final option in controller.currentPuzzle!.options) {
+      expect(find.text(option), findsNothing);
+    }
+
+    // The reference diagram + 2x2 option grid together are taller than
+    // this test's fake viewport (same as any tall content inside the
+    // existing SingleChildScrollView) - scroll it into view first, same
+    // as tapping any off-screen option would require on a real small
+    // phone.
+    final firstOption = find.byType(DiagramAnswerButton).first;
+    await tester.ensureVisible(firstOption);
+    await tester.pump();
+    await tester.tap(firstOption);
+    await tester.pump();
+
+    expect(controller.hasSelection, isTrue);
   });
 
   testWidgets(

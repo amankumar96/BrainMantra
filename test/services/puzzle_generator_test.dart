@@ -766,20 +766,29 @@ void _independentlyVerify(Puzzle puzzle) {
       }
 
     case PuzzleType.mirrorImage:
-      const verticalSymmetric = {
-        'A', 'H', 'I', 'M', 'O', 'T', 'U', 'V', 'W', 'X', 'Y',
-      };
-      const horizontalSymmetric = {'B', 'C', 'D', 'E', 'H', 'I', 'K', 'O', 'X'};
-      const mirrorPairs = {'b': 'd', 'd': 'b', 'p': 'q', 'q': 'p'};
-      final pairMatch =
-          RegExp(r"image of the letter '(\w)'").firstMatch(puzzle.questionText);
-      if (pairMatch != null) {
-        expect(mirrorPairs[pairMatch.group(1)!], equals(puzzle.correctAnswer));
-      } else if (puzzle.questionText.contains('vertical mirror')) {
-        expect(verticalSymmetric.contains(puzzle.correctAnswer), isTrue);
-      } else {
-        expect(horizontalSymmetric.contains(puzzle.correctAnswer), isTrue);
+      // A genuine diagram-as-answer-option puzzle (Phase 13) — the
+      // correct option's vertices must be exactly the reference shape's
+      // vertices flipped across the axis the question actually names,
+      // re-derived independently here rather than trusting the
+      // generator's own transform.
+      expect(puzzle.diagramData?.kind, equals(DiagramKind.polygon));
+      expect(puzzle.optionDiagrams, hasLength(4));
+      for (final d in puzzle.optionDiagrams!) {
+        expect(d.kind, equals(DiagramKind.polygon));
       }
+      final original = puzzle.diagramData!.vertices!;
+      final askMirror = puzzle.questionText.contains('MIRROR');
+      final expectedFlip = <double>[
+        for (var i = 0; i < original.length; i += 2)
+          if (askMirror) ...[-original[i], original[i + 1]]
+          else ...[
+            original[i],
+            -original[i + 1],
+          ],
+      ];
+      final correctIndex = puzzle.options.indexOf(puzzle.correctAnswer as String);
+      expect(correctIndex, greaterThanOrEqualTo(0));
+      expect(puzzle.optionDiagrams![correctIndex].vertices, equals(expectedFlip));
 
     case PuzzleType.paperFolding:
       final m = RegExp(r'folded in half (\d+) time.+?(\d+) hole')

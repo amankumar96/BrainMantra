@@ -1,91 +1,94 @@
+import '../models/diagram_data.dart';
 import '../models/puzzle.dart';
 import 'difficulty_curve.dart';
 import 'rng_service.dart';
 import 'rng_utils.dart';
 
-/// Mirror & Water Images (Phase 12, reasoning topic 1) — the classic
-/// letter-symmetry format real reasoning tests use for this topic when
-/// not showing an actual rendered image: which letters look identical
-/// under a vertical mirror (left-right flip) or a water/horizontal
-/// mirror (top-bottom flip), plus the well-known b↔d / p↔q vertical
-/// mirror pairs. A *true* rendered mirror-image question (flip an
-/// arbitrary drawn figure) needs the diagram-as-answer-option
-/// infrastructure this project's Stage 2 diagram work never built (see
-/// ROADMAP_PHASE2.md's Phase 8) — this is the honest text-based
-/// alternative, not a placeholder for it.
+/// Mirror & Water Images (Phase 12 → Phase 13): a genuine
+/// diagram-as-answer-option puzzle — a reference shape is drawn once
+/// (`Puzzle.diagramData`), and the 4 answer options are themselves small
+/// rendered shapes (`Puzzle.optionDiagrams`), not text. Every shape is a
+/// hand-picked asymmetric polygon (so a flip is actually visually
+/// consequential) transformed by simple coordinate-flip arithmetic —
+/// never hardcoded per-option, always derived from the same reference
+/// vertices the question shows.
+///
+/// "Mirror image" = reflection across a vertical axis (x, y) → (−x, y),
+/// as if standing a mirror upright beside the shape. "Water image" =
+/// reflection across a horizontal axis (x, y) → (x, −y), as if looking at
+/// the shape's reflection in water below it.
 abstract final class MirrorImageGenerator {
-  // TUNABLE — standard sets cited across reasoning-test prep material.
-  static const _verticalSymmetric = [
-    'A', 'H', 'I', 'M', 'O', 'T', 'U', 'V', 'W', 'X', 'Y',
+  // TUNABLE — hand-picked asymmetric polygons (simple, non-self-
+  // intersecting) so every flip is visually distinct from the original
+  // and from the other flip axis. Flattened [x0,y0,x1,y1,...] unit
+  // coordinates — DiagramPainter.polygonPoints fits these to whatever box
+  // they're actually drawn in, so the exact scale here doesn't matter.
+  static const _templates = [
+    [0.0, 0.0, 0.0, 3.0, 2.0, 2.0, 2.0, 1.3, 0.7, 1.3, 0.7, 0.0],
+    [0.0, 0.0, 0.0, 2.0, 1.0, 2.0, 1.0, 1.0, 2.0, 1.0, 2.0, 0.0],
+    [0.0, 0.6, 1.2, 0.6, 1.2, 0.0, 2.0, 1.0, 1.2, 2.0, 1.2, 1.4, 0.0, 1.4],
   ];
-  static const _verticalAsymmetric = [
-    'B', 'C', 'D', 'E', 'F', 'G', 'J', 'K', 'L', 'N', 'P', 'Q', 'R', 'S', 'Z',
-  ];
-  static const _horizontalSymmetric = [
-    'B', 'C', 'D', 'E', 'H', 'I', 'K', 'O', 'X',
-  ];
-  static const _horizontalAsymmetric = [
-    'A', 'F', 'G', 'J', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'Y', 'Z',
-  ];
-  static const _mirrorPairs = {'b': 'd', 'd': 'b', 'p': 'q', 'q': 'p'};
 
   static Puzzle generate({required int tier, required RngService rng}) {
     final params = DifficultyCurve.paramsForTier(tier);
-    return switch (rng.nextInt(0, 2)) {
-      0 => _sameUnderMirror(tier, params.timeLimitSeconds, rng, vertical: true),
-      1 => _sameUnderMirror(tier, params.timeLimitSeconds, rng, vertical: false),
-      _ => _pairLookup(tier, params.timeLimitSeconds, rng),
-    };
-  }
+    final template = _templates[rng.nextInt(0, _templates.length - 1)];
+    final askMirror = rng.nextBool(); // false => water image instead
 
-  static Puzzle _sameUnderMirror(
-    int tier,
-    int timeLimitSeconds,
-    RngService rng, {
-    required bool vertical,
-  }) {
-    final symmetric = vertical ? _verticalSymmetric : _horizontalSymmetric;
-    final asymmetric = vertical ? _verticalAsymmetric : _horizontalAsymmetric;
-    final correct = symmetric[rng.nextInt(0, symmetric.length - 1)];
-    final distractors = <String>{};
-    while (distractors.length < 3) {
-      distractors.add(asymmetric[rng.nextInt(0, asymmetric.length - 1)]);
-    }
+    final original = template;
+    final flipH = _flipH(template);
+    final flipV = _flipV(template);
+    final rotated = _rotate180(template);
+    final correctShape = askMirror ? flipH : flipV;
+    final wrongAxisShape = askMirror ? flipV : flipH;
+
+    // (id, vertices) pairs, shuffled together so the correct answer's
+    // grid position is random but every id stays paired with its own
+    // shape.
+    final candidates = [
+      (id: 'opt0', vertices: correctShape),
+      (id: 'opt1', vertices: original),
+      (id: 'opt2', vertices: wrongAxisShape),
+      (id: 'opt3', vertices: rotated),
+    ];
+    shuffleList(candidates, rng);
+    final correctId =
+        candidates.firstWhere((c) => c.vertices == correctShape).id;
+
     return Puzzle(
       id: deterministicId(rng),
       category: PuzzleCategory.reasoningTest,
       type: PuzzleType.mirrorImage,
-      questionText: vertical
-          ? 'Which letter looks exactly the same in a mirror held '
-              'upright beside it (a vertical mirror)?'
-          : "Which letter looks exactly the same in a water/pond "
-              'reflection below it (a horizontal mirror)?',
-      options: buildMcOptionsFromCandidates(correct, distractors.toList(), rng),
-      correctAnswer: correct,
+      questionText: askMirror
+          ? 'Which figure is the MIRROR image (reflected left-right) of '
+              'the shape shown above?'
+          : 'Which figure is the WATER image (reflected upside-down) of '
+              'the shape shown above?',
+      options: candidates.map((c) => c.id).toList(),
+      correctAnswer: correctId,
       difficultyTier: tier,
-      timeLimitSeconds: timeLimitSeconds,
-      hint: vertical
-          ? 'Letters with left-right symmetry look the same in a vertical mirror.'
-          : 'Letters with top-bottom symmetry look the same in a water image.',
+      timeLimitSeconds: params.timeLimitSeconds,
+      diagramData: DiagramData(kind: DiagramKind.polygon, vertices: original),
+      optionDiagrams: [
+        for (final c in candidates)
+          DiagramData(kind: DiagramKind.polygon, vertices: c.vertices),
+      ],
+      hint: askMirror
+          ? 'A mirror image flips the shape left-right, like standing a '
+              'mirror upright beside it.'
+          : 'A water image flips the shape upside-down, like its '
+              "reflection in water below it.",
     );
   }
 
-  static Puzzle _pairLookup(int tier, int timeLimitSeconds, RngService rng) {
-    final letters = _mirrorPairs.keys.toList();
-    final letter = letters[rng.nextInt(0, letters.length - 1)];
-    final correct = _mirrorPairs[letter]!;
-    final candidates = {'b', 'd', 'p', 'q'}..remove(correct);
-    return Puzzle(
-      id: deterministicId(rng),
-      category: PuzzleCategory.reasoningTest,
-      type: PuzzleType.mirrorImage,
-      questionText: "What is the mirror image of the letter '$letter' "
-          '(vertical mirror)?',
-      options: buildMcOptionsFromCandidates(correct, candidates.toList(), rng),
-      correctAnswer: correct,
-      difficultyTier: tier,
-      timeLimitSeconds: timeLimitSeconds,
-      hint: "'b' and 'd' mirror each other; so do 'p' and 'q'.",
-    );
-  }
+  static List<double> _flipH(List<double> v) => [
+        for (var i = 0; i < v.length; i += 2) ...[-v[i], v[i + 1]],
+      ];
+
+  static List<double> _flipV(List<double> v) => [
+        for (var i = 0; i < v.length; i += 2) ...[v[i], -v[i + 1]],
+      ];
+
+  static List<double> _rotate180(List<double> v) => [
+        for (var i = 0; i < v.length; i += 2) ...[-v[i], -v[i + 1]],
+      ];
 }

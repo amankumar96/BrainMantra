@@ -25,6 +25,10 @@ const _sampleByKind = <DiagramKind, DiagramData>{
     categories: ['A', 'B', 'C', 'D'],
     values: [10, 40, 25, 60],
   ),
+  DiagramKind.polygon: DiagramData(
+    kind: DiagramKind.polygon,
+    vertices: [0, 0, 0, 3, 2, 2, 2, 1.3, 0.7, 1.3, 0.7, 0],
+  ),
 };
 
 void main() {
@@ -79,6 +83,44 @@ void main() {
             'bounds', () {
           final points =
               trianglePoints(entry.value, size, padding: 24);
+          final bounds = Rect.fromLTWH(0, 0, size.width, size.height);
+          for (final p in points) {
+            expect(bounds.contains(p), isTrue,
+                reason: 'point $p escaped bounds $bounds for '
+                    '${entry.key} at $size');
+          }
+        });
+      }
+    }
+  });
+
+  group('polygonPoints always fits within the given size', () {
+    // Same regression rationale as trianglePoints above — a shape's own
+    // vertex coordinates use an arbitrary unit scale, never necessarily
+    // matching the box it's actually drawn in, so the fit-to-box math is
+    // exactly what's under test here, not just "does it paint".
+    const cases = <String, List<double>>{
+      'small compact shape': [0, 0, 0, 1, 1, 1, 1, 0],
+      'wide flat shape': [0, 0, 0, 1, 10, 1, 10, 0],
+      'tall narrow shape': [0, 0, 0, 10, 1, 10, 1, 0],
+      'irregular hexagon-ish shape': [
+        0, 0, 0, 3, 2, 2, 2, 1.3, 0.7, 1.3, 0.7, 0,
+      ],
+      'shape with negative coordinates (a flipped figure)': [
+        0, 0, 0, -3, -2, -2, -2, -1.3, -0.7, -1.3, -0.7, 0,
+      ],
+    };
+    const sizes = [
+      Size(300, 200),
+      Size(80, 80), // a compact answer-option box, not a full question diagram
+      Size(140, 200),
+    ];
+
+    for (final entry in cases.entries) {
+      for (final size in sizes) {
+        test('${entry.key} @ ${size.width}x${size.height} stays within '
+            'bounds', () {
+          final points = polygonPoints(entry.value, size, padding: 12);
           final bounds = Rect.fromLTWH(0, 0, size.width, size.height);
           for (final p in points) {
             expect(bounds.contains(p), isTrue,

@@ -45,7 +45,7 @@ The original draft of this section cited a "geofig" (SymPy-based) library and a 
 
 ### Two-stage scope
 - **Stage 1 (built) — diagram in the question, text options.** The diagram sits *after* the question text, side-by-side with the options rather than stacked above them — this fits the existing architecture almost for free, since `AnswerButton.label` is already just a `String`.
-- **Stage 2 (not built) — diagram-as-answer-option.** Mirror image, rotation, figure series — needs the four *options themselves* to be little rendered diagrams, which `AnswerButton` can't do yet (it only renders a text `label`). Real, contained future scope: a `Puzzle.optionDiagrams` field and a diagram-rendering `AnswerButton` variant. Not started.
+- **Stage 2 (✅ built — see Phase 13) — diagram-as-answer-option.** The four *options themselves* are little rendered diagrams — `Puzzle.optionDiagrams` and the `DiagramAnswerButton` widget this section originally scoped, built out for `mirrorImage`.
 
 ### What was actually built (Stage 1)
 | Type | `PuzzleType` | Generator | Diagram |
@@ -225,9 +225,12 @@ generous 30-70% band (not a strict alternation, still genuinely random within ea
 All sourced from the same well-established verbal/logical-reasoning question formats real reasoning
 tests use — **text-based by design**, not a placeholder for rendered images. Three of the ten (mirror
 images, paper folding, figure series) are topics that could *also* be asked as literal rendered
-figures, but that needs the diagram-as-answer-option infrastructure this project's Stage 2 diagram
-work (see Phase 8) never built — these use the standard textual equivalents real test-prep material
-already treats as the same skill, not a workaround:
+figures, but that needed the diagram-as-answer-option infrastructure this project's Stage 2 diagram
+work (see Phase 8) hadn't built yet at the time — these use the standard textual equivalents real
+test-prep material already treats as the same skill, not a workaround. (Stage 2 was built shortly
+after, in Phase 13 below — `mirrorImage` was rebuilt on top of it as the proof case; `paperFolding`
+and `figureSeries` still use their text-based form here, which remains a legitimate implementation on
+its own.)
 
 | Generator | Format | Diagram-would-need-Stage-2? |
 |---|---|---|
@@ -266,6 +269,57 @@ rewritten to match: below-50/49-boundary/50-100-band/above-100/101-boundary/nega
 
 ---
 
+## Phase 13 — Diagram-as-Answer-Option ✅ Built
+
+The Stage 2 work flagged as not-yet-built back in Phase 8 — a multiple-choice question whose 4
+*options* are themselves small rendered diagrams, not text. `mirrorImage` was rebuilt on top of it as
+the proof case (a genuinely visual reasoning topic, not a text stand-in anymore); `paperFolding` and
+`figureSeries` stay text-based, which is still their own honest, tested implementation.
+
+**Model**: `Puzzle` gained `optionDiagrams` (`List<DiagramData>?`, one entry per `options[i]`, same
+order — additive, `null` for every other puzzle type) and `DiagramData` gained a `polygon` kind
+holding flattened `[x0,y0,x1,y1,...]` vertices in an arbitrary unit scale. `options[i]` is purely an
+internal selection/correctness key when `optionDiagrams` is set — the id string is never shown to the
+player, only the rendered shape is.
+
+**Painter**: `diagram_painter.dart` gained `polygonPoints()` (a top-level pure function, same
+"measure the real bounding box first, then pick one scale for both axes" technique `trianglePoints`
+already used, generalized to any vertex count and any coordinate scale — including negative
+coordinates, since a flipped shape's vertices are exactly that) and `_paintPolygon` (a light fill +
+stroke outline, since a small option-sized shape has no room for the angle/length labels the other
+diagrams rely on for legibility).
+
+**Widget**: `DiagramAnswerButton` (new, in `answer_button.dart`) — shares `AnswerButton`'s exact color
+states via an extracted `colorsForAnswerState()` helper, so text and diagram options read as the same
+visual family. Always wrapped in an `AspectRatio`-driven grid cell by its caller and backed by a hard
+`ClipRect`, so every option is the same uniform square regardless of the shape drawn inside it — a
+shape can never make its own box irregular or spill past its border.
+
+**Layout**: `game_screen.dart`'s `_QuestionAndOptions` gained a third branch (alongside the existing
+"diagram-in-question" and "plain text options" layouts): when `optionDiagrams` is set, an optional
+reference-shape diagram (`puzzle.diagramData` — e.g. the original, un-mirrored figure) renders above a
+`GridView.count(crossAxisCount: 2, childAspectRatio: 1)` of 4 `DiagramAnswerButton`s — a fixed, uniform
+2x2 block, never a ragged list.
+
+**Generator**: `mirror_image_generator.dart` rewritten around 3 hand-picked asymmetric polygon
+templates (asymmetric so a flip is actually visually consequential) and pure coordinate-flip
+arithmetic — mirror image = `(x,y) → (−x,y)`, water image = `(x,y) → (x,−y)` — with distractors built
+from the original (unflipped), the wrong flip axis, and a 180° rotation. Every option's shape is
+derived from the same reference vertices the question shows, never invented independently.
+
+**Testing**: `puzzle_generator_test.dart`'s `mirrorImage` case now re-derives the correct option's
+vertices independently (flip the reference shape's own vertices by the axis the question text names,
+compare to the option at `correctAnswer`'s index) rather than checking a letter table. New coverage:
+`diagram_painter_test.dart` (polygon paints without throwing + `polygonPoints` containment across 5
+shapes × 3 box sizes, including negative-coordinate/flipped shapes and a small 80×80 answer-option-
+sized box), `answer_button_test.dart` (`DiagramAnswerButton` tap/disabled/ClipRect-present coverage),
+and `game_screen_test.dart` (end-to-end: exactly 5 `DiagramPainter`-backed `CustomPaint`s render — 1
+reference + 4 options — no option id text ever shown, and tapping one actually selects it).
+
+**Phase 13 exit criteria:** met — `flutter analyze` clean, all 531 tests passing.
+
+---
+
 ## Master Checklist
 
 - [x] Phases 0–6 (core build, playable UI, daily challenge, ads, polish, store submission — see `ARCHITECTURE.md`)
@@ -273,12 +327,13 @@ rewritten to match: below-50/49-boundary/50-100-band/above-100/101-boundary/nega
 - [ ] Step 7.3: topic selection UI (not started)
 - [x] Step 8: diagram math (triangle law-of-sines placement, no library needed — geofig/p33 references corrected), `DiagramPainter` (`CustomPainter`, no charting package), 4 Stage-1 diagram types + tests, tier 3-4 hints, options-left/diagram-right layout
 - [ ] **Gate: 20+ diagrams manually reviewed on a real device for legibility/layout correctness** — not yet done
-- [ ] Stage 2 (diagram-as-answer-option: mirror/rotation/figure-series) — separate future scope, not started
+- [x] Stage 2 (diagram-as-answer-option) — see Phase 13; `mirrorImage` rebuilt on it, `paperFolding`/`figureSeries` still text-based (rotation not built as a distinct topic)
 - [ ] Phase 9 (question database) — not started
 - [x] Phase 10: Geometry (perimeter), Probability, Ratio generators — real-life framed, `gcd()` helper added to `rng_utils.dart`, 359 tests passing
 - [x] Phase 11A: tier timing tightened (1/2/5/7 min), hints unlocked at every tier for all 10 existing formula-driven generators — 366 tests passing
 - [x] Phase 11B: 15 new generators covering the 22-topic spec (number classification, surds, algebraic identities, linear/quadratic equations, progressions, trig ratios/identities, advanced mensuration, coordinate geometry, logarithms, permutation & combination, statistics, unit conversions, work/time, mixture & alligation) — 453 tests passing
 - [x] Phase 12: category-balanced type picker (math/reasoning 50/50), 10 new reasoning generators (mirror/water images, paper folding, figure series, seating arrangements, coding, direction sense, word puzzles, analogy, ranking, statement & conclusion), and a simplified score-to-tier band (<50→1, 50-100→1-2, >100→3-4) — 511 tests passing
+- [x] Phase 13: diagram-as-answer-option (Stage 2) — `Puzzle.optionDiagrams`, `DiagramData.polygon`/`polygonPoints`, `DiagramAnswerButton`, a uniform 2x2 grid layout, `mirrorImage` rebuilt as a genuine rendered-shape puzzle — 531 tests passing
 
 ## How to Hand This to Claude Code
 

@@ -412,7 +412,8 @@ class _QuestionAndOptionsState extends State<_QuestionAndOptions> {
 
   @override
   Widget build(BuildContext context) {
-    final hasDiagram = puzzle.diagramData != null;
+    final hasDiagramOptions = puzzle.optionDiagrams != null;
+    final hasDiagram = puzzle.diagramData != null && !hasDiagramOptions;
     return SingleChildScrollView(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -433,11 +434,17 @@ class _QuestionAndOptionsState extends State<_QuestionAndOptions> {
             _hintRevealed ? _buildHintText(puzzle.hint!) : _buildHintButton(),
           ],
           const SizedBox(height: AppSpacing.md),
-          // The diagram sits after the question, side-by-side with the
-          // options rather than stacked above them — options left
-          // (left-aligned), diagram right. Every non-diagram question
-          // type keeps the plain centered single-column layout below.
-          if (hasDiagram) _buildOptionsWithDiagram() else _buildOptionsOnly(),
+          // Three layouts: (1) diagram-as-answer-option (Phase 13) — a
+          // reference shape, if any, then a uniform 2x2 grid of rendered
+          // option-shapes; (2) diagram-in-question, plain text options
+          // (Phase 8 Stage 1) — options left, diagram right; (3) every
+          // other question type's plain centered single-column list.
+          if (hasDiagramOptions)
+            _buildDiagramOptions()
+          else if (hasDiagram)
+            _buildOptionsWithDiagram()
+          else
+            _buildOptionsOnly(),
         ],
       ),
     );
@@ -502,6 +509,55 @@ class _QuestionAndOptionsState extends State<_QuestionAndOptions> {
                   : () => controller.selectOption(option),
             ),
           ),
+      ],
+    );
+  }
+
+  /// Phase 13: renders `puzzle.optionDiagrams` as a uniform 2x2 grid of
+  /// square boxes (via `AspectRatio` on every cell, same as
+  /// `DiagramAnswerButton`'s own doc comment describes) — every option is
+  /// the exact same size and shape regardless of the underlying figure,
+  /// so nothing here can end up looking irregular. The optional reference
+  /// shape (`puzzle.diagramData` — e.g. the original, un-mirrored figure)
+  /// sits above the grid in the same bordered-frame style
+  /// `_buildOptionsWithDiagram` already uses for its question diagram.
+  Widget _buildDiagramOptions() {
+    return Column(
+      children: [
+        if (puzzle.diagramData != null) ...[
+          Container(
+            width: 160,
+            height: 120,
+            padding: const EdgeInsets.all(AppSpacing.xs),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: AppColors.silver, width: 1.5),
+              borderRadius: BorderRadius.circular(AppSpacing.sm),
+            ),
+            child: ClipRect(
+              child: CustomPaint(painter: DiagramPainter(puzzle.diagramData!)),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+        ],
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: AppSpacing.sm,
+          crossAxisSpacing: AppSpacing.sm,
+          childAspectRatio: 1,
+          children: [
+            for (var i = 0; i < puzzle.options.length; i++)
+              DiagramAnswerButton(
+                diagram: puzzle.optionDiagrams![i],
+                state: _stateFor(puzzle.options[i]),
+                onTap: controller.isSubmitted
+                    ? null
+                    : () => controller.selectOption(puzzle.options[i]),
+              ),
+          ],
+        ),
       ],
     );
   }

@@ -1,6 +1,18 @@
 /// Which shape/visualization a [DiagramData] describes. `diagram_painter.dart`
 /// switches on this to decide how to draw it.
-enum DiagramKind { triangle, rectangle, circle, cylinder, coordinatePoint, barGraph }
+enum DiagramKind {
+  triangle,
+  rectangle,
+  circle,
+  cylinder,
+  coordinatePoint,
+  barGraph,
+
+  /// An arbitrary closed polygon — used for diagram-as-answer-option
+  /// puzzles (Phase 13: mirror/water images), where each of the 4 options
+  /// is itself a small rendered shape rather than text. See [vertices].
+  polygon,
+}
 
 /// Everything a diagram painter needs to render one diagram, plus enough
 /// raw numeric data for a test to independently re-derive a puzzle's
@@ -39,6 +51,15 @@ class DiagramData {
   final List<String>? categories;
   final List<int>? values;
 
+  /// [DiagramKind.polygon] only: a closed shape's vertices, flattened as
+  /// `[x0, y0, x1, y1, ...]` in an arbitrary (not necessarily 0..1) unit
+  /// space — `DiagramPainter` fits the shape's own bounding box to
+  /// whatever box it's actually given, the same "measure first, then pick
+  /// one scale for both axes" technique `trianglePoints` already uses, so
+  /// the coordinate scale here never needs to match the eventual on-screen
+  /// size.
+  final List<double>? vertices;
+
   const DiagramData({
     required this.kind,
     this.angles,
@@ -48,6 +69,7 @@ class DiagramData {
     this.y,
     this.categories,
     this.values,
+    this.vertices,
   });
 
   Map<String, dynamic> toJson() => {
@@ -59,6 +81,7 @@ class DiagramData {
         'y': y,
         'categories': categories,
         'values': values,
+        'vertices': vertices,
       };
 
   factory DiagramData.fromJson(Map<String, dynamic> json) {
@@ -72,6 +95,8 @@ class DiagramData {
       y: (json['y'] as num?)?.toDouble(),
       categories: (json['categories'] as List?)?.map((v) => v as String).toList(),
       values: (json['values'] as List?)?.map((v) => v as int).toList(),
+      vertices:
+          (json['vertices'] as List?)?.map((v) => (v as num).toDouble()).toList(),
     );
   }
 
@@ -86,7 +111,8 @@ class DiagramData {
         other.x == x &&
         other.y == y &&
         _listEquals(other.categories, categories) &&
-        _listEquals(other.values, values);
+        _listEquals(other.values, values) &&
+        _listEquals(other.vertices, vertices);
   }
 
   @override
@@ -99,12 +125,14 @@ class DiagramData {
         y,
         categories == null ? null : Object.hashAll(categories!),
         values == null ? null : Object.hashAll(values!),
+        vertices == null ? null : Object.hashAll(vertices!),
       );
 
   @override
   String toString() => 'DiagramData(kind: $kind, angles: $angles, '
       'unknownAngleIndex: $unknownAngleIndex, dimensions: $dimensions, '
-      'x: $x, y: $y, categories: $categories, values: $values)';
+      'x: $x, y: $y, categories: $categories, values: $values, '
+      'vertices: $vertices)';
 }
 
 bool _listEquals<T>(List<T>? a, List<T>? b) {

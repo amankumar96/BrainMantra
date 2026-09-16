@@ -105,6 +105,15 @@ class Puzzle {
   /// graph-reading) leave it null.
   final String? hint;
 
+  /// Non-null only for Phase 13 diagram-as-answer-option types (e.g.
+  /// mirrorImage's rendered sub-cases): one [DiagramData] per entry in
+  /// [options], same length and same order — `options[i]` is the internal
+  /// selection/correctness key for the shape drawn from
+  /// `optionDiagrams[i]`. When this is set, the UI renders each option as
+  /// a small diagram instead of `options[i]` as text (the id strings are
+  /// never shown to the player). Null for every other puzzle type.
+  final List<DiagramData>? optionDiagrams;
+
   Puzzle({
     String? id,
     required this.category,
@@ -116,7 +125,12 @@ class Puzzle {
     required this.timeLimitSeconds,
     this.diagramData,
     this.hint,
-  }) : id = id ?? _uuid.v4();
+    this.optionDiagrams,
+  })  : assert(
+          optionDiagrams == null || optionDiagrams.length == options.length,
+          'optionDiagrams must be null or exactly one entry per option',
+        ),
+        id = id ?? _uuid.v4();
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -129,6 +143,7 @@ class Puzzle {
         'timeLimitSeconds': timeLimitSeconds,
         'diagramData': diagramData?.toJson(),
         'hint': hint,
+        'optionDiagrams': optionDiagrams?.map((d) => d.toJson()).toList(),
       };
 
   factory Puzzle.fromJson(Map<String, dynamic> json) {
@@ -142,6 +157,7 @@ class Puzzle {
       );
     }
     final diagramJson = json['diagramData'] as Map<String, dynamic>?;
+    final optionDiagramsJson = json['optionDiagrams'] as List?;
     return Puzzle(
       id: json['id'] as String,
       category: PuzzleCategory.values.byName(json['category'] as String),
@@ -153,6 +169,9 @@ class Puzzle {
       timeLimitSeconds: json['timeLimitSeconds'] as int,
       diagramData: diagramJson == null ? null : DiagramData.fromJson(diagramJson),
       hint: json['hint'] as String?,
+      optionDiagrams: optionDiagramsJson
+          ?.map((d) => DiagramData.fromJson(d as Map<String, dynamic>))
+          .toList(),
     );
   }
 
@@ -169,7 +188,8 @@ class Puzzle {
         other.difficultyTier == difficultyTier &&
         other.timeLimitSeconds == timeLimitSeconds &&
         other.diagramData == diagramData &&
-        other.hint == hint;
+        other.hint == hint &&
+        listEquals(other.optionDiagrams, optionDiagrams);
   }
 
   @override
@@ -184,6 +204,7 @@ class Puzzle {
         timeLimitSeconds,
         diagramData,
         hint,
+        optionDiagrams == null ? null : Object.hashAll(optionDiagrams!),
       );
 
   @override
@@ -192,5 +213,5 @@ class Puzzle {
       'questionText: $questionText, options: $options, '
       'correctAnswer: $correctAnswer, difficultyTier: $difficultyTier, '
       'timeLimitSeconds: $timeLimitSeconds, diagramData: $diagramData, '
-      'hint: $hint)';
+      'hint: $hint, optionDiagrams: $optionDiagrams)';
 }

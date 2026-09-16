@@ -51,6 +51,46 @@ List<Offset> trianglePoints(
   return [place(unitP0), place(unitP1), place(unitP2)];
 }
 
+/// Computes an arbitrary polygon's vertices in canvas space, guaranteed to
+/// fit within `Rect.fromLTWH(0, 0, size.width, size.height)` regardless of
+/// the shape's own coordinate scale or aspect ratio — the same "measure
+/// the real bounding box first, then pick one scale for both axes"
+/// technique [trianglePoints] already uses, generalized to any vertex
+/// count. A top-level, pure function for the same reason `trianglePoints`
+/// is: a test can assert the "always fits" guarantee directly.
+List<Offset> polygonPoints(
+  List<double> flatVertices,
+  Size size, {
+  required double padding,
+}) {
+  final points = <Offset>[
+    for (var i = 0; i + 1 < flatVertices.length; i += 2)
+      Offset(flatVertices[i], flatVertices[i + 1]),
+  ];
+  final xs = points.map((p) => p.dx);
+  final ys = points.map((p) => p.dy);
+  final minX = xs.reduce(min);
+  final shapeWidth = xs.reduce(max) - minX;
+  final minY = ys.reduce(min);
+  final shapeHeight = ys.reduce(max) - minY;
+
+  final availableWidth = max(size.width - padding * 2, 10.0);
+  final availableHeight = max(size.height - padding * 2, 10.0);
+  // A degenerate (zero-width or zero-height) shape would divide by zero —
+  // fall back to 1.0 so a pathological input still lays out (clamped by
+  // the outer max() below) rather than producing NaN/Infinity offsets.
+  final scale = min(
+    shapeWidth == 0 ? availableWidth : availableWidth / shapeWidth,
+    shapeHeight == 0 ? availableHeight : availableHeight / shapeHeight,
+  );
+
+  Offset place(Offset unit) => Offset(
+        padding + (unit.dx - minX) * scale,
+        padding + (unit.dy - minY) * scale,
+      );
+  return [for (final p in points) place(p)];
+}
+
 /// Renders a [DiagramData] onto a [Canvas] — the "how do diagrams get
 /// created quickly" answer for this project: plain `Canvas` primitives
 /// (`drawPath`/`drawRect`/`drawCircle`/`drawOval`/`drawLine` plus
@@ -91,6 +131,8 @@ class DiagramPainter extends CustomPainter {
         _paintCoordinatePoint(canvas, size);
       case DiagramKind.barGraph:
         _paintBarGraph(canvas, size);
+      case DiagramKind.polygon:
+        _paintPolygon(canvas, size);
     }
   }
 
@@ -283,5 +325,32 @@ class DiagramPainter extends CustomPainter {
     canvas.drawLine(Offset(_padding, baseline),
         Offset(size.width - _padding, baseline),
         Paint()..color = Colors.black54..strokeWidth = 1.5);
+  }
+
+  /// A filled-outline closed polygon, fit to the box via [polygonPoints] —
+  /// used for both the single reference shape shown with the question and
+  /// each small answer-option shape (Phase 13). A lighter fill (not just a
+  /// stroke outline, unlike every other shape in this painter) makes a
+  /// small option-sized shape read clearly at a glance, since there's no
+  /// room for the angle/length labels the other diagrams rely on for
+  /// legibility at this size.
+  void _paintPolygon(Canvas canvas, Size size) {
+    // A smaller padding than the other shapes' default — polygon options
+    // render inside a compact answer box, not the larger question-diagram
+    // frame, so every available pixel matters more here.
+    const polygonPadding = 12.0;
+    final points = polygonPoints(data.vertices!, size, padding: polygonPadding);
+    final path = Path()..moveTo(points[0].dx, points[0].dy);
+    for (final p in points.skip(1)) {
+      path.lineTo(p.dx, p.dy);
+    }
+    path.close();
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = AppColors.primary.withValues(alpha: 0.15)
+        ..style = PaintingStyle.fill,
+    );
+    canvas.drawPath(path, _stroke);
   }
 }

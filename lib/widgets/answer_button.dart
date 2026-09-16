@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../models/diagram_data.dart';
 import '../utils/constants.dart';
+import 'diagram_painter.dart';
 
 /// The visual state one [AnswerButton] can be in. `game_screen` decides
 /// which state each button is in — this widget just renders whatever
@@ -85,33 +87,93 @@ class AnswerButton extends StatelessWidget {
     );
   }
 
-  /// Maps a state to (background, text, border) colors. Kept as one small
-  /// pure function so the color scheme can be adjusted in a single place.
-  (Color, Color, Color) _colorsFor(AnswerButtonState state) => switch (state) {
-        AnswerButtonState.normal => (
-            Colors.white,
-            Colors.black87,
-            AppColors.silver,
+  (Color, Color, Color) _colorsFor(AnswerButtonState state) =>
+      colorsForAnswerState(state);
+}
+
+/// Maps a state to (background, foreground, border) colors — shared by
+/// [AnswerButton] (text options) and [DiagramAnswerButton] (rendered-shape
+/// options) so both option styles read as the same visual family, kept as
+/// one small pure function so the color scheme can be adjusted in a single
+/// place.
+(Color, Color, Color) colorsForAnswerState(AnswerButtonState state) =>
+    switch (state) {
+      AnswerButtonState.normal => (
+          Colors.white,
+          Colors.black87,
+          AppColors.silver,
+        ),
+      AnswerButtonState.selected => (
+          AppColors.primary.withValues(alpha: 0.12),
+          AppColors.primary,
+          AppColors.primary,
+        ),
+      AnswerButtonState.correct => (
+          AppColors.correct.withValues(alpha: 0.15),
+          AppColors.correct,
+          AppColors.correct,
+        ),
+      AnswerButtonState.wrong => (
+          AppColors.wrong.withValues(alpha: 0.15),
+          AppColors.wrong,
+          AppColors.wrong,
+        ),
+      AnswerButtonState.disabled => (
+          Colors.white,
+          Colors.black38,
+          Colors.black12,
+        ),
+    };
+
+/// A multiple-choice option rendered as a small diagram instead of text —
+/// used when `Puzzle.optionDiagrams` is set (Phase 13: mirror/water image
+/// puzzles, where the 4 "answers" are themselves shapes to pick between).
+/// Deliberately square and fixed-size (always wrapped in an `AspectRatio`
+/// by its caller) with a hard `ClipRect` backstop, so all 4 options in a
+/// grid line up as one uniform, regular block — a shape can never make its
+/// own option box a different size or spill past its border, regardless
+/// of the shape's own aspect ratio. Shares [AnswerButton]'s exact color
+/// states via [colorsForAnswerState] so the two option styles never look
+/// like they belong to different apps.
+class DiagramAnswerButton extends StatelessWidget {
+  const DiagramAnswerButton({
+    super.key,
+    required this.diagram,
+    required this.onTap,
+    this.state = AnswerButtonState.normal,
+  });
+
+  final DiagramData diagram;
+  final VoidCallback? onTap;
+  final AnswerButtonState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final (background, _, borderColor) = colorsForAnswerState(state);
+    final effectiveOnTap = state == AnswerButtonState.disabled ? null : onTap;
+
+    return Material(
+      color: background,
+      borderRadius: BorderRadius.circular(AppSpacing.sm),
+      child: InkWell(
+        onTap: effectiveOnTap,
+        borderRadius: BorderRadius.circular(AppSpacing.sm),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppSpacing.sm),
+            border: Border.all(color: borderColor, width: 2),
           ),
-        AnswerButtonState.selected => (
-            AppColors.primary.withValues(alpha: 0.12),
-            AppColors.primary,
-            AppColors.primary,
+          // ClipRect is the hard backstop — DiagramPainter's own
+          // polygonPoints already fits any shape to the box it's given
+          // (see its doc comment), but this guarantees nothing can ever
+          // visually escape this option's bounds regardless of a future
+          // edge case in the painter, the same belt-and-braces pattern
+          // game_screen.dart's question-diagram frame already uses.
+          child: ClipRect(
+            child: CustomPaint(painter: DiagramPainter(diagram)),
           ),
-        AnswerButtonState.correct => (
-            AppColors.correct.withValues(alpha: 0.15),
-            AppColors.correct,
-            AppColors.correct,
-          ),
-        AnswerButtonState.wrong => (
-            AppColors.wrong.withValues(alpha: 0.15),
-            AppColors.wrong,
-            AppColors.wrong,
-          ),
-        AnswerButtonState.disabled => (
-            Colors.white,
-            Colors.black38,
-            Colors.black12,
-          ),
-      };
+        ),
+      ),
+    );
+  }
 }

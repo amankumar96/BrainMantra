@@ -36,6 +36,24 @@ enum PuzzleType {
   areaVolume,
   coordinateDistance,
   graphReading,
+  // mathTest — Phase 11B, the 22-topic spec (math-game-question-
+  // generators.md) grouped into related-formula generators, same "one
+  // PuzzleType, several sub-cases" shape as areaVolume/ratio/probability.
+  numberClassification,
+  surds,
+  algebraicIdentity,
+  linearEquation,
+  quadraticEquation,
+  progression,
+  trigRatio,
+  mensurationAdvanced,
+  coordinateGeometry,
+  logarithm,
+  permutationCombination,
+  statistics,
+  unitConversion,
+  workTime,
+  mixtureAlligation,
   // reasoningTest
   familyTree,
   shapeIdentification,

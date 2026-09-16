@@ -147,8 +147,8 @@ A small internal script (or a basic authenticated screen, gated behind a debug f
 
 Sourced from `math-game-question-generators.md` (a directive spec listing 22 math topics/formula
 groups pulled from a "Mathematical Formulas" reference sheet, plus explicit timing and hint
-requirements). Two parts: **(A)** the timing/hint policy change — ✅ built, applies to every existing
-generator; **(B)** the 22-topic-to-tier mapping — a roadmap for follow-up sessions, not started.
+requirements). Two parts, both ✅ built: **(A)** the timing/hint policy change, applied to every
+existing generator; **(B)** the 22-topic-to-tier mapping, and all 15 new generators built from it.
 
 ### A. Timing & hint policy — ✅ Built
 
@@ -166,46 +166,44 @@ generator; **(B)** the 22-topic-to-tier mapping — a roadmap for follow-up sess
   hint-gating check updated to match: `hint` is always non-null/non-empty for every hinted type now,
   at every tier, rather than only tier 3+.
 
-### B. Topic-to-tier mapping for the 22-topic spec — not started
+### B. Topic-to-tier mapping for the 22-topic spec — ✅ Built
 
-The spec's own topics (Number System, Surds & Indices, Algebraic Expressions, Linear Equations,
-Quadratic Equations, Progressions, Trigonometry, Mensuration, Coordinate Geometry, Logarithms,
-Permutation & Combination, Trigonometric Identities, Statistics, Unit Conversions, Work/Time/Pipes,
-Mixture & Alligation, Geometry Formulas, Algebraic Identities, Unit Conversions again, and a shared
-constants reference) map onto the 4 tiers below by genuine conceptual difficulty — a topic's *easiest*
-questions can still appear one tier down from where it's listed (e.g. a trivial log lookup could be
-tier 2), this is about where each topic's *center of mass* sits, not a hard wall.
+The spec's own 22 topics were grouped into 15 new `PuzzleType`s by related formula, the same "one
+PuzzleType, several sub-cases" shape `areaVolume`/`ratio`/`probability` already use — mapped onto the
+4 tiers below by genuine conceptual difficulty (a topic's *easiest* questions can still appear one
+tier down from where it's listed, this is about where each topic's *center of mass* sits):
 
-| Tier | Topics | Rationale |
+| Tier | Topics | Generator |
 |---|---|---|
-| **1** (60s) | Number classification (N/W/Z/Q/irrational/prime checks); basic unit conversions (length/weight/time); simple mensuration already built (rectangle/circle perimeter+area); basic percentage↔ratio conversion | Single-step lookups/classifications — no multi-step algebra |
-| **2** (120s) | Algebraic identity expansion `(a±b)²`, `(a+b)(a-b)`; single-variable linear equations; standard-angle trig ratio lookups (sin30°, tan45°, …); surds using known root values; work/time basics ("A does a job in x days"); SI (already built) | One clear formula, one substitution step |
-| **3** (300s/5min) | Quadratic equations (roots via formula, discriminant classification); AP/GP nth-term and sum; coordinate geometry (distance, slope, section formula); logarithm product/quotient rules; mensuration for sphere/cone/hemisphere/cylinder (cylinder already built); mixture & alligation; trig identities (Pythagorean forms); CI (already built) | Multi-step derivations, or a formula with several inputs to combine correctly |
-| **4** (420s/7min) | Permutation & Combination; pair of linear equations (cross-multiplication); double-angle trig identities; quadratic "form an equation from given roots" (inverse-direction problems); statistics variance/standard deviation; Heron's formula (three-input, two-stage) | Either a genuinely harder concept (nCr/nPr, double-angle) or a problem requiring backward reasoning from the answer |
+| **1** (60s) | Number classification (N/W/Z/prime checks); percentage↔ratio, length/weight/time conversions | `number_classification_generator.dart`, `unit_conversion_generator.dart` |
+| **2** (120s) | Algebraic identity expansion; single-variable linear equations; standard-angle trig lookups; surds (product rule, k√m simplification); work/time & pipe-cistern | `algebraic_identity_generator.dart`, `linear_equation_generator.dart`, `trig_ratio_generator.dart`, `surds_generator.dart`, `work_time_generator.dart` |
+| **3** (300s/5min) | Quadratic equations (Vieta's formulas, discriminant classification); AP/GP nth-term and sum; coordinate geometry (slope, midpoint, triangle area); logarithm product/quotient rules; sphere/cone/hemisphere/Heron's-formula/rhombus mensuration; mixture & alligation; Pythagorean trig identity | `quadratic_equation_generator.dart`, `progression_generator.dart`, `coordinate_geometry_generator.dart`, `logarithm_generator.dart`, `mensuration_advanced_generator.dart`, `mixture_alligation_generator.dart` |
+| **4** (420s/7min) | Permutation & Combination; pair of linear equations (cross-multiplication); double-angle trig identity; perpendicular-line slope; statistics variance | `permutation_combination_generator.dart`, `linear_equation_generator.dart` (pair sub-case), `trig_ratio_generator.dart`/`coordinate_geometry_generator.dart` (tier-gated sub-cases), `statistics_generator.dart` |
 
-**Hints for every new topic**: same rule as Part A — the formula itself is the hint text
-(`logₐ(xy) = logₐx + logₐy`, `ⁿCᵣ = n!/[r!(n-r)!]`, etc.), populated at every tier, not gated.
+`statistics_generator.dart` also covers mean/median/mode/range (tier 1-4, no tier gate on which
+sub-case can appear — only variance is tier 3-4-only).
 
-**Build order for follow-up sessions** (smallest/lowest-risk first, matching this project's own
-"non-diagram generators before diagram-touching ones" precedent from Phase 7):
-1. Non-diagram, single-formula topics: number classification, unit conversions, percentage↔ratio,
-   surds-with-known-roots, standard-angle trig lookup, work/time, log product/quotient rules.
-2. Algebra: identity expansion/factoring, linear equations (single var, then the pair/cross-
-   multiplication form), quadratic equations (roots, discriminant classification, then the
-   inverse "form the equation" direction).
-3. Progressions (AP/GP), coordinate geometry, mixture & alligation, statistics.
-4. Remaining mensuration shapes (sphere/cone/hemisphere; Heron's formula), trig identities
-   (Pythagorean, then double-angle), permutation & combination.
-5. Shared constants module (π, √2/√3/√5/√7/√10, common log values) — build this *alongside* step 1,
-   not after, since surds/mensuration/logarithms all need it from their first generator onward.
+**Every answer is exact, never hardcoded** — the same discipline as every prior generator, achieved
+by picking the *answer* first and deriving the question from it wherever a formula doesn't already
+guarantee an exact result: quadratic roots via Vieta's formulas (never solving for an actual root, so
+no ± ambiguity), cone/mensuration dimensions drawn from Pythagorean triples (never a rounded
+`√(r²+h²)`), work/time and pipe-cistern problems drawn from curated (individual-time, combined-time)
+pairs verified to divide evenly, Heron's-formula triangles from a table of integer-area triangles,
+and every fraction/ratio answer reduced via the shared `gcd()` helper.
 
-Every new generator follows the established `abstract final class` + static
-`generate({required tier, required RngService rng})` convention, self-validates its own answer (never
-hardcoded), and gets the same 500-generation fuzz + determinism + anti-duplicate + hint-gating
-coverage via `puzzle_generator_test.dart`'s shared per-type loop, per this project's standing rule.
+**Hints**: every generator populates a formula-text hint at every tier, per Part A's policy.
 
-**Phase 11 exit criteria:** Part A met (timing/hints, 366 tests passing). Part B not started — this
-section is the tracked plan for when that work begins.
+**Testing**: no dedicated test file per generator (matching Phase 7's convention) — every new type
+gets a case in `puzzle_generator_test.dart`'s shared `_independentlyVerify` switch, covered by its
+500-generation fuzz/determinism loop. Five types (`numberClassification`, `trigRatio`, `workTime`,
+and the pre-existing `probability`/`graphReading`/`coordinateDistance`/`shapeIdentification`) are
+excluded from the shared anti-duplicate check for the same birthday-paradox reason as before — each
+draws from a small fixed table/range rather than a wide one. One real bug caught by the fuzz suite
+along the way: `StatisticsGenerator._mode`'s three "other" values weren't guaranteed distinct from
+each other, so two could tie with the true mode — fixed by generating them into a `Set`.
+
+**Phase 11 exit criteria:** met — Parts A and B both built, `flutter analyze` clean, all 453 tests
+passing.
 
 ---
 
@@ -220,7 +218,7 @@ section is the tracked plan for when that work begins.
 - [ ] Phase 9 (question database) — not started
 - [x] Phase 10: Geometry (perimeter), Probability, Ratio generators — real-life framed, `gcd()` helper added to `rng_utils.dart`, 359 tests passing
 - [x] Phase 11A: tier timing tightened (1/2/5/7 min), hints unlocked at every tier for all 10 existing formula-driven generators — 366 tests passing
-- [ ] Phase 11B: the 22-topic-to-tier build (see Phase 11's table) — not started
+- [x] Phase 11B: 15 new generators covering the 22-topic spec (number classification, surds, algebraic identities, linear/quadratic equations, progressions, trig ratios/identities, advanced mensuration, coordinate geometry, logarithms, permutation & combination, statistics, unit conversions, work/time, mixture & alligation) — 453 tests passing
 
 ## How to Hand This to Claude Code
 

@@ -358,6 +358,385 @@ void _independentlyVerify(Puzzle puzzle) {
         expect((values[i] - values[j]).abs(), equals(puzzle.correctAnswer));
       }
 
+    case PuzzleType.numberClassification:
+      final prime = RegExp(r'Is (\d+) a prime number\?')
+          .firstMatch(puzzle.questionText);
+      if (prime != null) {
+        final n = int.parse(prime.group(1)!);
+        bool isPrime(int n) {
+          if (n < 2) return false;
+          for (var i = 2; i * i <= n; i++) {
+            if (n % i == 0) return false;
+          }
+          return true;
+        }
+        expect(isPrime(n), equals(puzzle.correctAnswer));
+      } else {
+        final m = RegExp(r'smallest number set that (-?\d+) belongs to')
+            .firstMatch(puzzle.questionText)!;
+        final n = int.parse(m.group(1)!);
+        final expected = n < 0
+            ? 'Integer (Z)'
+            : n == 0
+                ? 'Whole number (W)'
+                : 'Natural number (N)';
+        expect(expected, equals(puzzle.correctAnswer));
+      }
+
+    case PuzzleType.surds:
+      final product =
+          RegExp(r'√(\d+) × √(\d+) = √\?').firstMatch(puzzle.questionText);
+      if (product != null) {
+        final a = int.parse(product.group(1)!);
+        final b = int.parse(product.group(2)!);
+        expect(a * b, equals(puzzle.correctAnswer));
+      } else {
+        final m = RegExp(r'Simplify √(\d+) to the form k√m')
+            .firstMatch(puzzle.questionText)!;
+        final n = int.parse(m.group(1)!);
+        final answerMatch =
+            RegExp(r'^(\d+)√(\d+)$').firstMatch(puzzle.correctAnswer as String)!;
+        final k = int.parse(answerMatch.group(1)!);
+        final mVal = int.parse(answerMatch.group(2)!);
+        expect(k * k * mVal, equals(n));
+      }
+
+    case PuzzleType.algebraicIdentity:
+      final xa = RegExp(r'x=(-?\d+), a=(-?\d+)').firstMatch(puzzle.questionText)!;
+      final x = int.parse(xa.group(1)!);
+      final a = int.parse(xa.group(2)!);
+      final expected = puzzle.questionText.contains('(x+a)(x-a)')
+          ? x * x - a * a
+          : puzzle.questionText.contains('(x-a)² = x²')
+              ? x * x - 2 * x * a + a * a
+              : x * x + 2 * x * a + a * a; // (x+a)² and the (x+a)(x+a) case
+      expect(expected, equals(puzzle.correctAnswer));
+
+    case PuzzleType.linearEquation:
+      final pair = RegExp(r'(-?\d+)x \+ (-?\d+)y = (-?\d+) and '
+              r'(-?\d+)x \+ (-?\d+)y = (-?\d+)')
+          .firstMatch(puzzle.questionText);
+      if (pair != null) {
+        final a1 = int.parse(pair.group(1)!);
+        final b1 = int.parse(pair.group(2)!);
+        final c1 = int.parse(pair.group(3)!);
+        final a2 = int.parse(pair.group(4)!);
+        final b2 = int.parse(pair.group(5)!);
+        final c2 = int.parse(pair.group(6)!);
+        final denominator = a1 * b2 - a2 * b1;
+        final x = (c1 * b2 - c2 * b1) / denominator;
+        expect(x.round(), equals(puzzle.correctAnswer));
+      } else {
+        final m = RegExp(r'Solve for x: (-?\d+)x ([+-]) (\d+) = 0')
+            .firstMatch(puzzle.questionText)!;
+        final a = int.parse(m.group(1)!);
+        final sign = m.group(2)!;
+        final bAbs = int.parse(m.group(3)!);
+        final b = sign == '+' ? bAbs : -bAbs;
+        expect(-b ~/ a, equals(puzzle.correctAnswer));
+      }
+
+    case PuzzleType.quadraticEquation:
+      final vieta = RegExp(r'For x² ([+-]) (\d+)x ([+-]) (\d+) = 0, find the '
+              r'(sum|product) of the roots')
+          .firstMatch(puzzle.questionText);
+      if (vieta != null) {
+        final b = vieta.group(1) == '+'
+            ? int.parse(vieta.group(2)!)
+            : -int.parse(vieta.group(2)!);
+        final c = vieta.group(3) == '+'
+            ? int.parse(vieta.group(4)!)
+            : -int.parse(vieta.group(4)!);
+        final wantsSum = vieta.group(5) == 'sum';
+        expect(wantsSum ? -b : c, equals(puzzle.correctAnswer));
+      } else {
+        final m = RegExp(r'does (-?\d+)x² ([+-]) (\d+)x ([+-]) (\d+) = 0 have')
+            .firstMatch(puzzle.questionText)!;
+        final a = int.parse(m.group(1)!);
+        final b =
+            m.group(2) == '+' ? int.parse(m.group(3)!) : -int.parse(m.group(3)!);
+        final c =
+            m.group(4) == '+' ? int.parse(m.group(5)!) : -int.parse(m.group(5)!);
+        final d = b * b - 4 * a * c;
+        final expected = d > 0
+            ? '2 distinct real roots'
+            : d == 0
+                ? '1 repeated real root'
+                : 'No real roots';
+        expect(expected, equals(puzzle.correctAnswer));
+      }
+
+    case PuzzleType.progression:
+      if (puzzle.questionText.contains('sum of its first')) {
+        final m = RegExp(r'starts at (\d+) with common difference (\d+).+'
+                r'first (\d+) terms')
+            .firstMatch(puzzle.questionText)!;
+        final a = int.parse(m.group(1)!);
+        final d = int.parse(m.group(2)!);
+        final n = int.parse(m.group(3)!);
+        expect((n ~/ 2) * (2 * a + (n - 1) * d), equals(puzzle.correctAnswer));
+      } else if (puzzle.questionText.contains('AP starts')) {
+        final m = RegExp(r'starts at (\d+) with common difference (\d+).+'
+                r'its (\d+)th term')
+            .firstMatch(puzzle.questionText)!;
+        final a = int.parse(m.group(1)!);
+        final d = int.parse(m.group(2)!);
+        final n = int.parse(m.group(3)!);
+        expect(a + (n - 1) * d, equals(puzzle.correctAnswer));
+      } else {
+        final m = RegExp(r'GP starts at (\d+) with common ratio (\d+).+'
+                r'its (\d+)th term')
+            .firstMatch(puzzle.questionText)!;
+        final a = int.parse(m.group(1)!);
+        final r = int.parse(m.group(2)!);
+        final n = int.parse(m.group(3)!);
+        var expected = a;
+        for (var i = 1; i < n; i++) {
+          expected *= r;
+        }
+        expect(expected, equals(puzzle.correctAnswer));
+      }
+
+    case PuzzleType.trigRatio:
+      const standardTable = {
+        '0': {'sin': '0', 'cos': '1', 'tan': '0'},
+        '30': {'sin': '1/2', 'cos': '√3/2', 'tan': '1/√3'},
+        '45': {'sin': '1/√2', 'cos': '1/√2', 'tan': '1'},
+        '60': {'sin': '√3/2', 'cos': '1/2', 'tan': '√3'},
+        '90': {'sin': '1', 'cos': '0'},
+      };
+      final lookup =
+          RegExp(r'What is (sin|cos|tan)\((\d+)°\)\?').firstMatch(puzzle.questionText);
+      final doubleAngle = RegExp(
+              r'sinθ = (\d+)/(\d+) and cosθ = (\d+)/(\d+).+sin2θ')
+          .firstMatch(puzzle.questionText);
+      if (lookup != null) {
+        final expected = standardTable[lookup.group(2)!]![lookup.group(1)!];
+        expect(expected, equals(puzzle.correctAnswer));
+      } else if (doubleAngle != null) {
+        final opp = int.parse(doubleAngle.group(1)!);
+        final hyp = int.parse(doubleAngle.group(2)!);
+        final adj = int.parse(doubleAngle.group(3)!);
+        final num = 2 * opp * adj;
+        final den = hyp * hyp;
+        final g = _gcd(num, den);
+        expect('${num ~/ g}/${den ~/ g}', equals(puzzle.correctAnswer));
+      } else {
+        final m = RegExp(r'(sinθ|cosθ) = (\d+)/(\d+)').firstMatch(puzzle.questionText)!;
+        final givenNum = int.parse(m.group(2)!);
+        final hyp = int.parse(m.group(3)!);
+        final answerParts =
+            (puzzle.correctAnswer as String).split('/').map(int.parse).toList();
+        // sin²θ + cos²θ = 1  ->  givenNum² + answerNum² = hyp²  (both over
+        // the same hyp, checked purely algebraically here).
+        expect(givenNum * givenNum + answerParts[0] * answerParts[0],
+            equals(hyp * hyp));
+        expect(answerParts[1], equals(hyp));
+      }
+
+    case PuzzleType.mensurationAdvanced:
+      const piLiteral = 3.141592653589793;
+      final sphere = RegExp(r'(volume|surface area) of a sphere with radius '
+              r'(\d+) cm')
+          .firstMatch(puzzle.questionText);
+      final cone = RegExp(r'volume of a cone with radius (\d+) cm and height '
+              r'(\d+) cm');
+      final coneCsa = RegExp(r'curved surface area of a cone with radius '
+          r'(\d+) cm and slant height (\d+) cm');
+      final hemisphere = RegExp(r'(volume|curved surface area|total surface '
+              r'area) of a hemisphere with radius (\d+) cm')
+          .firstMatch(puzzle.questionText);
+      final heron = RegExp(r"Heron's formula, find the area of a triangle "
+              r'with sides (\d+) cm, (\d+) cm, and (\d+) cm')
+          .firstMatch(puzzle.questionText);
+      final rhombus = RegExp(r'rhombus with diagonals (\d+) cm and (\d+) cm')
+          .firstMatch(puzzle.questionText);
+      if (sphere != null) {
+        final r = int.parse(sphere.group(2)!);
+        final expected = sphere.group(1) == 'volume'
+            ? (4 / 3) * piLiteral * r * r * r
+            : 4 * piLiteral * r * r;
+        expect(expected.round(), equals(puzzle.correctAnswer));
+      } else if (cone.hasMatch(puzzle.questionText)) {
+        final m = cone.firstMatch(puzzle.questionText)!;
+        final r = int.parse(m.group(1)!);
+        final h = int.parse(m.group(2)!);
+        expect(((1 / 3) * piLiteral * r * r * h).round(),
+            equals(puzzle.correctAnswer));
+      } else if (coneCsa.hasMatch(puzzle.questionText)) {
+        final m = coneCsa.firstMatch(puzzle.questionText)!;
+        final r = int.parse(m.group(1)!);
+        final l = int.parse(m.group(2)!);
+        expect((piLiteral * r * l).round(), equals(puzzle.correctAnswer));
+      } else if (hemisphere != null) {
+        final r = int.parse(hemisphere.group(2)!);
+        final expected = switch (hemisphere.group(1)) {
+          'volume' => (2 / 3) * piLiteral * r * r * r,
+          'curved surface area' => 2 * piLiteral * r * r,
+          _ => 3 * piLiteral * r * r,
+        };
+        expect(expected.round(), equals(puzzle.correctAnswer));
+      } else if (heron != null) {
+        final a = int.parse(heron.group(1)!);
+        final b = int.parse(heron.group(2)!);
+        final c = int.parse(heron.group(3)!);
+        final s = (a + b + c) / 2;
+        final area = sqrt(s * (s - a) * (s - b) * (s - c));
+        expect(area.round(), equals(puzzle.correctAnswer));
+      } else {
+        final m = rhombus!;
+        final d1 = int.parse(m.group(1)!);
+        final d2 = int.parse(m.group(2)!);
+        expect((d1 * d2) ~/ 2, equals(puzzle.correctAnswer));
+      }
+
+    case PuzzleType.coordinateGeometry:
+      final slope = RegExp(r'slope of the line through \((-?\d+), (-?\d+)\) '
+              r'and \((-?\d+), (-?\d+)\)')
+          .firstMatch(puzzle.questionText);
+      final midpoint = RegExp(r'(x|y)-coordinate of the midpoint of '
+              r'\((-?\d+), (-?\d+)\) and \((-?\d+), (-?\d+)\)')
+          .firstMatch(puzzle.questionText);
+      final triangle = RegExp(r'vertices \((-?\d+), (-?\d+)\), '
+              r'\((-?\d+), (-?\d+)\), \((-?\d+), (-?\d+)\)')
+          .firstMatch(puzzle.questionText);
+      final perpendicular =
+          RegExp(r'line has slope (-?\d+)').firstMatch(puzzle.questionText);
+      if (slope != null) {
+        final x1 = int.parse(slope.group(1)!);
+        final y1 = int.parse(slope.group(2)!);
+        final x2 = int.parse(slope.group(3)!);
+        final y2 = int.parse(slope.group(4)!);
+        final m = puzzle.correctAnswer as int;
+        expect(y2 - y1, equals(m * (x2 - x1)));
+      } else if (midpoint != null) {
+        final wantsX = midpoint.group(1) == 'x';
+        final x1 = int.parse(midpoint.group(2)!);
+        final y1 = int.parse(midpoint.group(3)!);
+        final x2 = int.parse(midpoint.group(4)!);
+        final y2 = int.parse(midpoint.group(5)!);
+        final expected = wantsX ? x1 + x2 : y1 + y2;
+        expect(expected, equals(2 * (puzzle.correctAnswer as int)));
+      } else if (triangle != null) {
+        final coords = List.generate(6, (i) => int.parse(triangle.group(i + 1)!));
+        final area2 = coords[0] * (coords[3] - coords[5]) +
+            coords[2] * (coords[5] - coords[1]) +
+            coords[4] * (coords[1] - coords[3]);
+        expect(area2.abs(), equals(puzzle.correctAnswer));
+      } else {
+        final m = int.parse(perpendicular!.group(1)!);
+        final parts =
+            (puzzle.correctAnswer as String).split('/').map(int.parse).toList();
+        expect(m * parts[0], equals(-parts[1]));
+      }
+
+    case PuzzleType.logarithm:
+      final m = RegExp(r'logₐx = (\d+) and logₐy = (\d+)').firstMatch(puzzle.questionText)!;
+      final logX = int.parse(m.group(1)!);
+      final logY = int.parse(m.group(2)!);
+      final expected =
+          puzzle.questionText.contains('logₐ(xy)') ? logX + logY : logX - logY;
+      expect(expected, equals(puzzle.correctAnswer));
+
+    case PuzzleType.permutationCombination:
+      final m = RegExp(r'(ⁿPᵣ|ⁿCᵣ) for n=(\d+), r=(\d+)').firstMatch(puzzle.questionText)!;
+      final n = int.parse(m.group(2)!);
+      final r = int.parse(m.group(3)!);
+      final nPr = _factorial(n) ~/ _factorial(n - r);
+      final expected = m.group(1) == 'ⁿPᵣ' ? nPr : nPr ~/ _factorial(r);
+      expect(expected, equals(puzzle.correctAnswer));
+
+    case PuzzleType.statistics:
+      final valuesMatch =
+          RegExp(r'of: (.+)$').firstMatch(puzzle.questionText)!;
+      final values =
+          valuesMatch.group(1)!.split(', ').map(int.parse).toList();
+      if (puzzle.questionText.contains('mean')) {
+        expect(values.reduce((a, b) => a + b),
+            equals((puzzle.correctAnswer as int) * values.length));
+      } else if (puzzle.questionText.contains('median')) {
+        final sorted = List.of(values)..sort();
+        expect(sorted[sorted.length ~/ 2], equals(puzzle.correctAnswer));
+      } else if (puzzle.questionText.contains('mode')) {
+        final counts = <int, int>{};
+        for (final v in values) {
+          counts[v] = (counts[v] ?? 0) + 1;
+        }
+        final expected =
+            counts.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
+        expect(expected, equals(puzzle.correctAnswer));
+      } else if (puzzle.questionText.contains('range')) {
+        expect(
+          values.reduce((a, b) => a > b ? a : b) -
+              values.reduce((a, b) => a < b ? a : b),
+          equals(puzzle.correctAnswer),
+        );
+      } else {
+        final mean = values.reduce((a, b) => a + b) / values.length;
+        final variance =
+            values.map((v) => (v - mean) * (v - mean)).reduce((a, b) => a + b) /
+                values.length;
+        expect(variance.round(), equals(puzzle.correctAnswer));
+      }
+
+    case PuzzleType.unitConversion:
+      final km = RegExp(r'Convert (\d+) km to metres').firstMatch(puzzle.questionText);
+      final mToKm = RegExp(r'Convert (\d+) m to kilometres').firstMatch(puzzle.questionText);
+      final kg = RegExp(r'Convert (\d+) kg to grams').firstMatch(puzzle.questionText);
+      final gToKg = RegExp(r'Convert (\d+) g to kilograms').firstMatch(puzzle.questionText);
+      final hours = RegExp(r'Convert (\d+) hours to minutes').firstMatch(puzzle.questionText);
+      final minToHours =
+          RegExp(r'Convert (\d+) minutes to hours').firstMatch(puzzle.questionText);
+      final percent =
+          RegExp(r'Express (\d+)% as a ratio').firstMatch(puzzle.questionText);
+      if (km != null) {
+        expect(int.parse(km.group(1)!) * 1000, equals(puzzle.correctAnswer));
+      } else if (mToKm != null) {
+        expect(int.parse(mToKm.group(1)!) ~/ 1000, equals(puzzle.correctAnswer));
+      } else if (kg != null) {
+        expect(int.parse(kg.group(1)!) * 1000, equals(puzzle.correctAnswer));
+      } else if (gToKg != null) {
+        expect(int.parse(gToKg.group(1)!) ~/ 1000, equals(puzzle.correctAnswer));
+      } else if (hours != null) {
+        expect(int.parse(hours.group(1)!) * 60, equals(puzzle.correctAnswer));
+      } else if (minToHours != null) {
+        expect(int.parse(minToHours.group(1)!) ~/ 60, equals(puzzle.correctAnswer));
+      } else {
+        final p = int.parse(percent!.group(1)!);
+        final g = _gcd(p, 100);
+        expect('${p ~/ g}:${100 ~/ g}', equals(puzzle.correctAnswer));
+      }
+
+    case PuzzleType.workTime:
+      final work = RegExp(r'finish a job in (\d+) days, B can finish the '
+              r'same job in (\d+) days')
+          .firstMatch(puzzle.questionText);
+      if (work != null) {
+        final a = int.parse(work.group(1)!);
+        final b = int.parse(work.group(2)!);
+        expect(a * b, equals((puzzle.correctAnswer as int) * (a + b)));
+      } else {
+        final m = RegExp(r'fills a tank in (\d+) hours\. Pipe B empties the '
+                r'same tank in (\d+) hours')
+            .firstMatch(puzzle.questionText)!;
+        final fill = int.parse(m.group(1)!);
+        final empty = int.parse(m.group(2)!);
+        expect(fill * empty, equals((puzzle.correctAnswer as int) * (empty - fill)));
+      }
+
+    case PuzzleType.mixtureAlligation:
+      final m = RegExp(r'tea worth ₹(\d+)/kg with tea worth ₹(\d+)/kg to get '
+              r'a mixture worth ₹(\d+)/kg')
+          .firstMatch(puzzle.questionText)!;
+      final cheap = int.parse(m.group(1)!);
+      final dear = int.parse(m.group(2)!);
+      final mean = int.parse(m.group(3)!);
+      final g = _gcd(dear - mean, mean - cheap);
+      expect(
+        '${(dear - mean) ~/ g}:${(mean - cheap) ~/ g}',
+        equals(puzzle.correctAnswer),
+      );
+
     case PuzzleType.familyTree:
       // The relationship-resolution algorithm itself is already
       // exhaustively tested against fixed fixtures in
@@ -398,6 +777,28 @@ int _isqrtGuess(int n) {
   return x;
 }
 
+// Re-typed independently here (not imported from rng_utils.dart) for the
+// same reason _independentSideCounts/_relationshipVocabulary are - a bug
+// in the generator's own gcd should actually be caught, not agreed with.
+int _gcd(int a, int b) {
+  var x = a.abs();
+  var y = b.abs();
+  while (y != 0) {
+    final t = y;
+    y = x % y;
+    x = t;
+  }
+  return x == 0 ? 1 : x;
+}
+
+int _factorial(int n) {
+  var result = 1;
+  for (var i = 2; i <= n; i++) {
+    result *= i;
+  }
+  return result;
+}
+
 void main() {
   for (final type in PuzzleType.values) {
     for (final tier in [1, 2, 3, 4]) {
@@ -412,6 +813,12 @@ void main() {
 
           expect(puzzle.difficultyTier, equals(tier));
           if (type == PuzzleType.trueFalse) {
+            expect(puzzle.options, equals(['True', 'False']));
+          } else if (type == PuzzleType.numberClassification &&
+              puzzle.correctAnswer is bool) {
+            // The prime-check sub-case is True/False like trueFalse above;
+            // the classify sub-case (correctAnswer is a String) still uses
+            // the standard 4-option MC format below.
             expect(puzzle.options, equals(['True', 'False']));
           } else if (type == PuzzleType.graphReading) {
             // Option count is the bar count (3-5, tier-scaled) here, not
@@ -439,6 +846,21 @@ void main() {
             PuzzleType.angleFinding,
             PuzzleType.areaVolume,
             PuzzleType.coordinateDistance,
+            PuzzleType.numberClassification,
+            PuzzleType.surds,
+            PuzzleType.algebraicIdentity,
+            PuzzleType.linearEquation,
+            PuzzleType.quadraticEquation,
+            PuzzleType.progression,
+            PuzzleType.trigRatio,
+            PuzzleType.mensurationAdvanced,
+            PuzzleType.coordinateGeometry,
+            PuzzleType.logarithm,
+            PuzzleType.permutationCombination,
+            PuzzleType.statistics,
+            PuzzleType.unitConversion,
+            PuzzleType.workTime,
+            PuzzleType.mixtureAlligation,
           };
           if (hintedTypes.contains(type)) {
             expect(puzzle.hint, isNotNull);
@@ -471,28 +893,40 @@ void main() {
   });
 
   group('anti-duplicate', () {
-    // shapeIdentification, coordinateDistance, graphReading, and
-    // probability are deliberately excluded here. shapeIdentification/
-    // coordinateDistance: small possibility spaces (16 texts; a handful of
-    // Pythagorean triples × 2 for the x/y swap) that make a literal "10
-    // draws, zero duplicates" check flaky by the birthday paradox.
-    // graphReading: its "which category has the highest/second-highest
-    // value?" question variant deliberately doesn't name a category in the
-    // text (the answer itself is the category), so only 2 distinct texts
-    // exist for that variant regardless of which values were actually
-    // generated — real variety lives in diagramData/correctAnswer instead,
-    // checked in graph_reading_generator_test.dart. probability: the die
-    // sub-case alone has only 5 possible question texts (thresholds 1-5),
-    // and it's a 1-in-3 pick each draw — the same birthday-paradox flake
-    // risk, checked instead in probability_generator_test.dart. See
-    // shape_reasoning_generator_test.dart for the same
+    // shapeIdentification, coordinateDistance, graphReading, probability,
+    // and numberClassification are deliberately excluded here.
+    // shapeIdentification/coordinateDistance: small possibility spaces (16
+    // texts; a handful of Pythagorean triples × 2 for the x/y swap) that
+    // make a literal "10 draws, zero duplicates" check flaky by the
+    // birthday paradox. graphReading: its "which category has the
+    // highest/second-highest value?" question variant deliberately
+    // doesn't name a category in the text (the answer itself is the
+    // category), so only 2 distinct texts exist for that variant
+    // regardless of which values were actually generated — real variety
+    // lives in diagramData/correctAnswer instead, checked in
+    // graph_reading_generator_test.dart. probability: the die sub-case
+    // alone has only 5 possible question texts (thresholds 1-5), and it's
+    // a 1-in-3 pick each draw — the same birthday-paradox flake risk,
+    // checked instead in probability_generator_test.dart.
+    // numberClassification: two sub-cases each drawing from a bounded n
+    // range (prime-check picks a single n directly, no independent
+    // "variety" source beyond it), the same class of flake risk.
+    // trigRatio: its standard-angle-lookup sub-case draws from a small
+    // fixed table (5 angles × up to 3 ratios), the same risk again.
+    // workTime: both sub-cases draw from small curated (individual-time,
+    // combined-time) pair pools (as few as 4 pairs at tier 1) rather than
+    // a wide random range, needed to keep every combined answer an exact
+    // integer. See shape_reasoning_generator_test.dart for the same
     // dedicated-variety-check pattern.
     for (final type in PuzzleType.values.where(
       (t) =>
           t != PuzzleType.shapeIdentification &&
           t != PuzzleType.coordinateDistance &&
           t != PuzzleType.graphReading &&
-          t != PuzzleType.probability,
+          t != PuzzleType.probability &&
+          t != PuzzleType.numberClassification &&
+          t != PuzzleType.trigRatio &&
+          t != PuzzleType.workTime,
     )) {
       test('$type: 10 sequential generations have no duplicate '
           'questionText', () {

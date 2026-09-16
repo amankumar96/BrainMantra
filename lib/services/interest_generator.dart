@@ -46,7 +46,7 @@ abstract final class InterestGenerator {
       correctAnswer: correctAnswer,
       difficultyTier: tier,
       timeLimitSeconds: params.timeLimitSeconds,
-      hint: tier >= 3 ? hintText : null,
+      hint: hintText,
     );
   }
 

@@ -53,9 +53,7 @@ abstract final class AngleFindingGenerator {
         angles: angles.map((a) => a.toDouble()).toList(),
         unknownAngleIndex: unknownIndex,
       ),
-      hint: tier >= 3
-          ? 'Angle Sum Property: angles of a triangle add to 180°'
-          : null,
+      hint: 'Angle Sum Property: angles of a triangle add to 180°',
     );
   }
 

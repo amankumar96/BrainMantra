@@ -143,6 +143,72 @@ A small internal script (or a basic authenticated screen, gated behind a debug f
 
 ---
 
+## Phase 11 — Tier Plan, Timing/Hint Policy & the 22-Topic Roadmap
+
+Sourced from `math-game-question-generators.md` (a directive spec listing 22 math topics/formula
+groups pulled from a "Mathematical Formulas" reference sheet, plus explicit timing and hint
+requirements). Two parts: **(A)** the timing/hint policy change — ✅ built, applies to every existing
+generator; **(B)** the 22-topic-to-tier mapping — a roadmap for follow-up sessions, not started.
+
+### A. Timing & hint policy — ✅ Built
+
+- **Timing, tightened** (`difficulty_curve.dart`'s `_paramsByTier`): tier 1 = 60s (was 120s/2min),
+  tier 2 = 120s (was 600s/10min), tier 3 = 300s (was 1200s/20min), tier 4 = 420s/7min — the ceiling
+  for the whole game (was 1800s/30min). This game has exactly 4 tiers
+  (`DifficultyCurve.paramsForTier` clamps 1-4) — tier 4 simply *is* the "tier 4 and above" ceiling
+  from the spec, not a placeholder for a 5th tier.
+- **Hints, no longer tier-gated**: every one of the 10 existing formula-driven generators
+  (`bodmas`, `speedDistance`, `profitLoss`, `interest`, `perimeter`, `probability`, `ratio`,
+  `angleFinding`, `areaVolume`, `coordinateDistance`) now populates `Puzzle.hint` at **every** tier,
+  not just tier 3-4 — the `tier >= 3 ? '...' : null` gate was removed from each generator's `hint:`
+  field. `graphReading` (reading a graph isn't formula-driven) and the original arithmetic/pattern
+  types (never had a formula-based hint at all) are unaffected. `puzzle_generator_test.dart`'s shared
+  hint-gating check updated to match: `hint` is always non-null/non-empty for every hinted type now,
+  at every tier, rather than only tier 3+.
+
+### B. Topic-to-tier mapping for the 22-topic spec — not started
+
+The spec's own topics (Number System, Surds & Indices, Algebraic Expressions, Linear Equations,
+Quadratic Equations, Progressions, Trigonometry, Mensuration, Coordinate Geometry, Logarithms,
+Permutation & Combination, Trigonometric Identities, Statistics, Unit Conversions, Work/Time/Pipes,
+Mixture & Alligation, Geometry Formulas, Algebraic Identities, Unit Conversions again, and a shared
+constants reference) map onto the 4 tiers below by genuine conceptual difficulty — a topic's *easiest*
+questions can still appear one tier down from where it's listed (e.g. a trivial log lookup could be
+tier 2), this is about where each topic's *center of mass* sits, not a hard wall.
+
+| Tier | Topics | Rationale |
+|---|---|---|
+| **1** (60s) | Number classification (N/W/Z/Q/irrational/prime checks); basic unit conversions (length/weight/time); simple mensuration already built (rectangle/circle perimeter+area); basic percentage↔ratio conversion | Single-step lookups/classifications — no multi-step algebra |
+| **2** (120s) | Algebraic identity expansion `(a±b)²`, `(a+b)(a-b)`; single-variable linear equations; standard-angle trig ratio lookups (sin30°, tan45°, …); surds using known root values; work/time basics ("A does a job in x days"); SI (already built) | One clear formula, one substitution step |
+| **3** (300s/5min) | Quadratic equations (roots via formula, discriminant classification); AP/GP nth-term and sum; coordinate geometry (distance, slope, section formula); logarithm product/quotient rules; mensuration for sphere/cone/hemisphere/cylinder (cylinder already built); mixture & alligation; trig identities (Pythagorean forms); CI (already built) | Multi-step derivations, or a formula with several inputs to combine correctly |
+| **4** (420s/7min) | Permutation & Combination; pair of linear equations (cross-multiplication); double-angle trig identities; quadratic "form an equation from given roots" (inverse-direction problems); statistics variance/standard deviation; Heron's formula (three-input, two-stage) | Either a genuinely harder concept (nCr/nPr, double-angle) or a problem requiring backward reasoning from the answer |
+
+**Hints for every new topic**: same rule as Part A — the formula itself is the hint text
+(`logₐ(xy) = logₐx + logₐy`, `ⁿCᵣ = n!/[r!(n-r)!]`, etc.), populated at every tier, not gated.
+
+**Build order for follow-up sessions** (smallest/lowest-risk first, matching this project's own
+"non-diagram generators before diagram-touching ones" precedent from Phase 7):
+1. Non-diagram, single-formula topics: number classification, unit conversions, percentage↔ratio,
+   surds-with-known-roots, standard-angle trig lookup, work/time, log product/quotient rules.
+2. Algebra: identity expansion/factoring, linear equations (single var, then the pair/cross-
+   multiplication form), quadratic equations (roots, discriminant classification, then the
+   inverse "form the equation" direction).
+3. Progressions (AP/GP), coordinate geometry, mixture & alligation, statistics.
+4. Remaining mensuration shapes (sphere/cone/hemisphere; Heron's formula), trig identities
+   (Pythagorean, then double-angle), permutation & combination.
+5. Shared constants module (π, √2/√3/√5/√7/√10, common log values) — build this *alongside* step 1,
+   not after, since surds/mensuration/logarithms all need it from their first generator onward.
+
+Every new generator follows the established `abstract final class` + static
+`generate({required tier, required RngService rng})` convention, self-validates its own answer (never
+hardcoded), and gets the same 500-generation fuzz + determinism + anti-duplicate + hint-gating
+coverage via `puzzle_generator_test.dart`'s shared per-type loop, per this project's standing rule.
+
+**Phase 11 exit criteria:** Part A met (timing/hints, 366 tests passing). Part B not started — this
+section is the tracked plan for when that work begins.
+
+---
+
 ## Master Checklist
 
 - [x] Phases 0–6 (core build, playable UI, daily challenge, ads, polish, store submission — see `ARCHITECTURE.md`)
@@ -153,6 +219,8 @@ A small internal script (or a basic authenticated screen, gated behind a debug f
 - [ ] Stage 2 (diagram-as-answer-option: mirror/rotation/figure-series) — separate future scope, not started
 - [ ] Phase 9 (question database) — not started
 - [x] Phase 10: Geometry (perimeter), Probability, Ratio generators — real-life framed, `gcd()` helper added to `rng_utils.dart`, 359 tests passing
+- [x] Phase 11A: tier timing tightened (1/2/5/7 min), hints unlocked at every tier for all 10 existing formula-driven generators — 366 tests passing
+- [ ] Phase 11B: the 22-topic-to-tier build (see Phase 11's table) — not started
 
 ## How to Hand This to Claude Code
 

@@ -65,10 +65,11 @@ class Puzzle {
   /// `DiagramPainter` renders. Null for every other puzzle type.
   final DiagramData? diagramData;
 
-  /// A short formula/theorem-name nudge, populated only at tier 3-4 (the
-  /// generator's own call — see e.g. `diagram_geometry_generator.dart`).
-  /// Null at tier 1-2: the format alone is the exercise there, and a hint
-  /// would just give the answer away.
+  /// A short formula/theorem-name nudge, populated at every tier (see
+  /// ROADMAP_PHASE2.md's Phase 11 tier plan) — every generator that has a
+  /// named formula behind it always sets this; only the handful of
+  /// generators with no underlying formula (e.g. bare arithmetic,
+  /// graph-reading) leave it null.
   final String? hint;
 
   Puzzle({

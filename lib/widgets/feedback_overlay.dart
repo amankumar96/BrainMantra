@@ -191,36 +191,48 @@ class _FeedbackOverlayState extends State<FeedbackOverlay>
 
     return Opacity(
       opacity: fadeInOpacity,
+      // FractionallySizedBox forces an explicit width (85% of whatever
+      // this overlay was actually given — the full question/options area,
+      // via game_screen.dart's Positioned.fill) rather than trusting the
+      // Container/Column below to shrink-wrap correctly on their own —
+      // nested inside that screen's Stack-over-a-SingleChildScrollView,
+      // shrink-wrapping collapsed to a near-zero width on a real device
+      // (every word wrapping to one character per line) even though nothing
+      // upstream should have constrained it that tightly.
       child: Center(
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.lg,
-            vertical: AppSpacing.md,
-          ),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.wrong, width: 2),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.close, size: 40, color: AppColors.wrong),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                'Correct answer: ${widget.correctAnswerText ?? '—'}',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+        child: FractionallySizedBox(
+          widthFactor: 0.85,
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg,
+              vertical: AppSpacing.md,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.wrong, width: 2),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.close, size: 40, color: AppColors.wrong),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'Correct answer: ${widget.correctAnswerText ?? '—'}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              ElevatedButton(
-                key: const Key('feedback-next-button'),
-                onPressed: _complete,
-                child: Text('Next ($remainingSeconds s)'),
-              ),
-            ],
+                const SizedBox(height: AppSpacing.md),
+                ElevatedButton(
+                  key: const Key('feedback-next-button'),
+                  onPressed: _complete,
+                  child: Text('Next ($remainingSeconds s)'),
+                ),
+              ],
+            ),
           ),
         ),
       ),

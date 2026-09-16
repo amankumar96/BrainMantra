@@ -43,7 +43,7 @@ abstract final class PerimeterGenerator {
       correctAnswer: perimeter,
       difficultyTier: tier,
       timeLimitSeconds: timeLimitSeconds,
-      hint: tier >= 3 ? 'Perimeter of a rectangle = 2 × (length + width)' : null,
+      hint: 'Perimeter of a rectangle = 2 × (length + width)',
     );
   }
 
@@ -65,7 +65,7 @@ abstract final class PerimeterGenerator {
       correctAnswer: perimeter,
       difficultyTier: tier,
       timeLimitSeconds: timeLimitSeconds,
-      hint: tier >= 3 ? 'Perimeter of a square = 4 × side' : null,
+      hint: 'Perimeter of a square = 4 × side',
     );
   }
 
@@ -97,7 +97,7 @@ abstract final class PerimeterGenerator {
       correctAnswer: perimeter,
       difficultyTier: tier,
       timeLimitSeconds: timeLimitSeconds,
-      hint: tier >= 3 ? 'Perimeter of a triangle = sum of its three sides' : null,
+      hint: 'Perimeter of a triangle = sum of its three sides',
     );
   }
 

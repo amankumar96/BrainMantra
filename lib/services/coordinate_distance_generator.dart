@@ -37,7 +37,7 @@ abstract final class CoordinateDistanceGenerator {
         x: x.toDouble(),
         y: y.toDouble(),
       ),
-      hint: tier >= 3 ? 'Pythagorean Theorem: a² + b² = c²' : null,
+      hint: 'Pythagorean Theorem: a² + b² = c²',
     );
   }
 

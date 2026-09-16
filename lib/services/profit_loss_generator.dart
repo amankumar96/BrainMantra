@@ -32,10 +32,8 @@ abstract final class ProfitLossGenerator {
       correctAnswer: percent,
       difficultyTier: tier,
       timeLimitSeconds: params.timeLimitSeconds,
-      hint: tier >= 3
-          ? '${isProfit ? 'Profit' : 'Loss'} % = '
-              '(${isProfit ? 'SP − CP' : 'CP − SP'}) / CP × 100'
-          : null,
+      hint: '${isProfit ? 'Profit' : 'Loss'} % = '
+          '(${isProfit ? 'SP − CP' : 'CP − SP'}) / CP × 100',
     );
   }
 

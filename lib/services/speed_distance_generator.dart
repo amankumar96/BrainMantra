@@ -38,9 +38,7 @@ abstract final class SpeedDistanceGenerator {
       correctAnswer: relativeSpeed,
       difficultyTier: tier,
       timeLimitSeconds: params.timeLimitSeconds,
-      hint: tier >= 3
-          ? 'Same direction: subtract speeds. Opposite: add speeds.'
-          : null,
+      hint: 'Same direction: subtract speeds. Opposite: add speeds.',
     );
   }
 

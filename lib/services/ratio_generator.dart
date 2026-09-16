@@ -46,10 +46,8 @@ abstract final class RatioGenerator {
       correctAnswer: newCups,
       difficultyTier: tier,
       timeLimitSeconds: timeLimitSeconds,
-      hint: tier >= 3
-          ? 'Keep the ratio the same: new amount = old amount × '
-              '(new servings ÷ old servings)'
-          : null,
+      hint: 'Keep the ratio the same: new amount = old amount × '
+          '(new servings ÷ old servings)',
     );
   }
 
@@ -75,10 +73,8 @@ abstract final class RatioGenerator {
       correctAnswer: raviAmount,
       difficultyTier: tier,
       timeLimitSeconds: timeLimitSeconds,
-      hint: tier >= 3
-          ? 'Split the total into (first share + second share) equal parts, '
-              "then multiply by each person's share"
-          : null,
+      hint: 'Split the total into (first share + second share) equal parts, '
+          "then multiply by each person's share",
     );
   }
 
@@ -100,9 +96,7 @@ abstract final class RatioGenerator {
       correctAnswer: actualDistanceKm,
       difficultyTier: tier,
       timeLimitSeconds: timeLimitSeconds,
-      hint: tier >= 3
-          ? 'Actual distance = map distance × scale (km per cm)'
-          : null,
+      hint: 'Actual distance = map distance × scale (km per cm)',
     );
   }
 

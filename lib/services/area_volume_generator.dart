@@ -47,7 +47,7 @@ abstract final class AreaVolumeGenerator {
         kind: DiagramKind.rectangle,
         dimensions: [length.toDouble(), width.toDouble()],
       ),
-      hint: tier >= 3 ? 'Area = length × width' : null,
+      hint: 'Area = length × width',
     );
   }
 
@@ -70,7 +70,7 @@ abstract final class AreaVolumeGenerator {
       timeLimitSeconds: timeLimitSeconds,
       diagramData:
           DiagramData(kind: DiagramKind.circle, dimensions: [radius.toDouble()]),
-      hint: tier >= 3 ? 'Area = πr²' : null,
+      hint: 'Area = πr²',
     );
   }
 
@@ -98,7 +98,7 @@ abstract final class AreaVolumeGenerator {
         kind: DiagramKind.cylinder,
         dimensions: [radius.toDouble(), height.toDouble()],
       ),
-      hint: tier >= 3 ? 'Volume = πr²h' : null,
+      hint: 'Volume = πr²h',
     );
   }
 

@@ -34,10 +34,8 @@ abstract final class BodmasGenerator {
           correctAnswer: correctAnswer,
           difficultyTier: tier,
           timeLimitSeconds: params.timeLimitSeconds,
-          hint: tier >= 3
-              ? 'Order of operations: Brackets, Orders, Division/'
-                  'Multiplication, Addition/Subtraction'
-              : null,
+          hint: 'Order of operations: Brackets, Orders, Division/'
+              'Multiplication, Addition/Subtraction',
         );
       } on EvaluationException {
         continue;

@@ -88,9 +88,7 @@ abstract final class ProbabilityGenerator {
       correctAnswer: correct,
       difficultyTier: tier,
       timeLimitSeconds: timeLimitSeconds,
-      hint: tier >= 3
-          ? 'Probability = favourable outcomes ÷ total outcomes'
-          : null,
+      hint: 'Probability = favourable outcomes ÷ total outcomes',
     );
   }
 

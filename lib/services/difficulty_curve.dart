@@ -81,7 +81,11 @@ abstract final class DifficultyCurve {
   static const List<DifficultyParams> _paramsByTier = [
     DifficultyParams(
       tier: 1,
-      timeLimitSeconds: 120, // 2 min — exam-style pacing (Phase 2 amendment)
+      // 1 min — tightened from the earlier 2 min exam-style pacing, per the
+      // math-game-question-generators.md tier-timing spec: 1/2/5/7 min for
+      // tiers 1-4, capped at 7 min overall (see ROADMAP_PHASE2.md's Phase
+      // 11 tier plan for the full rationale).
+      timeLimitSeconds: 60,
       math: MathParams(
         minOperand: 1,
         maxOperand: 10,
@@ -95,7 +99,7 @@ abstract final class DifficultyCurve {
     ),
     DifficultyParams(
       tier: 2,
-      timeLimitSeconds: 600, // 10 min
+      timeLimitSeconds: 120, // 2 min — see Phase 11 tier-timing spec
       math: MathParams(
         minOperand: 2,
         maxOperand: 20,
@@ -113,7 +117,7 @@ abstract final class DifficultyCurve {
     ),
     DifficultyParams(
       tier: 3,
-      timeLimitSeconds: 1200, // 20 min
+      timeLimitSeconds: 300, // 5 min — see Phase 11 tier-timing spec
       math: MathParams(
         minOperand: 5,
         maxOperand: 50,
@@ -132,7 +136,10 @@ abstract final class DifficultyCurve {
     ),
     DifficultyParams(
       tier: 4,
-      timeLimitSeconds: 1800, // 30 min
+      // 7 min — the ceiling for every tier per the Phase 11 tier-timing
+      // spec ("Tier 4 and above"): this game has exactly 4 tiers, so tier
+      // 4 simply IS that ceiling, not a placeholder for a 5th tier.
+      timeLimitSeconds: 420,
       math: MathParams(
         minOperand: 10,
         maxOperand: 100,

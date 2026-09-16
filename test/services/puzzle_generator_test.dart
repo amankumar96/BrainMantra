@@ -424,10 +424,10 @@ void main() {
           }
           _independentlyVerify(puzzle);
 
-          // Hint rule (all-modes): null below tier 3, present at tier 3+
-          // — except graphReading, which never has one (reading a graph
-          // isn't formula-driven) and the pre-existing types, which never
-          // populate hint at all.
+          // Hint rule (all-modes, Phase 11): every formula-driven type
+          // populates a hint at every tier now — except graphReading,
+          // which never has one (reading a graph isn't formula-driven)
+          // and the pre-existing types, which never populate hint at all.
           const hintedTypes = {
             PuzzleType.bodmas,
             PuzzleType.speedDistance,
@@ -441,12 +441,8 @@ void main() {
             PuzzleType.coordinateDistance,
           };
           if (hintedTypes.contains(type)) {
-            if (tier >= 3) {
-              expect(puzzle.hint, isNotNull);
-              expect(puzzle.hint, isNotEmpty);
-            } else {
-              expect(puzzle.hint, isNull);
-            }
+            expect(puzzle.hint, isNotNull);
+            expect(puzzle.hint, isNotEmpty);
           } else {
             expect(puzzle.hint, isNull);
           }

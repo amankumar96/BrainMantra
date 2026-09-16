@@ -17,8 +17,9 @@ const _diagramTypes = {
   PuzzleType.graphReading,
 };
 
-// Non-diagram types that populate a tier 3-4 hint, for the "no diagram,
-// still shows a hint" half of the layout test.
+// Non-diagram types that populate a hint (every tier, since Phase 11 -
+// see puzzle.dart's hint doc comment), for the "no diagram, still shows a
+// hint" half of the layout test.
 const _hintedNonDiagramTypes = {
   PuzzleType.bodmas,
   PuzzleType.speedDistance,
@@ -202,11 +203,10 @@ void main() {
 
   testWidgets(
       'a diagram-based question renders the diagram alongside the options, '
-      'plus a hint (Daily Challenge always draws tier 3-4)', (tester) async {
-    // Daily Challenge always uses randomHighTier (tier 3-4 only, see
-    // difficulty_curve.dart) - guarantees the tier>=3 hint condition on
-    // every draw, so this only needs to seed-search for the *type*, same
-    // pattern as the trueFalse case-sensitivity regression test in
+      'plus a hint', (tester) async {
+    // Every formula-driven type populates a hint at every tier (Phase 11),
+    // so this only needs to seed-search for the *type*, same pattern as
+    // the trueFalse case-sensitivity regression test in
     // game_controller_test.dart.
     GameController? controller;
     for (var seed = 0; seed < 200; seed++) {
@@ -254,8 +254,8 @@ void main() {
   });
 
   testWidgets(
-      'a hinted non-diagram question (tier 3-4) shows the hint without a '
-      'diagram', (tester) async {
+      'a hinted non-diagram question shows the hint without a diagram',
+      (tester) async {
     GameController? controller;
     for (var seed = 0; seed < 200; seed++) {
       final candidate = GameController(

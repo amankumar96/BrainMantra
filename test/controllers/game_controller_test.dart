@@ -520,5 +520,35 @@ void main() {
       }
       expect(seenTypes.length, greaterThan(1));
     });
+
+    test(
+        'picks math and reasoning categories roughly evenly, not weighted '
+        'toward whichever side has more topics (Phase 12 rebalance)', () {
+      // mathTest has ~25 topics vs. reasoningTest's ~12 — a flat pick
+      // across every PuzzleType would badly under-represent reasoning.
+      // The category-first-then-uniform-within-it picker should keep
+      // both sides close to 50/50 over enough draws instead.
+      final controller = GameController(
+        totalQuestions: 200,
+        isDailyChallenge: false,
+        rng: RngService.seeded('category-balance'),
+      );
+      var mathCount = 0;
+      var reasoningCount = 0;
+      for (var i = 0; i < 200; i++) {
+        if (controller.currentPuzzle!.category == PuzzleCategory.mathTest) {
+          mathCount++;
+        } else {
+          reasoningCount++;
+        }
+        controller.skipDueToTimeout();
+        controller.onFeedbackAnimationComplete();
+      }
+      // Both sides drawn, and neither one overwhelmingly dominates — a
+      // generous band (30-70%) since this is still a random draw, not a
+      // strict alternation.
+      expect(mathCount, greaterThan(60));
+      expect(reasoningCount, greaterThan(60));
+    });
   });
 }

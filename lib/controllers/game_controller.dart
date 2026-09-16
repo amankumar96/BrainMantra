@@ -211,13 +211,42 @@ class GameController extends ChangeNotifier {
     notifyListeners();
   }
 
+  // A flat, uniform pick across every PuzzleType would have math questions
+  // dominate once the topic library grew past ~15 math types vs. a
+  // handful of reasoning types — picking the *category* first, 50/50,
+  // then uniformly within it keeps reasoning questions showing up just as
+  // often as math ones regardless of how many topics either side has.
+  static final List<PuzzleType> _mathTypes = PuzzleType.values
+      .where((t) => _categoryOf(t) == PuzzleCategory.mathTest)
+      .toList();
+  static final List<PuzzleType> _reasoningTypes = PuzzleType.values
+      .where((t) => _categoryOf(t) == PuzzleCategory.reasoningTest)
+      .toList();
+
+  static PuzzleCategory _categoryOf(PuzzleType type) => switch (type) {
+        PuzzleType.familyTree ||
+        PuzzleType.shapeIdentification ||
+        PuzzleType.mirrorImage ||
+        PuzzleType.paperFolding ||
+        PuzzleType.figureSeries ||
+        PuzzleType.seatingArrangement ||
+        PuzzleType.coding ||
+        PuzzleType.directionSense ||
+        PuzzleType.wordPuzzle ||
+        PuzzleType.analogy ||
+        PuzzleType.ranking ||
+        PuzzleType.statementConclusion =>
+          PuzzleCategory.reasoningTest,
+        _ => PuzzleCategory.mathTest,
+      };
+
   PuzzleType _pickNextType() {
-    final values = PuzzleType.values;
-    var type = values[_rng.nextInt(0, values.length - 1)];
+    final pool = _rng.nextBool() ? _mathTypes : _reasoningTypes;
+    var type = pool[_rng.nextInt(0, pool.length - 1)];
     if (_currentPuzzle != null && type == _currentPuzzle!.type) {
-      // One reroll only — still fine if it happens to match again, this
-      // is a mild variety nudge, not a hard constraint.
-      type = values[_rng.nextInt(0, values.length - 1)];
+      // One reroll only, same pool — still fine if it happens to match
+      // again, this is a mild variety nudge, not a hard constraint.
+      type = pool[_rng.nextInt(0, pool.length - 1)];
     }
     return type;
   }

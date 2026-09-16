@@ -207,6 +207,65 @@ passing.
 
 ---
 
+## Phase 12 — Reasoning Category Rebalance + 10 New Reasoning Topics — ✅ Built
+
+Phase 11B's 15 new math topics left `PuzzleType.values` badly lopsided (~25 math types vs. 12
+reasoning types) — `GameController._pickNextType()` picked uniformly across *every* type, so math
+would have dominated. Two parts, both built:
+
+### A. Category-balanced picker
+
+`GameController._pickNextType()` now picks the *category* first (50/50 math vs. reasoning), then
+uniformly within it — regardless of how many topics either side has. New
+`test/controllers/game_controller_test.dart` coverage: over 200 draws, both categories land in a
+generous 30-70% band (not a strict alternation, still genuinely random within each pick).
+
+### B. 10 new reasoning generators
+
+All sourced from the same well-established verbal/logical-reasoning question formats real reasoning
+tests use — **text-based by design**, not a placeholder for rendered images. Three of the ten (mirror
+images, paper folding, figure series) are topics that could *also* be asked as literal rendered
+figures, but that needs the diagram-as-answer-option infrastructure this project's Stage 2 diagram
+work (see Phase 8) never built — these use the standard textual equivalents real test-prep material
+already treats as the same skill, not a workaround:
+
+| Generator | Format | Diagram-would-need-Stage-2? |
+|---|---|---|
+| `mirror_image_generator.dart` | letter-symmetry lookup (vertical/water mirror), b↔d/p↔q pairs | Yes for arbitrary rendered figures |
+| `paper_folding_generator.dart` | fold-and-punch hole-count (holes × 2ⁿ) | Yes for a rendered fold diagram |
+| `figure_series_generator.dart` | letter series (A, C, E, G, ?) — the standard analog to a figure series | Yes for rendered figures |
+| `seating_arrangement_generator.dart` | stated row order; neighbor/between/position questions | No |
+| `coding_generator.dart` | letter-shift cipher, A=1..Z=26 number coding | No |
+| `direction_sense_generator.dart` | perpendicular-walk displacement (Pythagorean triples), turn-tracking | No |
+| `word_puzzle_generator.dart` | odd-word-out from a curated category bank | No |
+| `analogy_generator.dart` | A:B::C:D from a curated relationship bank | No |
+| `ranking_generator.dart` | rank-from-other-end conversion, comparative chains | No |
+| `statement_conclusion_generator.dart` | basic syllogism validity (True/False) | No |
+
+Every answer is exact by construction (letter-symmetry/pair tables, Pythagorean triples for direction
+sense, curated banks for word/analogy/statement puzzles so nothing depends on ambiguous real-world
+knowledge). Same testing convention as Phase 11B — a case per type in
+`puzzle_generator_test.dart`'s shared `_independentlyVerify` switch, covered by the 500-generation
+fuzz loop. Five of the ten (`mirrorImage`, `paperFolding`, `wordPuzzle`, `analogy`,
+`statementConclusion`) join the anti-duplicate exclusion list — most for the same reason as earlier
+exclusions (small curated banks), `mirrorImage`/`wordPuzzle` specifically because their fixed question
+stems put all the real variety in `options`/`correctAnswer`, not `questionText`.
+
+### C. Score-to-tier bands, simplified
+
+`DifficultyCurve.randomTierForScore` (Play mode's difficulty ramp) replaced its earlier 30/300
+threshold bands with an explicit, much tighter spec: score < 50 → tier 1 only; 50-100 inclusive →
+tier 1 or 2 (evenly split); score > 100 → tier 3 or 4 (evenly split, "tier 3 and above"). A
+deliberately faster ramp than before, matching Phase 11A's tightened per-question timing (1/2/5/7 min
+instead of 2/10/20/30 min) — this game now expects a player to reach harder material much sooner.
+`tierForScore` (a separate, deterministic helper — not actually called by game logic, only exercised
+by its own tests) was left unchanged. `difficulty_curve_test.dart`'s `randomTierForScore` group
+rewritten to match: below-50/49-boundary/50-100-band/above-100/101-boundary/negative-score cases.
+
+**Phase 12 exit criteria:** met — all three parts built, `flutter analyze` clean, all 511 tests passing.
+
+---
+
 ## Master Checklist
 
 - [x] Phases 0–6 (core build, playable UI, daily challenge, ads, polish, store submission — see `ARCHITECTURE.md`)
@@ -219,6 +278,7 @@ passing.
 - [x] Phase 10: Geometry (perimeter), Probability, Ratio generators — real-life framed, `gcd()` helper added to `rng_utils.dart`, 359 tests passing
 - [x] Phase 11A: tier timing tightened (1/2/5/7 min), hints unlocked at every tier for all 10 existing formula-driven generators — 366 tests passing
 - [x] Phase 11B: 15 new generators covering the 22-topic spec (number classification, surds, algebraic identities, linear/quadratic equations, progressions, trig ratios/identities, advanced mensuration, coordinate geometry, logarithms, permutation & combination, statistics, unit conversions, work/time, mixture & alligation) — 453 tests passing
+- [x] Phase 12: category-balanced type picker (math/reasoning 50/50), 10 new reasoning generators (mirror/water images, paper folding, figure series, seating arrangements, coding, direction sense, word puzzles, analogy, ranking, statement & conclusion), and a simplified score-to-tier band (<50→1, 50-100→1-2, >100→3-4) — 511 tests passing
 
 ## How to Hand This to Claude Code
 

@@ -187,26 +187,17 @@ abstract final class DifficultyCurve {
   /// `GameController` for **Play mode only** — Daily Challenge always
   /// uses [randomHighTier] instead, regardless of score.
   ///
-  /// TUNABLE — initial bands/weights, not derived from an external spec:
-  /// - score < 30: tiers 1-2 (60/40, easy-leaning)
-  /// - 30 <= score < 300: tiers 2-4, broadly spread
-  /// - score >= 300: tiers 1-4, weighted so 3-4 dominate ("mostly", not
-  ///   exclusively — an easy question can still occasionally appear)
+  /// Explicit product spec (replaces the earlier 30/300-threshold bands):
+  /// - score < 50: Tier 1 only
+  /// - 50 <= score <= 100: Tier 1 to Tier 2 (evenly split)
+  /// - score > 100: Tier 3 and above (3-4, evenly split)
   static int randomTierForScore(int score, RngService rng) {
-    if (score < 30) {
-      return _weightedPick(rng, tiers: const [1, 2], weights: const [3, 2]);
-    } else if (score < 300) {
-      return _weightedPick(
-        rng,
-        tiers: const [2, 3, 4],
-        weights: const [2, 2, 1],
-      );
+    if (score < 50) {
+      return 1;
+    } else if (score <= 100) {
+      return _weightedPick(rng, tiers: const [1, 2], weights: const [1, 1]);
     } else {
-      return _weightedPick(
-        rng,
-        tiers: const [1, 2, 3, 4],
-        weights: const [1, 2, 4, 4],
-      );
+      return _weightedPick(rng, tiers: const [3, 4], weights: const [1, 1]);
     }
   }
 

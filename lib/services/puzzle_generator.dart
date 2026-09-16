@@ -1,19 +1,25 @@
 import '../models/puzzle.dart';
 import 'algebraic_identity_generator.dart';
+import 'analogy_generator.dart';
 import 'angle_finding_generator.dart';
 import 'area_volume_generator.dart';
 import 'bodmas_generator.dart';
+import 'coding_generator.dart';
 import 'coordinate_distance_generator.dart';
 import 'coordinate_geometry_generator.dart';
 import 'difficulty_curve.dart';
+import 'direction_sense_generator.dart';
 import 'family_tree_generator.dart';
+import 'figure_series_generator.dart';
 import 'graph_reading_generator.dart';
 import 'interest_generator.dart';
 import 'linear_equation_generator.dart';
 import 'logarithm_generator.dart';
 import 'mensuration_advanced_generator.dart';
+import 'mirror_image_generator.dart';
 import 'mixture_alligation_generator.dart';
 import 'number_classification_generator.dart';
+import 'paper_folding_generator.dart';
 import 'perimeter_generator.dart';
 import 'permutation_combination_generator.dart';
 import 'probability_generator.dart';
@@ -23,16 +29,20 @@ import 'puzzle_generator_basic_math.dart';
 import 'puzzle_generator_odd_one_out.dart';
 import 'puzzle_generator_sequence_target.dart';
 import 'quadratic_equation_generator.dart';
+import 'ranking_generator.dart';
 import 'ratio_generator.dart';
 import 'relationship_resolver.dart';
 import 'rng_service.dart';
 import 'rng_utils.dart';
+import 'seating_arrangement_generator.dart';
 import 'shape_reasoning_generator.dart';
 import 'speed_distance_generator.dart';
+import 'statement_conclusion_generator.dart';
 import 'statistics_generator.dart';
 import 'surds_generator.dart';
 import 'trig_ratio_generator.dart';
 import 'unit_conversion_generator.dart';
+import 'word_puzzle_generator.dart';
 import 'work_time_generator.dart';
 
 /// The single "front door" for building a puzzle: "give me a puzzle of
@@ -105,6 +115,23 @@ abstract final class PuzzleGenerator {
       PuzzleType.familyTree => _generateFamilyTree(tier, rng),
       PuzzleType.shapeIdentification =>
         ShapeReasoningGenerator.generate(tier: tier, rng: rng),
+      PuzzleType.mirrorImage =>
+        MirrorImageGenerator.generate(tier: tier, rng: rng),
+      PuzzleType.paperFolding =>
+        PaperFoldingGenerator.generate(tier: tier, rng: rng),
+      PuzzleType.figureSeries =>
+        FigureSeriesGenerator.generate(tier: tier, rng: rng),
+      PuzzleType.seatingArrangement =>
+        SeatingArrangementGenerator.generate(tier: tier, rng: rng),
+      PuzzleType.coding => CodingGenerator.generate(tier: tier, rng: rng),
+      PuzzleType.directionSense =>
+        DirectionSenseGenerator.generate(tier: tier, rng: rng),
+      PuzzleType.wordPuzzle =>
+        WordPuzzleGenerator.generate(tier: tier, rng: rng),
+      PuzzleType.analogy => AnalogyGenerator.generate(tier: tier, rng: rng),
+      PuzzleType.ranking => RankingGenerator.generate(tier: tier, rng: rng),
+      PuzzleType.statementConclusion =>
+        StatementConclusionGenerator.generate(tier: tier, rng: rng),
     };
   }
 }

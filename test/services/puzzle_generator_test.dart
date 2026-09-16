@@ -764,6 +764,171 @@ void _independentlyVerify(Puzzle puzzle) {
         expect(_independentSideCounts[puzzle.correctAnswer as String],
             equals(sides));
       }
+
+    case PuzzleType.mirrorImage:
+      const verticalSymmetric = {
+        'A', 'H', 'I', 'M', 'O', 'T', 'U', 'V', 'W', 'X', 'Y',
+      };
+      const horizontalSymmetric = {'B', 'C', 'D', 'E', 'H', 'I', 'K', 'O', 'X'};
+      const mirrorPairs = {'b': 'd', 'd': 'b', 'p': 'q', 'q': 'p'};
+      final pairMatch =
+          RegExp(r"image of the letter '(\w)'").firstMatch(puzzle.questionText);
+      if (pairMatch != null) {
+        expect(mirrorPairs[pairMatch.group(1)!], equals(puzzle.correctAnswer));
+      } else if (puzzle.questionText.contains('vertical mirror')) {
+        expect(verticalSymmetric.contains(puzzle.correctAnswer), isTrue);
+      } else {
+        expect(horizontalSymmetric.contains(puzzle.correctAnswer), isTrue);
+      }
+
+    case PuzzleType.paperFolding:
+      final m = RegExp(r'folded in half (\d+) time.+?(\d+) hole')
+          .firstMatch(puzzle.questionText)!;
+      final folds = int.parse(m.group(1)!);
+      final holes = int.parse(m.group(2)!);
+      var expected = holes;
+      for (var i = 0; i < folds; i++) {
+        expected *= 2;
+      }
+      expect(expected, equals(puzzle.correctAnswer));
+
+    case PuzzleType.figureSeries:
+      final m = RegExp(r'^([A-Z]), ([A-Z]), ([A-Z]), ([A-Z]), \?')
+          .firstMatch(puzzle.questionText)!;
+      final letters = [m.group(1)!, m.group(2)!, m.group(3)!, m.group(4)!];
+      final codes = letters.map((l) => l.codeUnitAt(0) - 65).toList();
+      final step = codes[1] - codes[0];
+      expect(codes[2] - codes[1], equals(step));
+      expect(codes[3] - codes[2], equals(step));
+      final expectedCode = ((codes[3] + step) % 26 + 26) % 26;
+      expect(
+        (puzzle.correctAnswer as String).codeUnitAt(0) - 65,
+        equals(expectedCode),
+      );
+
+    case PuzzleType.seatingArrangement:
+      final orderMatch =
+          RegExp(r'in this order: (.+?)\.').firstMatch(puzzle.questionText)!;
+      final names = orderMatch.group(1)!.split(', ');
+      final neighbor =
+          RegExp(r'immediately to the right of (\w+)').firstMatch(puzzle.questionText);
+      final between =
+          RegExp(r'between (\w+) and (\w+)').firstMatch(puzzle.questionText);
+      final position =
+          RegExp(r'Who is (\d+)\w+ from the left').firstMatch(puzzle.questionText);
+      if (neighbor != null) {
+        final i = names.indexOf(neighbor.group(1)!);
+        expect(names[i + 1], equals(puzzle.correctAnswer));
+      } else if (between != null) {
+        final i = names.indexOf(between.group(1)!);
+        final j = names.indexOf(between.group(2)!);
+        expect((i - j).abs() - 1, equals(puzzle.correctAnswer));
+      } else {
+        final fromLeft = int.parse(position!.group(1)!);
+        expect(names[fromLeft - 1], equals(puzzle.correctAnswer));
+      }
+
+    case PuzzleType.coding:
+      final shift = RegExp(r'code, (\w+) is written as (\w+)').firstMatch(puzzle.questionText);
+      if (shift != null) {
+        final sample = shift.group(1)!;
+        final samplecoded = shift.group(2)!;
+        final shiftAmount =
+            (samplecoded.codeUnitAt(0) - sample.codeUnitAt(0) + 26) % 26;
+        final target =
+            RegExp(r'will (\w+) be written').firstMatch(puzzle.questionText)!.group(1)!;
+        final expected = String.fromCharCodes(
+          target.codeUnits.map((c) => ((c - 65 + shiftAmount) % 26) + 65),
+        );
+        expect(expected, equals(puzzle.correctAnswer));
+      } else {
+        final word =
+            RegExp(r'is the word (\w+) written').firstMatch(puzzle.questionText)!.group(1)!;
+        final expected = word.codeUnits.map((c) => c - 64).join('-');
+        expect(expected, equals(puzzle.correctAnswer));
+      }
+
+    case PuzzleType.directionSense:
+      final displacement = RegExp(r'walks (\d+) km towards \w+, then turns '
+              r'(right|left) and walks (\d+) km')
+          .firstMatch(puzzle.questionText);
+      if (displacement != null) {
+        final leg1 = int.parse(displacement.group(1)!);
+        final leg2 = int.parse(displacement.group(3)!);
+        final hyp = sqrt(leg1 * leg1 + leg2 * leg2).round();
+        expect(hyp, equals(puzzle.correctAnswer));
+      } else {
+        const compass = ['North', 'East', 'South', 'West'];
+        final startMatch =
+            RegExp(r'starts facing (\w+)').firstMatch(puzzle.questionText)!;
+        var facing = compass.indexOf(startMatch.group(1)!);
+        for (final turnMatch in RegExp(r'turns (180°|right|left)')
+            .allMatches(puzzle.questionText)) {
+          final t = turnMatch.group(1)!;
+          if (t == '180°') {
+            facing = (facing + 2) % 4;
+          } else if (t == 'right') {
+            facing = (facing + 1) % 4;
+          } else {
+            facing = (facing + 3) % 4;
+          }
+        }
+        expect(compass[facing], equals(puzzle.correctAnswer));
+      }
+
+    case PuzzleType.wordPuzzle:
+      // The categorization rule itself lives in a curated bank inside the
+      // generator (no formula to re-derive independently) — verified here
+      // structurally instead: exactly one of the 4 options is the stated
+      // correct answer, and it's genuinely present among them.
+      expect(puzzle.options, contains(puzzle.correctAnswer));
+      expect(puzzle.options.toSet().length, equals(4));
+
+    case PuzzleType.analogy:
+      // Same rationale as wordPuzzle above — the A:B::C:D relationship
+      // comes from a curated bank, checked structurally here.
+      expect(puzzle.options, contains(puzzle.correctAnswer));
+      expect(puzzle.options.toSet().length, equals(4));
+
+    case PuzzleType.ranking:
+      final conversion =
+          RegExp(r'class of (\d+) students, Rahul ranks (\d+)\w+ from the '
+                  r'(top|bottom)')
+              .firstMatch(puzzle.questionText);
+      if (conversion != null) {
+        final total = int.parse(conversion.group(1)!);
+        final rank = int.parse(conversion.group(2)!);
+        final expected = total - rank + 1;
+        expect(expected, equals(puzzle.correctAnswer));
+      } else {
+        // "N1 is taller than N2. N2 is taller than N3. ... " — a strictly
+        // linear chain by construction, so the first match's subject is
+        // the overall tallest and the last match's object is the overall
+        // shortest, transitively.
+        final comparisons =
+            RegExp(r'(\w+) is taller than (\w+)').allMatches(puzzle.questionText).toList();
+        final tallest = comparisons.first.group(1)!;
+        final shortest = comparisons.last.group(2)!;
+        expect(
+          puzzle.questionText.contains('tallest') ? tallest : shortest,
+          equals(puzzle.correctAnswer),
+        );
+      }
+
+    case PuzzleType.statementConclusion:
+      // "All A are B. All B are C." -> "All A are C." is valid;
+      // "All A are C. All B are C." -> "All A are B." is not (sharing C
+      // doesn't link A and B) — independently re-derived from which
+      // pattern the statements/conclusion actually take, not by trusting
+      // the generator's own isValid flag.
+      final m = RegExp(
+              r'All (.+?) are (.+?)\. All (.+?) are (.+?)\.\nConclusion: '
+              r'All (.+?) are (.+?)\.')
+          .firstMatch(puzzle.questionText)!;
+      final validChain = m.group(2) == m.group(3) &&
+          m.group(1) == m.group(5) &&
+          m.group(4) == m.group(6);
+      expect(validChain, equals(puzzle.correctAnswer));
   }
 }
 
@@ -812,7 +977,8 @@ void main() {
           );
 
           expect(puzzle.difficultyTier, equals(tier));
-          if (type == PuzzleType.trueFalse) {
+          if (type == PuzzleType.trueFalse ||
+              type == PuzzleType.statementConclusion) {
             expect(puzzle.options, equals(['True', 'False']));
           } else if (type == PuzzleType.numberClassification &&
               puzzle.correctAnswer is bool) {
@@ -861,6 +1027,16 @@ void main() {
             PuzzleType.unitConversion,
             PuzzleType.workTime,
             PuzzleType.mixtureAlligation,
+            PuzzleType.mirrorImage,
+            PuzzleType.paperFolding,
+            PuzzleType.figureSeries,
+            PuzzleType.seatingArrangement,
+            PuzzleType.coding,
+            PuzzleType.directionSense,
+            PuzzleType.wordPuzzle,
+            PuzzleType.analogy,
+            PuzzleType.ranking,
+            PuzzleType.statementConclusion,
           };
           if (hintedTypes.contains(type)) {
             expect(puzzle.hint, isNotNull);
@@ -916,8 +1092,19 @@ void main() {
     // workTime: both sub-cases draw from small curated (individual-time,
     // combined-time) pair pools (as few as 4 pairs at tier 1) rather than
     // a wide random range, needed to keep every combined answer an exact
-    // integer. See shape_reasoning_generator_test.dart for the same
-    // dedicated-variety-check pattern.
+    // integer. mirrorImage: two of its three sub-cases each have only one
+    // fixed question stem ("Which letter looks exactly the same in a
+    // mirror..."), varying only in which single letter is correct — real
+    // variety lives in correctAnswer, not questionText. paperFolding: at
+    // tier 3 (folds 1-3 × holes 1-2, 6 combos) the same small-space flake
+    // risk. wordPuzzle: its questionText is a fixed constant ("Which word
+    // does NOT belong with the others?") — real variety lives entirely in
+    // options/correctAnswer, same as mirrorImage's lookup sub-cases.
+    // analogy: its curated bank (14 entries at tier 3-4) is still small
+    // enough for the same birthday-paradox flake risk. statementConclusion:
+    // only 6 curated triples × 2 (valid/invalid) = 12 possible texts, the
+    // same risk again. See shape_reasoning_generator_test.dart for the
+    // same dedicated-variety-check pattern.
     for (final type in PuzzleType.values.where(
       (t) =>
           t != PuzzleType.shapeIdentification &&
@@ -926,7 +1113,12 @@ void main() {
           t != PuzzleType.probability &&
           t != PuzzleType.numberClassification &&
           t != PuzzleType.trigRatio &&
-          t != PuzzleType.workTime,
+          t != PuzzleType.workTime &&
+          t != PuzzleType.mirrorImage &&
+          t != PuzzleType.paperFolding &&
+          t != PuzzleType.wordPuzzle &&
+          t != PuzzleType.analogy &&
+          t != PuzzleType.statementConclusion,
     )) {
       test('$type: 10 sequential generations have no duplicate '
           'questionText', () {

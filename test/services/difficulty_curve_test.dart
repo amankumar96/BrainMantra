@@ -78,43 +78,56 @@ void main() {
   });
 
   group('randomTierForScore', () {
-    test('below 30: only ever picks tier 1 or 2', () {
+    test('below 50: always tier 1', () {
       final rng = RngService.seeded('band-low');
       for (var i = 0; i < 300; i++) {
-        final tier = DifficultyCurve.randomTierForScore(10, rng);
-        expect(tier, anyOf(1, 2));
+        expect(DifficultyCurve.randomTierForScore(10, rng), equals(1));
       }
     });
 
-    test('30 to just under 300: only ever picks tier 2, 3, or 4', () {
+    test('49 is still below the band (always tier 1)', () {
+      final rng = RngService.seeded('band-boundary-low');
+      for (var i = 0; i < 100; i++) {
+        expect(DifficultyCurve.randomTierForScore(49, rng), equals(1));
+      }
+    });
+
+    test('50 to 100 inclusive: only ever picks tier 1 or 2, both appear', () {
       final rng = RngService.seeded('band-mid');
+      final seen = <int>{};
       for (var i = 0; i < 300; i++) {
-        final tier = DifficultyCurve.randomTierForScore(150, rng);
-        expect(tier, anyOf(2, 3, 4));
+        final tier = DifficultyCurve.randomTierForScore(75, rng);
+        expect(tier, anyOf(1, 2));
+        seen.add(tier);
       }
+      expect(seen, equals({1, 2}));
+      // Both boundary scores stay in the same band.
+      expect(DifficultyCurve.randomTierForScore(50, rng), anyOf(1, 2));
+      expect(DifficultyCurve.randomTierForScore(100, rng), anyOf(1, 2));
     });
 
-    test('300 and above: can pick any tier, but 3/4 are the majority', () {
+    test('above 100: only ever picks tier 3 or 4, both appear', () {
       final rng = RngService.seeded('band-high');
-      final counts = {1: 0, 2: 0, 3: 0, 4: 0};
-      const samples = 1000;
-      for (var i = 0; i < samples; i++) {
+      final seen = <int>{};
+      for (var i = 0; i < 300; i++) {
         final tier = DifficultyCurve.randomTierForScore(500, rng);
-        counts[tier] = counts[tier]! + 1;
+        expect(tier, anyOf(3, 4));
+        seen.add(tier);
       }
-      final tier3And4 = counts[3]! + counts[4]!;
-      // "mostly" tier 3+, not exclusively — expect a clear majority
-      // without demanding every single draw be 3 or 4.
-      expect(tier3And4, greaterThan(samples ~/ 2));
+      expect(seen, equals({3, 4}));
+    });
+
+    test('101 is just above the boundary (tier 3 or 4)', () {
+      final rng = RngService.seeded('band-boundary-high');
+      for (var i = 0; i < 100; i++) {
+        expect(DifficultyCurve.randomTierForScore(101, rng), anyOf(3, 4));
+      }
     });
 
     test('negative scores behave like the lowest band (no crash)', () {
       final rng = RngService.seeded('band-negative');
       for (var i = 0; i < 50; i++) {
-        expect(
-          DifficultyCurve.randomTierForScore(-10, rng),
-          anyOf(1, 2),
-        );
+        expect(DifficultyCurve.randomTierForScore(-10, rng), equals(1));
       }
     });
 

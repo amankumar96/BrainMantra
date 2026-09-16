@@ -57,6 +57,21 @@ enum PuzzleType {
   // reasoningTest
   familyTree,
   shapeIdentification,
+  // reasoningTest — Phase 12 (rebalance): text-based verbal/logical
+  // reasoning topics, the same convention real reasoning tests use when
+  // not rendering actual images — see mirror_image_generator.dart's doc
+  // comment for why mirrorImage/paperFolding/figureSeries are textual
+  // rather than rendered figures.
+  mirrorImage,
+  paperFolding,
+  figureSeries,
+  seatingArrangement,
+  coding,
+  directionSense,
+  wordPuzzle,
+  analogy,
+  ranking,
+  statementConclusion,
 }
 
 const _uuid = Uuid();

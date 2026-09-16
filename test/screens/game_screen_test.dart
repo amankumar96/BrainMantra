@@ -30,6 +30,35 @@ const _hintedNonDiagramTypes = {
 
 Widget _wrap(Widget child) => MaterialApp(home: child);
 
+/// A GameController whose current puzzle answers via plain text option
+/// buttons, not [DiagramAnswerButton]s (Phase 13/14 added several
+/// diagram-as-answer-option types - mirrorImage, paperFolding, and
+/// figureSeries' rendered shape-series sub-case - whose `options` are
+/// internal, never-displayed id strings, so `find.text(option)` would
+/// never match). Tests that just need *some* puzzle to tap a
+/// `find.text`-findable option on search a few seeds for one, the same
+/// pattern the diagram-specific tests below already use to search *for*
+/// a diagram type.
+GameController _textOptionController({
+  required String seedPrefix,
+  int? totalQuestions,
+  bool isDailyChallenge = false,
+  int startingScore = 0,
+}) {
+  for (var seed = 0; seed < 50; seed++) {
+    final candidate = GameController(
+      totalQuestions: totalQuestions,
+      isDailyChallenge: isDailyChallenge,
+      startingScore: startingScore,
+      rng: RngService.seeded('$seedPrefix-$seed'),
+    );
+    if (candidate.currentPuzzle!.optionDiagrams == null) {
+      return candidate;
+    }
+  }
+  throw StateError('no text-option puzzle found for $seedPrefix in 50 seeds');
+}
+
 /// The on-screen option label matching [puzzle]'s correct answer.
 /// Deliberately NOT `puzzle.correctAnswer.toString()` directly — for
 /// trueFalse puzzles the displayed options are "True"/"False" while
@@ -80,10 +109,9 @@ void main() {
   testWidgets(
       'tapping a correct answer then Submit raises the marks total',
       (tester) async {
-    final controller = GameController(
+    final controller = _textOptionController(
+      seedPrefix: 'gs-2',
       totalQuestions: 3,
-      isDailyChallenge: false,
-      rng: RngService.seeded('gs-2'),
     );
     await tester.pumpWidget(_wrap(GameScreen(debugController: controller)));
     await tester.pump();
@@ -100,10 +128,9 @@ void main() {
   testWidgets(
       'tapping a wrong answer then Submit lowers the marks total',
       (tester) async {
-    final controller = GameController(
+    final controller = _textOptionController(
+      seedPrefix: 'gs-4',
       totalQuestions: 3,
-      isDailyChallenge: false,
-      rng: RngService.seeded('gs-4'),
     );
     await tester.pumpWidget(_wrap(GameScreen(debugController: controller)));
     await tester.pump();
@@ -143,15 +170,28 @@ void main() {
 
   testWidgets('completing every question navigates to ResultsScreen',
       (tester) async {
-    final controller = GameController(
+    final controller = _textOptionController(
+      seedPrefix: 'gs-3',
       totalQuestions: 2,
-      isDailyChallenge: false,
-      rng: RngService.seeded('gs-3'),
     );
     await tester.pumpWidget(_wrap(GameScreen(debugController: controller)));
     await tester.pump();
 
     for (var i = 0; i < 2; i++) {
+      // Later questions this session draws are just as likely to be a
+      // diagram-as-answer-option type as the first - _correctLabel's
+      // find.text lookup only works for the text-option kind, so skip
+      // ahead (without scoring) whenever one comes up rather than
+      // failing this navigation-focused test on an unrelated puzzle type.
+      if (controller.currentPuzzle!.optionDiagrams != null) {
+        await tester.tap(find.text('Skip'));
+        await tester.pump();
+        await _pumpMillis(
+          tester,
+          AppDurations.feedbackDuration.inMilliseconds + 200,
+        );
+        continue;
+      }
       final answer = _correctLabel(controller.currentPuzzle!);
       await tester.tap(find.text(answer));
       await tester.pump();
@@ -171,11 +211,10 @@ void main() {
 
   testWidgets('an infinite (Play) session shows an End button that ends '
       'the session and navigates to ResultsScreen', (tester) async {
-    final controller = GameController(
+    final controller = _textOptionController(
+      seedPrefix: 'gs-5',
       totalQuestions: null, // Play mode — no cap
-      isDailyChallenge: false,
       startingScore: 40,
-      rng: RngService.seeded('gs-5'),
     );
     await tester.pumpWidget(_wrap(GameScreen(debugController: controller)));
     await tester.pump();

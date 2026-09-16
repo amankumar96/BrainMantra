@@ -791,29 +791,76 @@ void _independentlyVerify(Puzzle puzzle) {
       expect(puzzle.optionDiagrams![correctIndex].vertices, equals(expectedFlip));
 
     case PuzzleType.paperFolding:
-      final m = RegExp(r'folded in half (\d+) time.+?(\d+) hole')
-          .firstMatch(puzzle.questionText)!;
-      final folds = int.parse(m.group(1)!);
-      final holes = int.parse(m.group(2)!);
-      var expected = holes;
-      for (var i = 0; i < folds; i++) {
-        expected *= 2;
+      // A genuine diagram-as-answer-option puzzle (Phase 14) - the
+      // correct option's hole pattern must be exactly the punch point
+      // mirrored across whichever axes the question text actually names,
+      // re-derived independently here rather than trusting the
+      // generator's own fold-tracking.
+      expect(puzzle.diagramData?.kind, equals(DiagramKind.dotGrid));
+      expect(puzzle.optionDiagrams, hasLength(4));
+      for (final d in puzzle.optionDiagrams!) {
+        expect(d.kind, equals(DiagramKind.dotGrid));
       }
-      expect(expected, equals(puzzle.correctAnswer));
+      final punch = puzzle.diagramData!.points!;
+      final px = punch[0];
+      final py = punch[1];
+      final mirrorsVertical = puzzle.questionText.contains('vertically');
+      final mirrorsHorizontal = puzzle.questionText.contains('horizontally');
+      final xs = mirrorsVertical ? [px, 1 - px] : [px];
+      final ys = mirrorsHorizontal ? [py, 1 - py] : [py];
+      final expectedHoles = [
+        for (final x in xs) for (final y in ys) ...[x, y],
+      ];
+      final correctIndex = puzzle.options.indexOf(puzzle.correctAnswer as String);
+      expect(correctIndex, greaterThanOrEqualTo(0));
+      expect(puzzle.optionDiagrams![correctIndex].points, equals(expectedHoles));
 
     case PuzzleType.figureSeries:
-      final m = RegExp(r'^([A-Z]), ([A-Z]), ([A-Z]), ([A-Z]), \?')
-          .firstMatch(puzzle.questionText)!;
-      final letters = [m.group(1)!, m.group(2)!, m.group(3)!, m.group(4)!];
-      final codes = letters.map((l) => l.codeUnitAt(0) - 65).toList();
-      final step = codes[1] - codes[0];
-      expect(codes[2] - codes[1], equals(step));
-      expect(codes[3] - codes[2], equals(step));
-      final expectedCode = ((codes[3] + step) % 26 + 26) % 26;
-      expect(
-        (puzzle.correctAnswer as String).codeUnitAt(0) - 65,
-        equals(expectedCode),
-      );
+      final letterMatch =
+          RegExp(r'^([A-Z]), ([A-Z]), ([A-Z]), ([A-Z]), \?')
+              .firstMatch(puzzle.questionText);
+      if (letterMatch != null) {
+        final letters = [
+          letterMatch.group(1)!,
+          letterMatch.group(2)!,
+          letterMatch.group(3)!,
+          letterMatch.group(4)!,
+        ];
+        final codes = letters.map((l) => l.codeUnitAt(0) - 65).toList();
+        final step = codes[1] - codes[0];
+        expect(codes[2] - codes[1], equals(step));
+        expect(codes[3] - codes[2], equals(step));
+        final expectedCode = ((codes[3] + step) % 26 + 26) % 26;
+        expect(
+          (puzzle.correctAnswer as String).codeUnitAt(0) - 65,
+          equals(expectedCode),
+        );
+      } else {
+        // Rendered shape-series (Phase 14) - the reference diagram's
+        // sideCounts must themselves already be a constant-step
+        // progression, and the correct option's polygon must have
+        // exactly (last side count + that same step) sides, re-derived
+        // independently from the reference shapes shown, not by
+        // trusting the generator's own step tracking.
+        expect(puzzle.diagramData?.kind, equals(DiagramKind.shapeSequence));
+        expect(puzzle.optionDiagrams, hasLength(4));
+        for (final d in puzzle.optionDiagrams!) {
+          expect(d.kind, equals(DiagramKind.polygon));
+        }
+        final sideCounts = puzzle.diagramData!.sideCounts!;
+        expect(sideCounts, hasLength(3));
+        final step = sideCounts[1] - sideCounts[0];
+        expect(sideCounts[2] - sideCounts[1], equals(step));
+        final expectedSides = sideCounts[2] + step;
+        final correctIndex =
+            puzzle.options.indexOf(puzzle.correctAnswer as String);
+        expect(correctIndex, greaterThanOrEqualTo(0));
+        // A regular polygon's vertex count is exactly its side count.
+        expect(
+          puzzle.optionDiagrams![correctIndex].vertices!.length ~/ 2,
+          equals(expectedSides),
+        );
+      }
 
     case PuzzleType.seatingArrangement:
       final orderMatch =
@@ -1104,16 +1151,23 @@ void main() {
     // integer. mirrorImage: two of its three sub-cases each have only one
     // fixed question stem ("Which letter looks exactly the same in a
     // mirror..."), varying only in which single letter is correct — real
-    // variety lives in correctAnswer, not questionText. paperFolding: at
-    // tier 3 (folds 1-3 × holes 1-2, 6 combos) the same small-space flake
-    // risk. wordPuzzle: its questionText is a fixed constant ("Which word
-    // does NOT belong with the others?") — real variety lives entirely in
-    // options/correctAnswer, same as mirrorImage's lookup sub-cases.
-    // analogy: its curated bank (14 entries at tier 3-4) is still small
-    // enough for the same birthday-paradox flake risk. statementConclusion:
-    // only 6 curated triples × 2 (valid/invalid) = 12 possible texts, the
-    // same risk again. See shape_reasoning_generator_test.dart for the
-    // same dedicated-variety-check pattern.
+    // variety lives in correctAnswer, not questionText. wordPuzzle: its
+    // questionText is a fixed constant ("Which word does NOT belong with
+    // the others?") — real variety lives entirely in options/correctAnswer,
+    // same as mirrorImage's lookup sub-cases. analogy: its curated bank
+    // (14 entries at tier 3-4) is still small enough for the same
+    // birthday-paradox flake risk. statementConclusion: only 6 curated
+    // triples × 2 (valid/invalid) = 12 possible texts, the same risk
+    // again. See shape_reasoning_generator_test.dart for the same
+    // dedicated-variety-check pattern.
+    // paperFolding (Phase 14): questionText only ever takes one of 3 fixed
+    // fold-description sentences - real variety now lives entirely in
+    // diagramData/optionDiagrams (the punch point and hole positions), not
+    // questionText, same shape as mirrorImage/wordPuzzle above.
+    // figureSeries (Phase 14): its rendered shape-series sub-case has a
+    // single fixed questionText ("The shapes below follow a pattern...")
+    // for every draw - real variety lives in diagramData.sideCounts and
+    // optionDiagrams instead, same reasoning as paperFolding.
     for (final type in PuzzleType.values.where(
       (t) =>
           t != PuzzleType.shapeIdentification &&
@@ -1125,6 +1179,7 @@ void main() {
           t != PuzzleType.workTime &&
           t != PuzzleType.mirrorImage &&
           t != PuzzleType.paperFolding &&
+          t != PuzzleType.figureSeries &&
           t != PuzzleType.wordPuzzle &&
           t != PuzzleType.analogy &&
           t != PuzzleType.statementConclusion,

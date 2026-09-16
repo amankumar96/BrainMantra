@@ -1,3 +1,22 @@
+import 'dart:math' show cos, pi, sin;
+
+/// Flattened `[x0, y0, x1, y1, ...]` vertices of a regular polygon with
+/// [sides] sides, inscribed in a unit circle and rotated so the first
+/// vertex points straight up — shared by every generator that builds a
+/// [DiagramKind.polygon] regular shape (figure series' options, the
+/// answer choices in a shape-progression puzzle) and by
+/// `diagram_painter.dart`'s [DiagramKind.shapeSequence] renderer, so
+/// there's exactly one definition of "what a square/pentagon/hexagon
+/// looks like" for this app to ever disagree with itself about.
+List<double> regularPolygonVertices(int sides) {
+  final vertices = <double>[];
+  for (var i = 0; i < sides; i++) {
+    final angle = -pi / 2 + (2 * pi * i / sides);
+    vertices.addAll([cos(angle), sin(angle)]);
+  }
+  return vertices;
+}
+
 /// Which shape/visualization a [DiagramData] describes. `diagram_painter.dart`
 /// switches on this to decide how to draw it.
 enum DiagramKind {
@@ -12,6 +31,17 @@ enum DiagramKind {
   /// puzzles (Phase 13: mirror/water images), where each of the 4 options
   /// is itself a small rendered shape rather than text. See [vertices].
   polygon,
+
+  /// A bordered square with a handful of dots marking hole positions
+  /// (Phase 14: paper folding) — both the folded-sheet reference diagram
+  /// (one dot) and each unfold-pattern answer option (several dots). See
+  /// [points].
+  dotGrid,
+
+  /// Several regular polygons drawn left to right in one box (Phase 14:
+  /// figure series) — the question's reference diagram showing a shape
+  /// progression (e.g. triangle, square, pentagon, ?). See [sideCounts].
+  shapeSequence,
 }
 
 /// Everything a diagram painter needs to render one diagram, plus enough
@@ -60,6 +90,18 @@ class DiagramData {
   /// size.
   final List<double>? vertices;
 
+  /// [DiagramKind.dotGrid] only: hole/dot positions, flattened as
+  /// `[x0, y0, x1, y1, ...]`, each in `[0, 1]` — a fraction of the way
+  /// across a unit square frame (not a shape's own bounding box, unlike
+  /// [vertices] — a dot grid must show *where in the square* each hole
+  /// is, so its coordinate space is fixed, not fit-to-content).
+  final List<double>? points;
+
+  /// [DiagramKind.shapeSequence] only: one regular polygon's side count
+  /// per entry, drawn left to right in order (e.g. `[3, 4, 5]` draws a
+  /// triangle, then a square, then a pentagon).
+  final List<int>? sideCounts;
+
   const DiagramData({
     required this.kind,
     this.angles,
@@ -70,6 +112,8 @@ class DiagramData {
     this.categories,
     this.values,
     this.vertices,
+    this.points,
+    this.sideCounts,
   });
 
   Map<String, dynamic> toJson() => {
@@ -82,6 +126,8 @@ class DiagramData {
         'categories': categories,
         'values': values,
         'vertices': vertices,
+        'points': points,
+        'sideCounts': sideCounts,
       };
 
   factory DiagramData.fromJson(Map<String, dynamic> json) {
@@ -97,6 +143,8 @@ class DiagramData {
       values: (json['values'] as List?)?.map((v) => v as int).toList(),
       vertices:
           (json['vertices'] as List?)?.map((v) => (v as num).toDouble()).toList(),
+      points: (json['points'] as List?)?.map((v) => (v as num).toDouble()).toList(),
+      sideCounts: (json['sideCounts'] as List?)?.map((v) => v as int).toList(),
     );
   }
 
@@ -112,7 +160,9 @@ class DiagramData {
         other.y == y &&
         _listEquals(other.categories, categories) &&
         _listEquals(other.values, values) &&
-        _listEquals(other.vertices, vertices);
+        _listEquals(other.vertices, vertices) &&
+        _listEquals(other.points, points) &&
+        _listEquals(other.sideCounts, sideCounts);
   }
 
   @override
@@ -126,13 +176,15 @@ class DiagramData {
         categories == null ? null : Object.hashAll(categories!),
         values == null ? null : Object.hashAll(values!),
         vertices == null ? null : Object.hashAll(vertices!),
+        points == null ? null : Object.hashAll(points!),
+        sideCounts == null ? null : Object.hashAll(sideCounts!),
       );
 
   @override
   String toString() => 'DiagramData(kind: $kind, angles: $angles, '
       'unknownAngleIndex: $unknownAngleIndex, dimensions: $dimensions, '
       'x: $x, y: $y, categories: $categories, values: $values, '
-      'vertices: $vertices)';
+      'vertices: $vertices, points: $points, sideCounts: $sideCounts)';
 }
 
 bool _listEquals<T>(List<T>? a, List<T>? b) {

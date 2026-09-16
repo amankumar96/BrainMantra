@@ -29,6 +29,14 @@ const _sampleByKind = <DiagramKind, DiagramData>{
     kind: DiagramKind.polygon,
     vertices: [0, 0, 0, 3, 2, 2, 2, 1.3, 0.7, 1.3, 0.7, 0],
   ),
+  DiagramKind.dotGrid: DiagramData(
+    kind: DiagramKind.dotGrid,
+    points: [0.125, 0.125, 0.875, 0.125, 0.125, 0.875, 0.875, 0.875],
+  ),
+  DiagramKind.shapeSequence: DiagramData(
+    kind: DiagramKind.shapeSequence,
+    sideCounts: [3, 4, 5],
+  ),
 };
 
 void main() {

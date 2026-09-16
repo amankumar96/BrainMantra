@@ -133,6 +133,10 @@ class DiagramPainter extends CustomPainter {
         _paintBarGraph(canvas, size);
       case DiagramKind.polygon:
         _paintPolygon(canvas, size);
+      case DiagramKind.dotGrid:
+        _paintDotGrid(canvas, size);
+      case DiagramKind.shapeSequence:
+        _paintShapeSequence(canvas, size);
     }
   }
 
@@ -352,5 +356,64 @@ class DiagramPainter extends CustomPainter {
         ..style = PaintingStyle.fill,
     );
     canvas.drawPath(path, _stroke);
+  }
+
+  /// A bordered square frame with a small filled dot at each of
+  /// [DiagramData.points] (Phase 14: paper folding) — unlike [vertices]'
+  /// fit-to-content scaling, a dot's position is a fraction *of the
+  /// square itself* (0..1 each axis), so the square is always drawn at a
+  /// fixed size within the box and the dots are placed directly within
+  /// it, never independently rescaled.
+  void _paintDotGrid(Canvas canvas, Size size) {
+    const framePadding = 16.0;
+    final frameSide =
+        max(min(size.width, size.height) - framePadding * 2, 10.0);
+    final frameRect = Rect.fromLTWH(
+      (size.width - frameSide) / 2,
+      (size.height - frameSide) / 2,
+      frameSide,
+      frameSide,
+    );
+    canvas.drawRect(frameRect, _stroke);
+
+    final dotPaint = Paint()..color = AppColors.wrong;
+    final points = data.points!;
+    for (var i = 0; i + 1 < points.length; i += 2) {
+      final dot = Offset(
+        frameRect.left + points[i] * frameSide,
+        frameRect.top + points[i + 1] * frameSide,
+      );
+      canvas.drawCircle(dot, 5, dotPaint);
+    }
+  }
+
+  /// Several regular polygons drawn left to right, each fit to its own
+  /// equal-width cell via [polygonPoints] (Phase 14: figure series) — a
+  /// shape progression like triangle → square → pentagon rendered as one
+  /// diagram rather than described in words.
+  void _paintShapeSequence(Canvas canvas, Size size) {
+    final sideCounts = data.sideCounts!;
+    const cellPadding = 10.0;
+    final cellWidth = size.width / sideCounts.length;
+    for (var i = 0; i < sideCounts.length; i++) {
+      final vertices = regularPolygonVertices(sideCounts[i]);
+      final cellSize = Size(cellWidth, size.height);
+      final localPoints =
+          polygonPoints(vertices, cellSize, padding: cellPadding);
+      final offset = Offset(i * cellWidth, 0);
+      final path = Path()
+        ..moveTo(localPoints[0].dx + offset.dx, localPoints[0].dy + offset.dy);
+      for (final p in localPoints.skip(1)) {
+        path.lineTo(p.dx + offset.dx, p.dy + offset.dy);
+      }
+      path.close();
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = AppColors.primary.withValues(alpha: 0.15)
+          ..style = PaintingStyle.fill,
+      );
+      canvas.drawPath(path, _stroke);
+    }
   }
 }

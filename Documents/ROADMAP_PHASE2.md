@@ -320,6 +320,62 @@ reference + 4 options — no option id text ever shown, and tapping one actually
 
 ---
 
+## Phase 14 — Paper Folding & Figure Series as Rendered Diagrams ✅ Built
+
+The two reasoning topics Phase 13 deliberately left text-based (`paperFolding`, `figureSeries`) rebuilt
+onto the same diagram-as-answer-option architecture, so every diagram-shaped reasoning topic in the app
+now actually looks like one.
+
+**Model**: `DiagramData` gained two kinds. `dotGrid` (`points: List<double>?`) draws a bordered square
+frame with dots at fixed `[0,1]`-fraction positions — unlike `polygon`'s `vertices`, a dot grid's
+coordinate space is fixed, not fit-to-content, since a fold puzzle needs to show *where in the square*
+each hole actually is, not just a shape's outline. `shapeSequence` (`sideCounts: List<int>?`) draws
+several regular polygons left to right in one box, one entry per side count. A new top-level
+`regularPolygonVertices(sides)` (in `diagram_data.dart`, alongside the model it serves) generates a
+regular polygon inscribed in a unit circle, first vertex pointing up — the one shared definition of
+"what a square/pentagon/hexagon looks like" both `figureSeries`' reference diagram and its rendered
+option shapes draw from, so the two can never silently disagree.
+
+**Painter**: `diagram_painter.dart` gained `_paintDotGrid` (a stroked frame + filled circles at each
+scaled/offset point) and `_paintShapeSequence` (divides the box into equal cells, fits each cell's
+polygon via the existing `polygonPoints()` from Phase 13 — no new fitting math needed).
+
+**Generators**: `paperFolding` rebuilt around exact fold-mirroring math — a punch point `(px, py)` on a
+clean eighths fraction, mirrored across whichever axis(es) the described fold(s) actually apply
+(`(x,y) → (1-x,y)` for a vertical fold, `(x,y) → (x,1-y)` for horizontal) — with the reference diagram
+showing the folded sheet's single punch point and each of the 4 options a full rendered unfold pattern.
+`figureSeries` now draws from two sub-cases: a rendered shape-series (every tier — 3 polygons with a
+constant side-count step, 1 at tier 1-2, 2 at tier 3-4, extrapolate the next) and the original
+letter-series (`A, C, E, G, ?`) kept as an additional tier 3-4 sub-case for variety, since a written
+"spot the pattern" puzzle still exercises the same skill differently. Two real bugs were caught and
+fixed by manual review before ever running a test: `paperFolding`'s original distractor de-duplication
+used a `Set<List<double>>`, which relies on Dart's identity-based (not value-based) `List.==` and could
+have silently let a distractor share the correct answer's exact hole positions — fixed by excluding
+distractors by fold-combo identity instead of by comparing the resulting lists. `figureSeries`' original
+distractor side-counts used `.clamp(3, 10)` on offsets, which collapsed to fewer than 3 distinct values
+near the range's edges (e.g. `correctSides = 10`) — fixed by drawing 3 distractors from the full
+triangle..decagon range minus the correct answer, shuffled, guaranteeing exactly 3 every time.
+
+**Testing**: `puzzle_generator_test.dart`'s `paperFolding` case now re-derives the correct option's hole
+pattern independently — parses which fold(s) the question text names, re-mirrors the punch point itself,
+and compares against the correct option's `points` — rather than trusting the generator's own fold
+tracking. `figureSeries` branches on `diagramData?.kind`: the rendered sub-case re-derives the expected
+next side count from the reference diagram's own `sideCounts` progression and checks the correct
+option's vertex count matches; the letter sub-case keeps the original regex-based check unchanged.
+`diagram_painter_test.dart` gained `dotGrid`/`shapeSequence` paint-without-throwing samples in
+`_sampleByKind`, following the same pattern Phase 13 used for `polygon`. The anti-duplicate exclusion
+list gained `figureSeries` (its rendered sub-case has one fixed questionText, same as `mirrorImage`'s
+lookup sub-cases before it) alongside the already-excluded `paperFolding` (whose questionText is now one
+of 3 fixed fold-description sentences, real variety living entirely in `diagramData`/`optionDiagrams`).
+`game_screen_test.dart`'s generic seeded-puzzle tests (tap a correct/wrong answer, complete a session,
+End a Play session) could now land on one of these diagram-as-answer-option types and find no
+`find.text`-matchable option button — fixed with a small `_textOptionController` seed-search helper,
+the same technique the file's existing diagram-search tests already used in the other direction.
+
+**Phase 14 exit criteria:** met — `flutter analyze` clean, all 532 tests passing.
+
+---
+
 ## Master Checklist
 
 - [x] Phases 0–6 (core build, playable UI, daily challenge, ads, polish, store submission — see `ARCHITECTURE.md`)
@@ -327,13 +383,14 @@ reference + 4 options — no option id text ever shown, and tapping one actually
 - [ ] Step 7.3: topic selection UI (not started)
 - [x] Step 8: diagram math (triangle law-of-sines placement, no library needed — geofig/p33 references corrected), `DiagramPainter` (`CustomPainter`, no charting package), 4 Stage-1 diagram types + tests, tier 3-4 hints, options-left/diagram-right layout
 - [ ] **Gate: 20+ diagrams manually reviewed on a real device for legibility/layout correctness** — not yet done
-- [x] Stage 2 (diagram-as-answer-option) — see Phase 13; `mirrorImage` rebuilt on it, `paperFolding`/`figureSeries` still text-based (rotation not built as a distinct topic)
+- [x] Stage 2 (diagram-as-answer-option) — see Phase 13/14; `mirrorImage`, `paperFolding`, and `figureSeries`' rendered sub-case all rebuilt on it (rotation not built as a distinct topic)
 - [ ] Phase 9 (question database) — not started
 - [x] Phase 10: Geometry (perimeter), Probability, Ratio generators — real-life framed, `gcd()` helper added to `rng_utils.dart`, 359 tests passing
 - [x] Phase 11A: tier timing tightened (1/2/5/7 min), hints unlocked at every tier for all 10 existing formula-driven generators — 366 tests passing
 - [x] Phase 11B: 15 new generators covering the 22-topic spec (number classification, surds, algebraic identities, linear/quadratic equations, progressions, trig ratios/identities, advanced mensuration, coordinate geometry, logarithms, permutation & combination, statistics, unit conversions, work/time, mixture & alligation) — 453 tests passing
 - [x] Phase 12: category-balanced type picker (math/reasoning 50/50), 10 new reasoning generators (mirror/water images, paper folding, figure series, seating arrangements, coding, direction sense, word puzzles, analogy, ranking, statement & conclusion), and a simplified score-to-tier band (<50→1, 50-100→1-2, >100→3-4) — 511 tests passing
 - [x] Phase 13: diagram-as-answer-option (Stage 2) — `Puzzle.optionDiagrams`, `DiagramData.polygon`/`polygonPoints`, `DiagramAnswerButton`, a uniform 2x2 grid layout, `mirrorImage` rebuilt as a genuine rendered-shape puzzle — 531 tests passing
+- [x] Phase 14: `paperFolding` and `figureSeries` rebuilt onto diagram-as-answer-option — `DiagramData.dotGrid`/`shapeSequence`, `regularPolygonVertices()`, exact fold-mirroring math, `figureSeries` gains a rendered shape-series at every tier (letter-series kept as an extra tier 3-4 sub-case) — 532 tests passing
 
 ## How to Hand This to Claude Code
 

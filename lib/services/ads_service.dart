@@ -68,6 +68,20 @@ class AdsService {
   RewardedAd? _rewardedAd;
   bool _isLoadingRewarded = false;
 
+  // TEMPORARY, debug-only: registers specific physical devices as AdMob
+  // "test devices" so they always get guaranteed test ad fill instead of
+  // real inventory — real ad units can show `ERROR_CODE_NO_FILL` for
+  // hours/days on a brand-new AdMob account before real demand ramps up,
+  // and this is how placement/frequency/UMP behavior gets verified on a
+  // real device in the meantime. Hashed device IDs (not personal data),
+  // logged by the SDK itself on first run — see logcat's own
+  // `addTestDeviceHashedId(...)` suggestion. Guarded by kDebugMode below
+  // so this can never affect a real release build; remove entries once
+  // real ad fill is confirmed working and this is no longer needed.
+  static const List<String> _debugTestDeviceIds = [
+    'B70BE1903265316E13E37EACC45AD7B4', // 2311DRN14I
+  ];
+
   /// Call once from `main()`, after `Supabase.initialize(...)`, before
   /// `runApp`. Never throws — an ad SDK failing to initialize must not
   /// block the app from starting.
@@ -75,10 +89,13 @@ class AdsService {
     if (kIsWeb) return; // no web support in google_mobile_ads at all
     try {
       await MobileAds.instance.initialize();
-      if (isChildDirectedTreatment) {
+      if (isChildDirectedTreatment || kDebugMode) {
         MobileAds.instance.updateRequestConfiguration(
           RequestConfiguration(
-            ageRestrictedTreatment: AgeRestrictedTreatment.child,
+            ageRestrictedTreatment: isChildDirectedTreatment
+                ? AgeRestrictedTreatment.child
+                : null,
+            testDeviceIds: kDebugMode ? _debugTestDeviceIds : null,
           ),
         );
       }

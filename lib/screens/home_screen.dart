@@ -1,3 +1,5 @@
+import 'dart:math' show cos, pi, sin;
+
 import 'package:flutter/material.dart';
 
 import '../models/player_stats.dart';
@@ -213,12 +215,6 @@ class _HomeHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        MediaQuery.paddingOf(context).top + AppSpacing.sm,
-        AppSpacing.md,
-        AppSpacing.xl,
-      ),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -226,52 +222,110 @@ class _HomeHeader extends StatelessWidget {
           colors: [AppColors.headerGradientStart, AppColors.headerGradientEnd],
         ),
       ),
-      child: Row(
+      // A Stack so the wave decoration paints behind the actual header
+      // content, never disturbing that content's own layout.
+      child: Stack(
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Image.asset(
-              'assets/icons/icon.png',
-              width: 44,
-              height: 44,
-              fit: BoxFit.cover,
+          Positioned.fill(child: CustomPaint(painter: _HeaderWavePainter())),
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              MediaQuery.paddingOf(context).top + AppSpacing.sm,
+              AppSpacing.md,
+              AppSpacing.xl,
             ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+            child: Row(
               children: [
-                Text(
-                  'Brain Mantra',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 22,
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.asset(
+                    'assets/icons/icon.png',
+                    width: 44,
+                    height: 44,
+                    fit: BoxFit.cover,
                   ),
                 ),
-                Text(
-                  'Train Today, Brighter Tomorrow',
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                const SizedBox(width: AppSpacing.sm),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Brain Mantra',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 22,
+                        ),
+                      ),
+                      // A short, plainly descriptive line — deliberately
+                      // not a slogan/tagline that could resemble anyone
+                      // else's copyrighted wording. Single line always:
+                      // smaller font + maxLines/overflow guard rather than
+                      // a wrapped second line.
+                      Text(
+                        'Boost Your Brainpower Daily',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: Colors.white70, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.info_outline, color: Colors.white),
+                  tooltip: 'Rules',
+                  onPressed: onRulesTap,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.logout, color: Colors.white),
+                  tooltip: 'Sign out',
+                  onPressed: onSignOutTap,
                 ),
               ],
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.info_outline, color: Colors.white),
-            tooltip: 'Rules',
-            onPressed: onRulesTap,
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white),
-            tooltip: 'Sign out',
-            onPressed: onSignOutTap,
           ),
         ],
       ),
     );
   }
+}
+
+/// A few soft, semi-transparent white wave curves low in the header —
+/// purely decorative, painted behind the header's actual content.
+class _HeaderWavePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    void drawWave(double baseline, double amplitude, double opacity) {
+      final path = Path()..moveTo(-20, baseline);
+      path.quadraticBezierTo(
+        size.width * 0.25,
+        baseline - amplitude,
+        size.width * 0.5,
+        baseline,
+      );
+      path.quadraticBezierTo(
+        size.width * 0.75,
+        baseline + amplitude,
+        size.width + 20,
+        baseline,
+      );
+      path.lineTo(size.width + 20, size.height + 20);
+      path.lineTo(-20, size.height + 20);
+      path.close();
+      canvas.drawPath(
+        path,
+        Paint()..color = Colors.white.withValues(alpha: opacity),
+      );
+    }
+
+    drawWave(size.height * 0.72, 14, 0.06);
+    drawWave(size.height * 0.85, 10, 0.05);
+  }
+
+  @override
+  bool shouldRepaint(covariant _HeaderWavePainter oldDelegate) => false;
 }
 
 /// Two-line greeting ("Hey **{name}** 👋" / "Welcome back! Your day
@@ -378,6 +432,12 @@ class _GreetingAndMarksRow extends StatelessWidget {
 /// The main hero card: gradient background, the brain mascot, a
 /// "Challenge your skills" headline, and the PLAY button — the app's
 /// central visual identity moment on Home.
+/// The main hero card — the screen's visual focal point: a vivid gradient
+/// background with subtle light-ray/geometric decoration, the mascot
+/// (now a transparent-background asset so it sits directly on the
+/// gradient rather than reading as a separate sticker — see
+/// `assets/icons/mascot_transparent.png`), a headline, and a large,
+/// always-single-line, full-width PLAY button.
 class _HeroCard extends StatelessWidget {
   const _HeroCard({required this.onPlay});
 
@@ -393,43 +453,60 @@ class _HeroCard extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [AppColors.heroGradientStart, AppColors.heroGradientEnd],
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            flex: 5,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Challenge\nyour skills',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 22,
-                    height: 1.15,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  'Sharpen your mind with fun questions every day!',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.85),
-                    fontSize: 12,
-                  ),
-                ),
-              ],
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: CustomPaint(painter: _HeroBackgroundPainter()),
             ),
-          ),
-          Expanded(flex: 3, child: Image.asset('assets/icons/icon.png')),
-          Expanded(
-            flex: 5,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'Challenge\nyour skills',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 24,
+                              height: 1.15,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.xs),
+                          Text(
+                            'Sharpen your mind with fun questions every day!',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.9),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    // No box/border here on purpose — mascot_transparent.png
+                    // has no baked-in background, so it sits directly on
+                    // the hero's own gradient instead of reading as a
+                    // separate square sticker.
+                    Image.asset(
+                      'assets/icons/mascot_transparent.png',
+                      width: 110,
+                      height: 110,
+                      fit: BoxFit.contain,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.md),
                 ElevatedButton.icon(
                   onPressed: onPlay,
                   style: ElevatedButton.styleFrom(
@@ -437,38 +514,73 @@ class _HeroCard extends StatelessWidget {
                     foregroundColor: AppColors.heroGradientEnd,
                     shape: const StadiumBorder(),
                     padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.sm,
-                      vertical: AppSpacing.sm,
+                      vertical: AppSpacing.sm + 2,
                     ),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    textStyle: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                  icon: const Icon(Icons.play_arrow, size: 16),
-                  label: const Text(
-                    'PLAY',
-                    softWrap: false,
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                const Text(
-                  'Small Steps\nBig Progress!',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontStyle: FontStyle.italic,
-                    fontSize: 11,
-                    decoration: TextDecoration.underline,
-                    decorationColor: Colors.amberAccent,
-                  ),
+                  icon: const Icon(Icons.play_arrow, size: 24),
+                  label: const Text('PLAY', softWrap: false),
                 ),
               ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
+}
+
+/// Subtle radial "light ray" wedges plus a few translucent geometric
+/// blobs behind the hero card's content — decoration only, kept low-alpha
+/// so it never competes with the mascot/headline/button for attention.
+class _HeroBackgroundPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rayOrigin = Offset(size.width * 0.78, size.height * 0.15);
+    final rayPaint = Paint()..color = Colors.white.withValues(alpha: 0.08);
+    const rayCount = 8;
+    const raySpread = 0.5; // radians, half-width of each wedge
+    final rayLength = size.longestSide;
+    for (var i = 0; i < rayCount; i++) {
+      final angle = (2 * pi / rayCount) * i;
+      final path = Path()
+        ..moveTo(rayOrigin.dx, rayOrigin.dy)
+        ..lineTo(
+          rayOrigin.dx + rayLength * cos(angle - raySpread / 2),
+          rayOrigin.dy + rayLength * sin(angle - raySpread / 2),
+        )
+        ..lineTo(
+          rayOrigin.dx + rayLength * cos(angle + raySpread / 2),
+          rayOrigin.dy + rayLength * sin(angle + raySpread / 2),
+        )
+        ..close();
+      canvas.drawPath(path, rayPaint);
+    }
+
+    final blobPaint = Paint()..color = Colors.white.withValues(alpha: 0.06);
+    canvas.drawCircle(
+      Offset(size.width * 0.08, size.height * 0.85),
+      46,
+      blobPaint,
+    );
+    canvas.drawCircle(
+      Offset(size.width * 0.92, size.height * 0.75),
+      30,
+      blobPaint,
+    );
+    final squarePaint = Paint()..color = Colors.white.withValues(alpha: 0.05);
+    canvas.save();
+    canvas.translate(size.width * 0.15, size.height * 0.15);
+    canvas.rotate(0.5);
+    canvas.drawRect(const Rect.fromLTWH(0, 0, 26, 26), squarePaint);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _HeroBackgroundPainter oldDelegate) => false;
 }
 
 /// A pastel-tinted row shared by Daily Challenge and Leaderboard: a

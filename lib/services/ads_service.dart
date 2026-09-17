@@ -40,21 +40,22 @@ class AdsService {
   // MUST be swapped for real ones before any iOS release build.
   static const String _testInterstitialIOS =
       'ca-app-pub-3940256099942544/4411468910';
-  static const String _testBannerIOS =
-      'ca-app-pub-3940256099942544/2934735716';
+  static const String _testBannerIOS = 'ca-app-pub-3940256099942544/2934735716';
   static const String _testRewardedIOS =
       'ca-app-pub-3940256099942544/1712485313';
 
   static String get _interstitialAdUnitId =>
       defaultTargetPlatform == TargetPlatform.iOS
-          ? _testInterstitialIOS
-          : _realInterstitialAndroid;
+      ? _testInterstitialIOS
+      : _realInterstitialAndroid;
 
-  static String get _bannerAdUnitId => defaultTargetPlatform == TargetPlatform.iOS
+  static String get _bannerAdUnitId =>
+      defaultTargetPlatform == TargetPlatform.iOS
       ? _testBannerIOS
       : _realBannerAndroid;
 
-  static String get _rewardedAdUnitId => defaultTargetPlatform == TargetPlatform.iOS
+  static String get _rewardedAdUnitId =>
+      defaultTargetPlatform == TargetPlatform.iOS
       ? _testRewardedIOS
       : _realRewardedAndroid;
 
@@ -149,27 +150,29 @@ class AdsService {
   void loadInterstitial() {
     if (kIsWeb || _interstitialAd != null || _isLoadingInterstitial) return;
     _isLoadingInterstitial = true;
-    _canRequestAds().then((allowed) {
-      if (!allowed) {
-        _isLoadingInterstitial = false;
-        return;
-      }
-      InterstitialAd.load(
-        adUnitId: _interstitialAdUnitId,
-        request: const AdRequest(),
-        adLoadCallback: InterstitialAdLoadCallback(
-          onAdLoaded: (ad) {
+    _canRequestAds()
+        .then((allowed) {
+          if (!allowed) {
             _isLoadingInterstitial = false;
-            _interstitialAd = ad;
-          },
-          onAdFailedToLoad: (_) {
-            _isLoadingInterstitial = false;
-          },
-        ),
-      );
-    }).catchError((_) {
-      _isLoadingInterstitial = false;
-    });
+            return;
+          }
+          InterstitialAd.load(
+            adUnitId: _interstitialAdUnitId,
+            request: const AdRequest(),
+            adLoadCallback: InterstitialAdLoadCallback(
+              onAdLoaded: (ad) {
+                _isLoadingInterstitial = false;
+                _interstitialAd = ad;
+              },
+              onAdFailedToLoad: (_) {
+                _isLoadingInterstitial = false;
+              },
+            ),
+          );
+        })
+        .catchError((_) {
+          _isLoadingInterstitial = false;
+        });
   }
 
   /// Shows the pre-cached interstitial if one is ready. Returns `true` if
@@ -215,27 +218,29 @@ class AdsService {
   void loadRewarded() {
     if (kIsWeb || _rewardedAd != null || _isLoadingRewarded) return;
     _isLoadingRewarded = true;
-    _canRequestAds().then((allowed) {
-      if (!allowed) {
-        _isLoadingRewarded = false;
-        return;
-      }
-      RewardedAd.load(
-        adUnitId: _rewardedAdUnitId,
-        request: const AdRequest(),
-        rewardedAdLoadCallback: RewardedAdLoadCallback(
-          onAdLoaded: (ad) {
+    _canRequestAds()
+        .then((allowed) {
+          if (!allowed) {
             _isLoadingRewarded = false;
-            _rewardedAd = ad;
-          },
-          onAdFailedToLoad: (_) {
-            _isLoadingRewarded = false;
-          },
-        ),
-      );
-    }).catchError((_) {
-      _isLoadingRewarded = false;
-    });
+            return;
+          }
+          RewardedAd.load(
+            adUnitId: _rewardedAdUnitId,
+            request: const AdRequest(),
+            rewardedAdLoadCallback: RewardedAdLoadCallback(
+              onAdLoaded: (ad) {
+                _isLoadingRewarded = false;
+                _rewardedAd = ad;
+              },
+              onAdFailedToLoad: (_) {
+                _isLoadingRewarded = false;
+              },
+            ),
+          );
+        })
+        .catchError((_) {
+          _isLoadingRewarded = false;
+        });
   }
 
   /// Shows the pre-cached rewarded ad if one is ready. Returns `true` if
@@ -350,13 +355,27 @@ class _BannerAdSlotState extends State<_BannerAdSlot> {
           ? const _AdPlaceholderCard()
           : const SizedBox.shrink();
     }
-    return SafeArea(
+    final adWidget = SafeArea(
       top: false,
       child: SizedBox(
         width: ad.size.width.toDouble(),
         height: ad.size.height.toDouble(),
         child: AdWidget(ad: ad),
       ),
+    );
+    if (!widget.showPlaceholder) return adWidget;
+    // Home only — wrap the real, loaded ad in the same rounded/padded
+    // card shape _AdPlaceholderCard uses, so this slot doesn't visually
+    // "jump" in shape once a real ad actually loads and replaces the
+    // placeholder.
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.adPlaceholderCard,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      alignment: Alignment.center,
+      child: adWidget,
     );
   }
 }
@@ -402,7 +421,11 @@ class _AdPlaceholderCard extends StatelessWidget {
               padding: const EdgeInsets.only(top: AppSpacing.sm),
               child: Row(
                 children: [
-                  const Icon(Icons.campaign, size: 40, color: AppColors.primary),
+                  const Icon(
+                    Icons.campaign,
+                    size: 40,
+                    color: AppColors.primary,
+                  ),
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Column(

@@ -75,8 +75,8 @@ abstract final class AppColors {
   // accent color for the icon badge + chevron.
   static const Color headerGradientStart = Color(0xFF3D6FF5);
   static const Color headerGradientEnd = Color(0xFF7C4DFF);
-  static const Color heroGradientStart = Color(0xFF2F5FE0);
-  static const Color heroGradientEnd = Color(0xFF17348C);
+  static const Color heroGradientStart = Color(0xFF3D7BFF);
+  static const Color heroGradientEnd = Color(0xFF1550E6);
   static const Color dailyChallengeCard = Color(0xFFFDF1E0);
   static const Color dailyChallengeAccent = Color(0xFFF5A623);
   static const Color leaderboardCard = Color(0xFFEFE9FB);

@@ -376,6 +376,75 @@ the same technique the file's existing diagram-search tests already used in the 
 
 ---
 
+## Phase 15 — Home/Play Redesign + Question-Logic Rebalance ✅ Built
+
+A product-driven pass covering two things at once: a specific box-by-box visual redesign of
+Home and Play, and a rebalance of how questions get picked.
+
+**Home screen** (`home_screen.dart`), top to bottom: a `_GreetingAndMarksRow` — one
+`Text.rich` greeting ("Hey **{name}**, welcome to your day streak of **{N}**", bolded via
+`TextSpan`s, not separate `Text` widgets) next to a highlighted marks pill showing
+`stats.highScore` (already the player's persistent running total, not a personal-best — no new
+data plumbing needed, just restyled/repositioned); a `_LogoHeroBox` (new `AppColors.neonBlue`
+token, brighter than the existing muted `primary` indigo) wrapping the app icon + a "Challenge
+your skills" tagline; a restyled bold "PLAY" button; a `_DailyChallengeBox` and `_LeaderboardBox`
+(new rounded-card widgets, replacing plain buttons/links); the banner ad moved from
+`Scaffold.bottomNavigationBar` into the scrollable body's flow; and a `_DeleteAccountBox` — a
+full-width red flow item replacing the old small corner-`Positioned` link. The whole body is now
+a `SingleChildScrollView` given how much content this adds. The greeting name comes from a new
+best-effort `_loadDisplayName()` reusing `LeaderboardService.fetchMyEntryAndRank()` (already used
+by `leaderboard_screen.dart`), with a `'Player'` fallback on any failure — never blocks Home's
+first paint, same precedent as every other Supabase call in this app.
+
+**Play screen** (`game_screen.dart`, `answer_button.dart`): the question now sits in a bordered
+card instead of bare text; the no-diagram option list changed from centered/intrinsic-width to
+the same left-aligned, full-width `CrossAxisAlignment.stretch` block the diagram-in-question
+layout already used, unifying both; a visible `Divider`/`VerticalDivider` now separates a
+diagram from its options (previously just a `SizedBox` gap); the diagram-as-answer-option 2×2
+grid is now wrapped in its own bordered card. Every answer option — text and rendered-diagram
+alike — now shows an A/B/C/D letter: `AnswerButton` gained a required `letter` prefix rendered in
+a `Row` ahead of the label; `DiagramAnswerButton` gained the same `letter`, shown as a small
+corner badge (`Positioned` circle) since its body is a full-bleed diagram with no text room.
+`feedback_overlay.dart`'s wrong-answer reveal text changed from "Correct answer: X" to
+"Correct Answer B: X" — `game_screen.dart` computes the correct option's letter via the same
+`options.indexOf(correctAnswer.toString())` logic `_stateFor` already used, and passes it through
+a new `correctAnswerLetter` parameter.
+
+**Question-logic rebalance** (`game_controller.dart`): `_pickNextType()` reworked in three ways.
+(1) The math:reasoning category split moved from 50/50 (`_rng.nextBool()`) to ~70/30
+(`_rng.nextInt(0, 9) < 3`). (2) A new `_recentTypes` ring buffer (last 5 picked types) excludes
+recently-shown types from the pool before picking, trimmed back to 5 after every pick — replacing
+the old single "reroll once if same as `_currentPuzzle`" check entirely. (3) Four advanced math
+topics (`logarithm`, `coordinateGeometry`, `progression`, `unitConversion`) are now fully excluded
+from the math pool unless `totalMarks > 200 || isDailyChallenge` — a brand new/low-scoring player
+sees the core topic library first.
+
+**Mensuration diagrams** (`perimeter_generator.dart`, `mensuration_advanced_generator.dart`):
+both previously text-only. `perimeter`'s rectangle/square sub-cases now populate
+`DiagramData(kind: DiagramKind.rectangle, ...)` (an existing kind, already painted); its triangle
+sub-case gets a genuine proportioned shape via a new shared `trianglePolygonVertices(a, b, c)`
+helper in `rng_utils.dart` — lays out real vertices from side lengths via the law of cosines,
+rendered as `DiagramKind.polygon` (not `.triangle`, which always forces angle labels + a "?" —
+meaningless for a side-length question). `mensurationAdvanced`'s Heron's-formula sub-case reuses
+the same helper; its sphere/cone/hemisphere/rhombus sub-cases stay text-only — no existing
+`DiagramKind` fits a 3D solid well, and a new one was out of scope for this pass.
+
+**Testing**: `answer_button_test.dart`/`feedback_overlay_test.dart` updated for the new required
+parameters plus new letter/text assertions; `home_screen_test.dart` updated for the new greeting
+`Text.rich` (matched via `find.textContaining`), the "PLAY" label, and the Delete Account box now
+needing `tester.ensureVisible()` since it's a normal scrollable flow item, not corner-pinned;
+`game_screen_test.dart` needed no changes — the letter prefix is a separate `Text` from the option
+label, so `find.text(option)` kept matching unchanged. `game_controller_test.dart`'s category-
+balance test retuned for the 70/30 skew, plus three new tests: no-repeat-in-5, gated-types-absent-
+below-threshold, and gated-types-present-above-threshold/Daily-Challenge. `puzzle_generator_test.dart`
+gained diagram-aware verification for `perimeter`'s and `mensurationAdvanced`'s new diagram
+sub-cases, re-measuring the rendered triangle's own vertex distances independently rather than
+trusting the generator's own law-of-cosines helper.
+
+**Phase 15 exit criteria:** met — `flutter analyze` clean, all 537 tests passing (up from 532).
+
+---
+
 ## Master Checklist
 
 - [x] Phases 0–6 (core build, playable UI, daily challenge, ads, polish, store submission — see `ARCHITECTURE.md`)
@@ -391,6 +460,7 @@ the same technique the file's existing diagram-search tests already used in the 
 - [x] Phase 12: category-balanced type picker (math/reasoning 50/50), 10 new reasoning generators (mirror/water images, paper folding, figure series, seating arrangements, coding, direction sense, word puzzles, analogy, ranking, statement & conclusion), and a simplified score-to-tier band (<50→1, 50-100→1-2, >100→3-4) — 511 tests passing
 - [x] Phase 13: diagram-as-answer-option (Stage 2) — `Puzzle.optionDiagrams`, `DiagramData.polygon`/`polygonPoints`, `DiagramAnswerButton`, a uniform 2x2 grid layout, `mirrorImage` rebuilt as a genuine rendered-shape puzzle — 531 tests passing
 - [x] Phase 14: `paperFolding` and `figureSeries` rebuilt onto diagram-as-answer-option — `DiagramData.dotGrid`/`shapeSequence`, `regularPolygonVertices()`, exact fold-mirroring math, `figureSeries` gains a rendered shape-series at every tier (letter-series kept as an extra tier 3-4 sub-case) — 532 tests passing
+- [x] Phase 15: Home/Play visual redesign (greeting+marks row, neon-blue logo hero, PLAY/Daily Challenge/Leaderboard/Delete Account boxes, question card, left-aligned options, diagram dividers, A/B/C/D letter labels, "Correct Answer B: X" reveal text) + question-logic rebalance (70/30 math:reasoning, no-repeat-in-5, 4 topics gated behind `totalMarks > 200`/Daily Challenge) + mensuration diagrams for `perimeter`/`mensurationAdvanced` — 537 tests passing
 
 ## How to Hand This to Claude Code
 

@@ -522,12 +522,11 @@ void main() {
     });
 
     test(
-        'picks math and reasoning categories roughly evenly, not weighted '
-        'toward whichever side has more topics (Phase 12 rebalance)', () {
-      // mathTest has ~25 topics vs. reasoningTest's ~12 — a flat pick
-      // across every PuzzleType would badly under-represent reasoning.
-      // The category-first-then-uniform-within-it picker should keep
-      // both sides close to 50/50 over enough draws instead.
+        'picks math and reasoning categories in roughly a 70/30 split '
+        '(Phase: question-logic rebalance)', () {
+      // Replaces the earlier 50/50 split — product spec is a 7:3
+      // math:reasoning ratio. A generous tolerant band (not an exact
+      // ratio) since this is still a random draw over a fixed N.
       final controller = GameController(
         totalQuestions: 200,
         isDailyChallenge: false,
@@ -544,11 +543,92 @@ void main() {
         controller.skipDueToTimeout();
         controller.onFeedbackAnimationComplete();
       }
-      // Both sides drawn, and neither one overwhelmingly dominates — a
-      // generous band (30-70%) since this is still a random draw, not a
-      // strict alternation.
-      expect(mathCount, greaterThan(60));
-      expect(reasoningCount, greaterThan(60));
+      expect(mathCount, inInclusiveRange(120, 160));
+      expect(reasoningCount, inInclusiveRange(40, 80));
+    });
+
+    test('never repeats a puzzle type within its last 5 questions', () {
+      final controller = GameController(
+        totalQuestions: 150,
+        isDailyChallenge: false,
+        rng: RngService.seeded('no-repeat-5'),
+      );
+      final types = <PuzzleType>[];
+      for (var i = 0; i < 150; i++) {
+        types.add(controller.currentPuzzle!.type);
+        controller.skipDueToTimeout();
+        controller.onFeedbackAnimationComplete();
+      }
+      for (var i = 1; i < types.length; i++) {
+        final windowStart = (i - 5).clamp(0, types.length);
+        final recentWindow = types.sublist(windowStart, i);
+        expect(
+          recentWindow.contains(types[i]),
+          isFalse,
+          reason:
+              '${types[i]} repeated within its own last-5 window at index $i',
+        );
+      }
+    });
+
+    group('gated advanced topics (logarithm/coordinateGeometry/progression/'
+        'unitConversion)', () {
+      const gatedTypes = {
+        PuzzleType.logarithm,
+        PuzzleType.coordinateGeometry,
+        PuzzleType.progression,
+        PuzzleType.unitConversion,
+      };
+
+      test('never appear while totalMarks stays low in Play mode', () {
+        final controller = GameController(
+          totalQuestions: 300,
+          isDailyChallenge: false,
+          rng: RngService.seeded('gated-low-score'),
+        );
+        for (var i = 0; i < 300; i++) {
+          expect(gatedTypes.contains(controller.currentPuzzle!.type), isFalse);
+          // skipDueToTimeout always scores 0 — totalMarks stays at 0
+          // (well under the 200 unlock threshold) for the whole drive.
+          controller.skipDueToTimeout();
+          controller.onFeedbackAnimationComplete();
+        }
+      });
+
+      test('become available once totalMarks exceeds 200 in Play mode', () {
+        final controller = GameController(
+          totalQuestions: 300,
+          isDailyChallenge: false,
+          startingScore: 250,
+          rng: RngService.seeded('gated-high-score'),
+        );
+        var sawGated = false;
+        for (var i = 0; i < 300; i++) {
+          if (gatedTypes.contains(controller.currentPuzzle!.type)) {
+            sawGated = true;
+          }
+          controller.skipDueToTimeout();
+          controller.onFeedbackAnimationComplete();
+        }
+        expect(sawGated, isTrue);
+      });
+
+      test('are available in Daily Challenge regardless of score', () {
+        final controller = GameController(
+          totalQuestions: 300,
+          isDailyChallenge: true,
+          rng: RngService.seeded('gated-daily'),
+        );
+        var sawGated = false;
+        for (var i = 0; i < 300; i++) {
+          if (gatedTypes.contains(controller.currentPuzzle!.type)) {
+            sawGated = true;
+          }
+          controller.skipDueToTimeout();
+          controller.onFeedbackAnimationComplete();
+        }
+        expect(sawGated, isTrue);
+      });
     });
   });
 }

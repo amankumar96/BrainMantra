@@ -1,4 +1,21 @@
+import 'dart:math' show acos, cos, sin;
+
 import 'rng_service.dart';
+
+/// Lays out an actual, proportioned triangle from its three side lengths
+/// (`a`, `b`, `c`) via the law of cosines, flattened as
+/// `DiagramKind.polygon` vertices (`[x0,y0,x1,y1,x2,y2]`): `v0`=(0,0),
+/// `v1`=(c,0) (so |v0v1| = c), and `v2` placed using the angle at `v0` so
+/// |v0v2| = b and |v1v2| = a — a real shape, not a generic outline.
+/// `.polygon` (not `.triangle`, which always renders angle labels plus a
+/// forced "?" on one vertex) is the right diagram kind wherever a
+/// question is about side lengths, not angles — shared by every
+/// mensuration generator that illustrates a triangle from its sides.
+List<double> trianglePolygonVertices(int a, int b, int c) {
+  final cosAngle0 = ((b * b + c * c - a * a) / (2 * b * c)).clamp(-1.0, 1.0);
+  final angle0 = acos(cosAngle0);
+  return [0, 0, c.toDouble(), 0, b * cos(angle0), b * sin(angle0)];
+}
 
 /// Shuffles [list] in place using [rng], via the standard Fisher-Yates
 /// algorithm. Shared by every generator that needs to randomize the order

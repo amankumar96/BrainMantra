@@ -33,10 +33,16 @@ enum AnswerButtonState {
 class AnswerButton extends StatelessWidget {
   const AnswerButton({
     super.key,
+    required this.letter,
     required this.label,
     required this.onTap,
     this.state = AnswerButtonState.normal,
   });
+
+  /// The option's letter ("A"/"B"/"C"/"D"...), shown as a leading prefix
+  /// — the option's index within `Puzzle.options`' already-shuffled
+  /// order, computed by the caller.
+  final String letter;
 
   final String label;
 
@@ -73,14 +79,28 @@ class AnswerButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppSpacing.sm),
             border: Border.all(color: borderColor, width: 2),
           ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: foreground,
-              fontWeight: FontWeight.w600,
-              fontSize: AppText.answerOption,
-            ),
+          child: Row(
+            children: [
+              Text(
+                '$letter)',
+                style: TextStyle(
+                  color: foreground,
+                  fontWeight: FontWeight.bold,
+                  fontSize: AppText.answerOption,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: foreground,
+                    fontWeight: FontWeight.w600,
+                    fontSize: AppText.answerOption,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -138,10 +158,15 @@ class AnswerButton extends StatelessWidget {
 class DiagramAnswerButton extends StatelessWidget {
   const DiagramAnswerButton({
     super.key,
+    required this.letter,
     required this.diagram,
     required this.onTap,
     this.state = AnswerButtonState.normal,
   });
+
+  /// Same letter convention as [AnswerButton.letter] — shown as a small
+  /// corner badge, since a diagram's body leaves no room for inline text.
+  final String letter;
 
   final DiagramData diagram;
   final VoidCallback? onTap;
@@ -169,8 +194,33 @@ class DiagramAnswerButton extends StatelessWidget {
           // visually escape this option's bounds regardless of a future
           // edge case in the painter, the same belt-and-braces pattern
           // game_screen.dart's question-diagram frame already uses.
-          child: ClipRect(
-            child: CustomPaint(painter: DiagramPainter(diagram)),
+          child: Stack(
+            children: [
+              ClipRect(
+                child: CustomPaint(painter: DiagramPainter(diagram)),
+              ),
+              Positioned(
+                top: 4,
+                left: 4,
+                child: Container(
+                  width: 20,
+                  height: 20,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: borderColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    letter,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

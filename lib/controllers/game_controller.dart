@@ -61,6 +61,11 @@ class GameController extends ChangeNotifier {
   final List<AnswerOutcome> _outcomes = [];
   final List<int> _marksAwarded = []; // parallel to _outcomes: +4/-2/0
 
+  /// The last 5 puzzle TYPES shown, oldest first — used by [_pickNextType]
+  /// so the same topic doesn't come back too soon. Bounded to 5 entries
+  /// (see [_pickNextType]'s trim step below).
+  final List<PuzzleType> _recentTypes = [];
+
   // --- read-only getters for the UI ---
   Puzzle? get currentPuzzle => _currentPuzzle;
 
@@ -198,10 +203,10 @@ class GameController extends ChangeNotifier {
   /// — negative/low scores never crash, they just land in the easiest
   /// band. Daily Challenge ignores score entirely and always draws from
   /// tier 3+ (`DifficultyCurve.randomHighTier`) — it's meant to be
-  /// consistently hard, not ramped. The question type is picked uniformly
-  /// at random across all 8 types (mixed math/reasoning pool — the mode
-  /// confirmed during Phase 2 planning), with a light one-reroll
-  /// anti-repeat so the same type rarely appears twice in a row.
+  /// consistently hard, not ramped. The question category is picked ~70%
+  /// math / ~30% reasoning (see `_pickNextType`), then a type uniformly
+  /// within that category, excluding any type shown in the last 5
+  /// questions so the same topic doesn't come back too soon.
   void _loadNextPuzzle() {
     final tier = isDailyChallenge
         ? DifficultyCurve.randomHighTier(_rng)
@@ -213,15 +218,28 @@ class GameController extends ChangeNotifier {
 
   // A flat, uniform pick across every PuzzleType would have math questions
   // dominate once the topic library grew past ~15 math types vs. a
-  // handful of reasoning types — picking the *category* first, 50/50,
-  // then uniformly within it keeps reasoning questions showing up just as
-  // often as math ones regardless of how many topics either side has.
+  // handful of reasoning types — picking the *category* first, then
+  // uniformly within it, keeps the math:reasoning split under direct
+  // control (see _pickNextType's 70/30 weighting) regardless of how many
+  // topics either side has.
   static final List<PuzzleType> _mathTypes = PuzzleType.values
       .where((t) => _categoryOf(t) == PuzzleCategory.mathTest)
       .toList();
   static final List<PuzzleType> _reasoningTypes = PuzzleType.values
       .where((t) => _categoryOf(t) == PuzzleCategory.reasoningTest)
       .toList();
+
+  /// Advanced math topics held back from early/low-scoring play — a brand
+  /// new player sees the core topic library first; these unlock once
+  /// `totalMarks` shows real progress (see _pickNextType), or immediately
+  /// for Daily Challenge (already the hardest, tier 3+ only, mode).
+  static const List<PuzzleType> _gatedTypes = [
+    PuzzleType.logarithm,
+    PuzzleType.coordinateGeometry,
+    PuzzleType.progression,
+    PuzzleType.unitConversion,
+  ];
+  static const int _gatedTypesUnlockScore = 200;
 
   static PuzzleCategory _categoryOf(PuzzleType type) => switch (type) {
         PuzzleType.familyTree ||
@@ -241,13 +259,30 @@ class GameController extends ChangeNotifier {
       };
 
   PuzzleType _pickNextType() {
-    final pool = _rng.nextBool() ? _mathTypes : _reasoningTypes;
-    var type = pool[_rng.nextInt(0, pool.length - 1)];
-    if (_currentPuzzle != null && type == _currentPuzzle!.type) {
-      // One reroll only, same pool — still fine if it happens to match
-      // again, this is a mild variety nudge, not a hard constraint.
-      type = pool[_rng.nextInt(0, pool.length - 1)];
-    }
+    // ~30% reasoning / ~70% math (product spec: a 7:3 ratio), replacing
+    // the earlier 50/50 split now that the topic-gating below can also
+    // shrink the math pool for a low-scoring player.
+    final wantsReasoning = _rng.nextInt(0, 9) < 3;
+    final basePool = wantsReasoning ? _reasoningTypes : _mathTypes;
+    final eligiblePool = wantsReasoning
+        ? basePool
+        : (totalMarks > _gatedTypesUnlockScore || isDailyChallenge
+            ? basePool
+            : basePool.where((t) => !_gatedTypes.contains(t)).toList());
+
+    // Exclude anything shown in the last 5 questions so a topic doesn't
+    // repeat too soon. Defensive fallback to the ungated pool if that
+    // would leave nothing to pick from — should never trigger given pool
+    // sizes (12 reasoning / 32 math, only 4 ever gated) vs. a 5-deep
+    // window, but a crash here would end the whole session.
+    var candidates =
+        eligiblePool.where((t) => !_recentTypes.contains(t)).toList();
+    if (candidates.isEmpty) candidates = eligiblePool;
+    if (candidates.isEmpty) candidates = basePool;
+
+    final type = candidates[_rng.nextInt(0, candidates.length - 1)];
+    _recentTypes.add(type);
+    if (_recentTypes.length > 5) _recentTypes.removeAt(0);
     return type;
   }
 

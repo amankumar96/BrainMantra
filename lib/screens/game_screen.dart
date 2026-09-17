@@ -343,6 +343,7 @@ class _GameScreenBody extends StatelessWidget {
                             ),
                             kind: _feedbackKindFor(controller.lastOutcome!),
                             correctAnswerText: puzzle.correctAnswer.toString(),
+                            correctAnswerLetter: _correctOptionLetter(puzzle),
                             onAnimationComplete:
                                 controller.onFeedbackAnimationComplete,
                           ),
@@ -417,16 +418,26 @@ class _QuestionAndOptionsState extends State<_QuestionAndOptions> {
     return SingleChildScrollView(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: hasDiagram
-            ? CrossAxisAlignment.stretch
-            : CrossAxisAlignment.center,
+        // Always stretch, not just when a diagram is present — every
+        // option layout (including the plain no-diagram list) is now a
+        // left-aligned, full-width block for a consistent look across
+        // the whole Play screen.
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            puzzle.questionText,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: AppText.question,
-              fontWeight: FontWeight.w600,
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: AppColors.silver, width: 1.5),
+              borderRadius: BorderRadius.circular(AppSpacing.sm),
+            ),
+            child: Text(
+              puzzle.questionText,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: AppText.question,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           if (puzzle.hint != null) ...[
@@ -497,16 +508,18 @@ class _QuestionAndOptionsState extends State<_QuestionAndOptions> {
 
   Widget _buildOptionsOnly() {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final option in puzzle.options)
+        for (var i = 0; i < puzzle.options.length; i++)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
             child: AnswerButton(
-              label: option,
-              state: _stateFor(option),
+              letter: String.fromCharCode(65 + i),
+              label: puzzle.options[i],
+              state: _stateFor(puzzle.options[i]),
               onTap: controller.isSubmitted
                   ? null
-                  : () => controller.selectOption(option),
+                  : () => controller.selectOption(puzzle.options[i]),
             ),
           ),
       ],
@@ -538,25 +551,36 @@ class _QuestionAndOptionsState extends State<_QuestionAndOptions> {
               child: CustomPaint(painter: DiagramPainter(puzzle.diagramData!)),
             ),
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
+          const Divider(color: AppColors.silver, thickness: 1.5),
+          const SizedBox(height: AppSpacing.sm),
         ],
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: AppSpacing.sm,
-          crossAxisSpacing: AppSpacing.sm,
-          childAspectRatio: 1,
-          children: [
-            for (var i = 0; i < puzzle.options.length; i++)
-              DiagramAnswerButton(
-                diagram: puzzle.optionDiagrams![i],
-                state: _stateFor(puzzle.options[i]),
-                onTap: controller.isSubmitted
-                    ? null
-                    : () => controller.selectOption(puzzle.options[i]),
-              ),
-          ],
+        Container(
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: AppColors.silver, width: 1.5),
+            borderRadius: BorderRadius.circular(AppSpacing.sm),
+          ),
+          child: GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: AppSpacing.sm,
+            crossAxisSpacing: AppSpacing.sm,
+            childAspectRatio: 1,
+            children: [
+              for (var i = 0; i < puzzle.options.length; i++)
+                DiagramAnswerButton(
+                  letter: String.fromCharCode(65 + i),
+                  diagram: puzzle.optionDiagrams![i],
+                  state: _stateFor(puzzle.options[i]),
+                  onTap: controller.isSubmitted
+                      ? null
+                      : () => controller.selectOption(puzzle.options[i]),
+                ),
+            ],
+          ),
         ),
       ],
     );
@@ -573,21 +597,24 @@ class _QuestionAndOptionsState extends State<_QuestionAndOptions> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              for (final option in puzzle.options)
+              for (var i = 0; i < puzzle.options.length; i++)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
                   child: AnswerButton(
-                    label: option,
-                    state: _stateFor(option),
+                    letter: String.fromCharCode(65 + i),
+                    label: puzzle.options[i],
+                    state: _stateFor(puzzle.options[i]),
                     onTap: controller.isSubmitted
                         ? null
-                        : () => controller.selectOption(option),
+                        : () => controller.selectOption(puzzle.options[i]),
                   ),
                 ),
             ],
           ),
         ),
-        const SizedBox(width: AppSpacing.md),
+        const SizedBox(width: AppSpacing.sm),
+        const VerticalDivider(color: AppColors.silver, thickness: 1.5, width: 1),
+        const SizedBox(width: AppSpacing.sm),
         Expanded(
           // A visible frame around the diagram, plus a hard ClipRect —
           // DiagramPainter itself now fits every shape to the box it's
@@ -632,3 +659,15 @@ FeedbackKind _feedbackKindFor(AnswerOutcome outcome) => switch (outcome) {
   AnswerOutcome.wrong => FeedbackKind.wrong,
   AnswerOutcome.skipped => FeedbackKind.neutral,
 };
+
+/// The correct option's letter ("A"/"B"/"C"/"D"...) — same
+/// index-into-`options` convention `_QuestionAndOptionsState` uses to
+/// label every answer button, re-derived here so the wrong-answer
+/// reveal names the same letter the player actually saw on screen.
+String _correctOptionLetter(Puzzle puzzle) {
+  final index = puzzle.options.indexOf(puzzle.correctAnswer.toString());
+  // Defensive: should never happen (every generator's correctAnswer is
+  // one of its own options), but never crash the feedback overlay over
+  // it — fall back to naming the first option rather than throwing.
+  return String.fromCharCode(65 + (index < 0 ? 0 : index));
+}

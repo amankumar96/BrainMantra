@@ -38,6 +38,7 @@ class FeedbackOverlay extends StatefulWidget {
     required this.kind,
     required this.onAnimationComplete,
     this.correctAnswerText,
+    this.correctAnswerLetter,
   });
 
   final FeedbackKind kind;
@@ -54,6 +55,11 @@ class FeedbackOverlay extends StatefulWidget {
   /// reveal-and-hold phase. Unused for the other two kinds; `game_screen`
   /// always passes `puzzle.correctAnswer.toString()` for a wrong answer.
   final String? correctAnswerText;
+
+  /// The correct option's letter ("A"/"B"/"C"/"D"...), shown alongside
+  /// [correctAnswerText] during the same reveal-and-hold phase — e.g.
+  /// "Correct Answer B: 42". Unused for the other two kinds.
+  final String? correctAnswerLetter;
 
   @override
   State<FeedbackOverlay> createState() => _FeedbackOverlayState();
@@ -218,7 +224,8 @@ class _FeedbackOverlayState extends State<FeedbackOverlay>
                 const Icon(Icons.close, size: 40, color: AppColors.wrong),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  'Correct answer: ${widget.correctAnswerText ?? '—'}',
+                  'Correct Answer ${widget.correctAnswerLetter ?? ''}: '
+                  '${widget.correctAnswerText ?? '—'}',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 18,

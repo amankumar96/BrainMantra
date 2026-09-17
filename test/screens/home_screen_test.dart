@@ -25,8 +25,14 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
     await _settle(tester);
 
-    expect(find.text('High Score: 0'), findsOneWidget);
-    expect(find.text('Streak: 0 days'), findsOneWidget);
+    expect(
+      find.textContaining('welcome to your day streak of 0'),
+      findsOneWidget,
+    );
+    // The marks badge — a standalone Text showing just the number
+    // (stats.highScore, which doubles as the player's current running
+    // total marks — see home_screen.dart's _GreetingAndMarksRow doc).
+    expect(find.text('0'), findsOneWidget);
   });
 
   testWidgets('shows previously saved stats once loaded', (tester) async {
@@ -42,8 +48,11 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
     await _settle(tester);
 
-    expect(find.text('High Score: 250'), findsOneWidget);
-    expect(find.text('Streak: 3 days'), findsOneWidget);
+    expect(
+      find.textContaining('welcome to your day streak of 3'),
+      findsOneWidget,
+    );
+    expect(find.text('250'), findsOneWidget);
   });
 
   testWidgets(
@@ -73,7 +82,7 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
     await _settle(tester);
 
-    await tester.tap(find.text('Play'));
+    await tester.tap(find.text('PLAY'));
     // GameScreen's own TimerBar runs a genuinely long (up to 30-minute)
     // AnimationController on top of Home's now-also-infinite background —
     // a couple of plain pumps is enough to let the navigation complete.
@@ -96,14 +105,18 @@ void main() {
     expect(find.text('How Brain Mantra Works'), findsOneWidget);
   });
 
-  testWidgets(
-      'the corner Delete Account button navigates to DeleteAccountScreen',
+  testWidgets('the Delete Account button navigates to DeleteAccountScreen',
       (tester) async {
     SharedPreferences.setMockInitialValues({'has_seen_rules': true});
     await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
     await _settle(tester);
 
     expect(find.text('Delete Account'), findsOneWidget);
+    // Now a normal full-width flow item at the bottom of a scrollable
+    // Column (no longer a corner-pinned Positioned button) — scroll it
+    // into view first, same as any tall content on a real phone screen.
+    await tester.ensureVisible(find.text('Delete Account'));
+    await tester.pump();
     await tester.tap(find.text('Delete Account'));
     await _settle(tester);
 

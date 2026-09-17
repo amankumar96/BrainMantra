@@ -76,6 +76,7 @@ void main() {
       await tester.pumpWidget(_wrap(FeedbackOverlay(
         kind: FeedbackKind.wrong,
         correctAnswerText: '42',
+        correctAnswerLetter: 'B',
         onAnimationComplete: () => completeCount++,
       )));
 
@@ -90,6 +91,7 @@ void main() {
       await tester.pumpWidget(_wrap(FeedbackOverlay(
         kind: FeedbackKind.wrong,
         correctAnswerText: '42',
+        correctAnswerLetter: 'B',
         onAnimationComplete: () => completeCount++,
       )));
 
@@ -110,6 +112,7 @@ void main() {
       await tester.pumpWidget(_wrap(FeedbackOverlay(
         kind: FeedbackKind.wrong,
         correctAnswerText: '42',
+        correctAnswerLetter: 'B',
         onAnimationComplete: () {},
       )));
 
@@ -118,6 +121,7 @@ void main() {
       await _pumpMillis(tester, 1500);
 
       expect(find.textContaining('42'), findsWidgets);
+      expect(find.text('Correct Answer B: 42'), findsOneWidget);
       expect(find.byKey(const Key('feedback-next-button')), findsOneWidget);
     });
 
@@ -127,6 +131,7 @@ void main() {
       await tester.pumpWidget(_wrap(FeedbackOverlay(
         kind: FeedbackKind.wrong,
         correctAnswerText: '42',
+        correctAnswerLetter: 'B',
         onAnimationComplete: () => completeCount++,
       )));
 

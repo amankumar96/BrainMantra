@@ -1,3 +1,4 @@
+import '../models/diagram_data.dart';
 import '../models/puzzle.dart';
 import 'difficulty_curve.dart';
 import 'rng_service.dart';
@@ -43,6 +44,10 @@ abstract final class PerimeterGenerator {
       correctAnswer: perimeter,
       difficultyTier: tier,
       timeLimitSeconds: timeLimitSeconds,
+      diagramData: DiagramData(
+        kind: DiagramKind.rectangle,
+        dimensions: [length.toDouble(), width.toDouble()],
+      ),
       hint: 'Perimeter of a rectangle = 2 × (length + width)',
     );
   }
@@ -65,6 +70,10 @@ abstract final class PerimeterGenerator {
       correctAnswer: perimeter,
       difficultyTier: tier,
       timeLimitSeconds: timeLimitSeconds,
+      diagramData: DiagramData(
+        kind: DiagramKind.rectangle,
+        dimensions: [side.toDouble(), side.toDouble()],
+      ),
       hint: 'Perimeter of a square = 4 × side',
     );
   }
@@ -97,6 +106,10 @@ abstract final class PerimeterGenerator {
       correctAnswer: perimeter,
       difficultyTier: tier,
       timeLimitSeconds: timeLimitSeconds,
+      diagramData: DiagramData(
+        kind: DiagramKind.polygon,
+        vertices: trianglePolygonVertices(a, b, c),
+      ),
       hint: 'Perimeter of a triangle = sum of its three sides',
     );
   }

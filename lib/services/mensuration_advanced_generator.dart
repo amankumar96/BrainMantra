@@ -1,5 +1,6 @@
 import 'dart:math' show pi;
 
+import '../models/diagram_data.dart';
 import '../models/puzzle.dart';
 import 'difficulty_curve.dart';
 import 'rng_service.dart';
@@ -123,6 +124,10 @@ abstract final class MensurationAdvancedGenerator {
       correctAnswer: area,
       difficultyTier: tier,
       timeLimitSeconds: timeLimitSeconds,
+      diagramData: DiagramData(
+        kind: DiagramKind.polygon,
+        vertices: trianglePolygonVertices(a, b, c),
+      ),
       hint: 's = (a+b+c)/2, Area = √[s(s-a)(s-b)(s-c)]',
     );
   }

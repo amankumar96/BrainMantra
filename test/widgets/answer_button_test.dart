@@ -17,7 +17,7 @@ void main() {
       (tester) async {
     var tapCount = 0;
     await tester.pumpWidget(
-      _wrap(AnswerButton(label: '42', onTap: () => tapCount++)),
+      _wrap(AnswerButton(letter: 'A', label: '42', onTap: () => tapCount++)),
     );
 
     await tester.tap(find.text('42'));
@@ -31,6 +31,7 @@ void main() {
     var tapCount = 0;
     await tester.pumpWidget(
       _wrap(AnswerButton(
+        letter: 'B',
         label: '7',
         onTap: () => tapCount++,
         state: AnswerButtonState.disabled,
@@ -45,7 +46,9 @@ void main() {
 
   testWidgets('a null onTap means the button does not call anything',
       (tester) async {
-    await tester.pumpWidget(_wrap(const AnswerButton(label: 'x', onTap: null)));
+    await tester.pumpWidget(
+      _wrap(const AnswerButton(letter: 'C', label: 'x', onTap: null)),
+    );
 
     // Should not throw when tapped with no callback attached.
     await tester.tap(find.text('x'));
@@ -55,10 +58,24 @@ void main() {
   testWidgets('renders the label text for every state', (tester) async {
     for (final state in AnswerButtonState.values) {
       await tester.pumpWidget(
-        _wrap(AnswerButton(label: 'Option', onTap: () {}, state: state)),
+        _wrap(AnswerButton(
+          letter: 'A',
+          label: 'Option',
+          onTap: () {},
+          state: state,
+        )),
       );
       expect(find.text('Option'), findsOneWidget);
     }
+  });
+
+  testWidgets('renders the letter prefix alongside the label',
+      (tester) async {
+    await tester.pumpWidget(
+      _wrap(AnswerButton(letter: 'D', label: 'Option', onTap: () {})),
+    );
+    expect(find.text('D)'), findsOneWidget);
+    expect(find.text('Option'), findsOneWidget);
   });
 
   group('DiagramAnswerButton', () {
@@ -68,6 +85,7 @@ void main() {
         width: 80,
         height: 80,
         child: DiagramAnswerButton(
+          letter: 'A',
           diagram: _sampleDiagram,
           onTap: () => tapCount++,
         ),
@@ -86,6 +104,7 @@ void main() {
         width: 80,
         height: 80,
         child: DiagramAnswerButton(
+          letter: 'B',
           diagram: _sampleDiagram,
           onTap: () => tapCount++,
           state: AnswerButtonState.disabled,
@@ -105,6 +124,7 @@ void main() {
           width: 80,
           height: 80,
           child: DiagramAnswerButton(
+            letter: 'C',
             diagram: _sampleDiagram,
             onTap: () {},
             state: state,
@@ -115,6 +135,8 @@ void main() {
         // comment promises — confirm it's actually present, not just that
         // painting happened to not throw.
         expect(find.byType(ClipRect), findsOneWidget);
+        // The letter badge renders on top of the diagram for every state.
+        expect(find.text('C'), findsOneWidget);
       }
     });
   });

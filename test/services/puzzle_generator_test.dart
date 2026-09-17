@@ -218,15 +218,39 @@ void _independentlyVerify(Puzzle puzzle) {
         final length = int.parse(rect.group(1)!);
         final width = int.parse(rect.group(2)!);
         expect(2 * (length + width), equals(puzzle.correctAnswer));
+        expect(puzzle.diagramData?.kind, equals(DiagramKind.rectangle));
+        expect(
+          puzzle.diagramData?.dimensions,
+          equals([length.toDouble(), width.toDouble()]),
+        );
       } else if (square != null) {
         final side = int.parse(square.group(1)!);
         expect(4 * side, equals(puzzle.correctAnswer));
+        expect(puzzle.diagramData?.kind, equals(DiagramKind.rectangle));
+        expect(
+          puzzle.diagramData?.dimensions,
+          equals([side.toDouble(), side.toDouble()]),
+        );
       } else {
         final m = triangle!;
         final a = int.parse(m.group(1)!);
         final b = int.parse(m.group(2)!);
         final c = int.parse(m.group(3)!);
         expect(a + b + c, equals(puzzle.correctAnswer));
+        // Re-derives the same law-of-cosines vertex layout independently
+        // (not by calling the generator's own helper) so a shared bug in
+        // that math wouldn't be invisible to this check.
+        expect(puzzle.diagramData?.kind, equals(DiagramKind.polygon));
+        final vertices = puzzle.diagramData!.vertices!;
+        expect(vertices, hasLength(6));
+        double dist(double x0, double y0, double x1, double y1) =>
+            sqrt(pow(x1 - x0, 2) + pow(y1 - y0, 2));
+        expect(dist(vertices[0], vertices[1], vertices[2], vertices[3]),
+            closeTo(c.toDouble(), 0.01));
+        expect(dist(vertices[0], vertices[1], vertices[4], vertices[5]),
+            closeTo(b.toDouble(), 0.01));
+        expect(dist(vertices[2], vertices[3], vertices[4], vertices[5]),
+            closeTo(a.toDouble(), 0.01));
       }
 
     case PuzzleType.probability:
@@ -583,6 +607,21 @@ void _independentlyVerify(Puzzle puzzle) {
         final s = (a + b + c) / 2;
         final area = sqrt(s * (s - a) * (s - b) * (s - c));
         expect(area.round(), equals(puzzle.correctAnswer));
+        // Same independent re-derivation as PuzzleType.perimeter's
+        // triangle sub-case — re-measure the rendered triangle's own
+        // side lengths from its vertices, rather than calling the
+        // generator's own vertex-layout helper.
+        expect(puzzle.diagramData?.kind, equals(DiagramKind.polygon));
+        final vertices = puzzle.diagramData!.vertices!;
+        expect(vertices, hasLength(6));
+        double dist(double x0, double y0, double x1, double y1) =>
+            sqrt(pow(x1 - x0, 2) + pow(y1 - y0, 2));
+        expect(dist(vertices[0], vertices[1], vertices[2], vertices[3]),
+            closeTo(c.toDouble(), 0.01));
+        expect(dist(vertices[0], vertices[1], vertices[4], vertices[5]),
+            closeTo(b.toDouble(), 0.01));
+        expect(dist(vertices[2], vertices[3], vertices[4], vertices[5]),
+            closeTo(a.toDouble(), 0.01));
       } else {
         final m = rhombus!;
         final d1 = int.parse(m.group(1)!);

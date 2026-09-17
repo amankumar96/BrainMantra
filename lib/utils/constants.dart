@@ -62,6 +62,12 @@ abstract final class AppColors {
   /// deeper, hotter tone than [wrong] so the falling object reads as an
   /// object, not just a re-tinted version of the plain error color.
   static const Color meteor = Color(0xFFB4472B);
+
+  /// A brighter, more saturated blue than [primary] (which stays a muted
+  /// indigo) — used specifically for the Home screen's logo hero box, so
+  /// that box reads as a distinct "brand" accent rather than just another
+  /// indigo surface.
+  static const Color neonBlue = Color(0xFF2979FF);
 }
 
 /// Shared spacing scale — use these instead of one-off pixel values.

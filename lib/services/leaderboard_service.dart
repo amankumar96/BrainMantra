@@ -10,16 +10,30 @@ class LeaderboardEntry {
   final String displayName;
   final int totalScore;
 
+  /// Not currently queried by [LeaderboardService] — the `profiles` table
+  /// isn't confirmed to have an `avatar_url` column, and adding it to a
+  /// `select()` list against a column that doesn't exist would make
+  /// every leaderboard fetch fail outright, so it's read defensively
+  /// (present only if the row happens to include it) rather than
+  /// requested. Always `null` today; the UI already falls back to a
+  /// generated initials avatar wherever this is null, so a real column
+  /// can be wired in later purely by adding it to the two `select()`
+  /// calls in this file — no UI change needed.
+  final String? avatarUrl;
+
   const LeaderboardEntry({
     required this.userId,
     required this.displayName,
     required this.totalScore,
+    this.avatarUrl,
   });
 
-  factory LeaderboardEntry.fromRow(Map<String, dynamic> row) => LeaderboardEntry(
+  factory LeaderboardEntry.fromRow(Map<String, dynamic> row) =>
+      LeaderboardEntry(
         userId: row['id'] as String,
         displayName: row['display_name'] as String,
         totalScore: row['current_score'] as int,
+        avatarUrl: row['avatar_url'] as String?,
       );
 }
 
@@ -40,15 +54,12 @@ abstract final class LeaderboardService {
     final user = _client.auth.currentUser;
     if (user == null) return; // defensive — the app requires sign-in first
 
-    await _client.from('daily_test_results').upsert(
-      {
-        'user_id': user.id,
-        'test_date': _todayDateString(),
-        'marks': marks,
-        'questions_total': questionsTotal,
-      },
-      onConflict: 'user_id,test_date',
-    );
+    await _client.from('daily_test_results').upsert({
+      'user_id': user.id,
+      'test_date': _todayDateString(),
+      'marks': marks,
+      'questions_total': questionsTotal,
+    }, onConflict: 'user_id,test_date');
   }
 
   /// The ranked leaderboard: every player's persistent total score
@@ -58,7 +69,9 @@ abstract final class LeaderboardService {
   /// account deletion job checks). Queries `profiles` directly rather
   /// than the now-superseded `leaderboard_last_30_days` view, which only
   /// ever summed Daily Challenge marks.
-  static Future<List<LeaderboardEntry>> fetchTopRankings({int limit = 50}) async {
+  static Future<List<LeaderboardEntry>> fetchTopRankings({
+    int limit = 50,
+  }) async {
     final cutoff = DateTime.now().toUtc().subtract(const Duration(days: 30));
     final rows = await _client
         .from('profiles')
@@ -78,7 +91,8 @@ abstract final class LeaderboardService {
   /// is signed in. Same RLS posture as [fetchTopRankings]: that call
   /// already reads `current_score` across every profile, not just the
   /// caller's own row, so a `count()` aggregate needs no new policy.
-  static Future<({LeaderboardEntry entry, int rank})?> fetchMyEntryAndRank() async {
+  static Future<({LeaderboardEntry entry, int rank})?>
+  fetchMyEntryAndRank() async {
     final user = _client.auth.currentUser;
     if (user == null) return null;
 

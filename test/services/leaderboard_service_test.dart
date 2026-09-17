@@ -18,16 +18,33 @@ void main() {
     expect(entry.userId, equals('abc-123'));
     expect(entry.displayName, equals('Aarav'));
     expect(entry.totalScore, equals(140));
+    // avatar_url isn't currently queried — see LeaderboardEntry.avatarUrl's
+    // own doc comment — so a row without that key must parse to null,
+    // never throw.
+    expect(entry.avatarUrl, isNull);
   });
 
-  test('fromRow handles a negative total (more wrong than correct answers)',
-      () {
+  test('fromRow reads avatar_url when the row happens to include it', () {
     final entry = LeaderboardEntry.fromRow({
-      'id': 'abc-456',
-      'display_name': 'Priya',
-      'current_score': -6,
+      'id': 'abc-789',
+      'display_name': 'Meera',
+      'current_score': 60,
+      'avatar_url': 'https://example.com/a.png',
     });
 
-    expect(entry.totalScore, equals(-6));
+    expect(entry.avatarUrl, equals('https://example.com/a.png'));
   });
+
+  test(
+    'fromRow handles a negative total (more wrong than correct answers)',
+    () {
+      final entry = LeaderboardEntry.fromRow({
+        'id': 'abc-456',
+        'display_name': 'Priya',
+        'current_score': -6,
+      });
+
+      expect(entry.totalScore, equals(-6));
+    },
+  );
 }

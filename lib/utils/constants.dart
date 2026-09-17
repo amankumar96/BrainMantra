@@ -82,6 +82,24 @@ abstract final class AppColors {
   static const Color leaderboardCard = Color(0xFFEFE9FB);
   static const Color leaderboardAccent = Color(0xFF7C5CFC);
   static const Color adPlaceholderCard = Color(0xFFEAF3FE);
+
+  // --- Leaderboard screen redesign — podium medal colors (rank 1/2/3),
+  // the current-user green accent, and a small palette of generated-
+  // avatar background colors (picked to read distinctly from the medal
+  // colors above, so a 1st/2nd/3rd place avatar never gets confused with
+  // its own medal tint).
+  static const Color leaderboardGold = Color(0xFFFFC94A);
+  static const Color leaderboardSilver = Color(0xFFB0BEC5);
+  static const Color leaderboardBronze = Color(0xFFCD7F45);
+  static const Color leaderboardCurrentUser = Color(0xFF43A047);
+  static const List<Color> avatarPalette = [
+    Color(0xFF5C7CFA), // indigo
+    Color(0xFF20C997), // teal
+    Color(0xFFAE3EC9), // purple
+    Color(0xFFE8590C), // orange
+    Color(0xFF1098AD), // cyan
+    Color(0xFFD6336C), // pink
+  ];
 }
 
 /// Shared spacing scale — use these instead of one-off pixel values.

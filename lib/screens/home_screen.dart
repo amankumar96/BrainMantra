@@ -37,10 +37,29 @@ class _HomeScreenState extends State<HomeScreen> {
   // follows (see game_screen.dart's _persistAndShowResults).
   String _displayName = 'Player';
 
+  /// The player's real, current running total marks — fetched fresh from
+  /// the backend (the exact same `AuthService.fetchCurrentScore()` Play
+  /// mode itself uses for `startingScore`), NOT `PlayerStats.highScore`.
+  ///
+  /// A real bug caught on-device: the marks badge used to show
+  /// `stats.highScore`, but that field is a genuine "personal best, never
+  /// decreases" value (see `game_screen.dart`'s own update logic:
+  /// `highScore: isNewHighScore ? updatedScore : currentStats.highScore`)
+  /// — it only ratchets upward and is a completely different number from
+  /// the player's actual current balance whenever they've net-lost marks
+  /// since their peak (e.g. more wrong than right answers in a session).
+  /// That's exactly why Home once showed "252" while the very next Play
+  /// session's marks bar correctly showed "0" — two different fields,
+  /// mistakenly treated as the same one during an earlier redesign pass.
+  /// Defaults to 0 (not `stats.highScore`) while loading/offline, so this
+  /// never shows a stale, possibly-wrong number even briefly.
+  int _currentMarks = 0;
+
   @override
   void initState() {
     super.initState();
     _loadStats();
+    _loadCurrentMarks();
     _loadDisplayName();
     _maybeShowRulesForTheFirstTime();
   }
@@ -48,6 +67,13 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadStats() async {
     final stats = await StorageService.loadStats();
     if (mounted) setState(() => _stats = stats);
+  }
+
+  Future<void> _loadCurrentMarks() async {
+    // fetchCurrentScore() is itself already defensive (returns 0 on any
+    // failure — see its own doc comment) — no extra try/catch needed here.
+    final marks = await AuthService.fetchCurrentScore();
+    if (mounted) setState(() => _currentMarks = marks);
   }
 
   Future<void> _loadDisplayName() async {
@@ -87,7 +113,11 @@ class _HomeScreenState extends State<HomeScreen> {
     // replaces itself with ResultsScreen when the session ends, which
     // resolves this push's Future) — by then StorageService.saveStats
     // has already run, so the refreshed high score/streak are ready the
-    // next time this screen is actually visible again.
+    // next time this screen is actually visible again. Also re-fetch the
+    // real current marks (not just the local high-score/streak cache) —
+    // the whole point of showing that badge is that it reflects the
+    // player's actual up-to-date balance, including after a session that
+    // just changed it.
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => GameScreen(
@@ -97,6 +127,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
     _loadStats();
+    _loadCurrentMarks();
   }
 
   void _navigateToLeaderboard() {
@@ -160,7 +191,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           _GreetingAndMarksRow(
                             displayName: _displayName,
                             streakDays: stats.currentStreakDays,
-                            marks: stats.highScore,
+                            marks: _currentMarks,
                           ),
                           const SizedBox(height: AppSpacing.lg),
                           _HeroCard(

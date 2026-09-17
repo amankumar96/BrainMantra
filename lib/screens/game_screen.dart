@@ -15,6 +15,7 @@ import '../utils/constants.dart';
 import '../widgets/answer_button.dart';
 import '../widgets/diagram_painter.dart';
 import '../widgets/feedback_overlay.dart';
+import '../widgets/floating_numbers_background.dart';
 import '../widgets/marks_indicator.dart';
 import '../widgets/submit_button.dart';
 import '../widgets/timer_bar.dart';
@@ -280,110 +281,122 @@ class _GameScreenBody extends StatelessWidget {
             ),
         ],
       ),
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              AppColors.playBackgroundTop,
-              AppColors.playBackgroundBottom,
-            ],
-          ),
-        ),
-        child: SafeArea(
-          child: Padding(
-            // Trimmed from AppSpacing.lg - every bit of vertical room here
-            // helps keep a full question + options on-screen without
-            // scrolling, now that a banner ad also sits above the marks bar.
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Column(
-              children: [
-                // Banner: very top of the screen, above the marks/timer bar
-                // — by explicit product decision (this was previously
-                // Home-only; see ARCHITECTURE.md's Phase 4 write-up for the
-                // superseded reasoning). showPlaceholder: true so this slot
-                // shows the same designed "Your Ad Here" card Home uses
-                // (rather than collapsing to nothing) whenever no real ad
-                // has loaded yet.
-                AdsService.instance.bannerAdWidget(showPlaceholder: true),
-                MarksIndicator(
-                  currentQuestionNumber: controller.questionNumber,
-                  totalQuestions: controller.totalQuestions,
-                  marksSoFar: controller.totalMarks,
-                ),
-                const SizedBox(height: AppSpacing.md),
-                TimerBar(
-                  // A new key per question gives each one a fresh,
-                  // correctly-timed countdown automatically — see
-                  // timer_bar.dart's own doc comment.
-                  key: ValueKey(puzzle.id),
-                  durationSeconds: puzzle.timeLimitSeconds,
-                  isRunning: !controller.isSubmitted,
-                  onExpired: controller.skipDueToTimeout,
-                ),
-                const SizedBox(height: AppSpacing.md),
-                Expanded(
-                  child: Stack(
-                    children: [
-                      _QuestionAndOptions(
-                        // A fresh key per question resets the hint-revealed
-                        // state below — otherwise Flutter would reuse the
-                        // same State object (and its "hint already shown"
-                        // flag) across an unrelated new question.
-                        key: ValueKey('question-${puzzle.id}'),
-                        controller: controller,
-                        puzzle: puzzle,
-                      ),
-                      if (controller.isSubmitted)
-                        Positioned.fill(
-                          child: FeedbackOverlay(
-                            // A fresh key per question so a new overlay
-                            // (and its AnimationController) is created
-                            // each time, rather than reusing stale state.
-                            key: ValueKey(
-                              'feedback-${controller.questionNumber}',
-                            ),
-                            kind: _feedbackKindFor(controller.lastOutcome!),
-                            correctAnswerText: puzzle.correctAnswer.toString(),
-                            correctAnswerLetter: _correctOptionLetter(puzzle),
-                            onAnimationComplete:
-                                controller.onFeedbackAnimationComplete,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: controller.isSubmitted
-                            ? null
-                            : controller.skipManually,
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: AppSpacing.md,
-                          ),
-                        ),
-                        child: const Text('Skip'),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.md),
-                    Expanded(
-                      flex: 2,
-                      child: SubmitButton(
-                        hasSelection: controller.hasSelection,
-                        onSubmit: controller.submitSelected,
-                      ),
-                    ),
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    AppColors.playBackgroundTop,
+                    AppColors.playBackgroundBottom,
                   ],
                 ),
-              ],
+              ),
             ),
           ),
-        ),
+          // A smaller glyph count than Home ever used — subtle enough to
+          // not compete with the question card/options in front of it.
+          const Positioned.fill(
+            child: FloatingNumbersBackground(glyphCount: 10),
+          ),
+          SafeArea(
+            child: Padding(
+              // Trimmed from AppSpacing.lg - every bit of vertical room here
+              // helps keep a full question + options on-screen without
+              // scrolling, now that a banner ad also sits above the marks bar.
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Column(
+                children: [
+                  // Banner: very top of the screen, above the marks/timer bar
+                  // — by explicit product decision (this was previously
+                  // Home-only; see ARCHITECTURE.md's Phase 4 write-up for the
+                  // superseded reasoning). showPlaceholder: true so this slot
+                  // shows the same designed "Your Ad Here" card Home uses
+                  // (rather than collapsing to nothing) whenever no real ad
+                  // has loaded yet.
+                  AdsService.instance.bannerAdWidget(showPlaceholder: true),
+                  MarksIndicator(
+                    currentQuestionNumber: controller.questionNumber,
+                    totalQuestions: controller.totalQuestions,
+                    marksSoFar: controller.totalMarks,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  TimerBar(
+                    // A new key per question gives each one a fresh,
+                    // correctly-timed countdown automatically — see
+                    // timer_bar.dart's own doc comment.
+                    key: ValueKey(puzzle.id),
+                    durationSeconds: puzzle.timeLimitSeconds,
+                    isRunning: !controller.isSubmitted,
+                    onExpired: controller.skipDueToTimeout,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        _QuestionAndOptions(
+                          // A fresh key per question resets the hint-revealed
+                          // state below — otherwise Flutter would reuse the
+                          // same State object (and its "hint already shown"
+                          // flag) across an unrelated new question.
+                          key: ValueKey('question-${puzzle.id}'),
+                          controller: controller,
+                          puzzle: puzzle,
+                        ),
+                        if (controller.isSubmitted)
+                          Positioned.fill(
+                            child: FeedbackOverlay(
+                              // A fresh key per question so a new overlay
+                              // (and its AnimationController) is created
+                              // each time, rather than reusing stale state.
+                              key: ValueKey(
+                                'feedback-${controller.questionNumber}',
+                              ),
+                              kind: _feedbackKindFor(controller.lastOutcome!),
+                              correctAnswerText: puzzle.correctAnswer
+                                  .toString(),
+                              correctAnswerLetter: _correctOptionLetter(puzzle),
+                              onAnimationComplete:
+                                  controller.onFeedbackAnimationComplete,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: controller.isSubmitted
+                              ? null
+                              : controller.skipManually,
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: AppSpacing.md,
+                            ),
+                          ),
+                          child: const Text('Skip'),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(
+                        flex: 2,
+                        child: SubmitButton(
+                          hasSelection: controller.hasSelection,
+                          onSubmit: controller.submitSelected,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -427,21 +440,64 @@ class _QuestionAndOptionsState extends State<_QuestionAndOptions> {
         // the whole Play screen.
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: AppColors.silver, width: 1.5),
-              borderRadius: BorderRadius.circular(AppSpacing.sm),
-            ),
-            child: Text(
-              puzzle.questionText,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: AppText.question,
-                fontWeight: FontWeight.w600,
+          // clipBehavior: Clip.none so the topic badge below can overlap
+          // the card's top border (half in, half out) without being cut
+          // off — a small `margin`/`padding` split on the card itself is
+          // what makes room for it without ever touching the question
+          // text.
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 10),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  AppSpacing.lg,
+                  AppSpacing.md,
+                  AppSpacing.md,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border.all(color: AppColors.silver, width: 1.5),
+                  borderRadius: BorderRadius.circular(AppSpacing.sm),
+                ),
+                child: Text(
+                  puzzle.questionText,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: AppText.question,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
-            ),
+              Positioned(
+                top: 0,
+                left: AppSpacing.lg,
+                right: AppSpacing.lg,
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      topicLabel(puzzle.type),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
           if (puzzle.hint != null) ...[
             const SizedBox(height: AppSpacing.sm),
@@ -616,7 +672,11 @@ class _QuestionAndOptionsState extends State<_QuestionAndOptions> {
           ),
         ),
         const SizedBox(width: AppSpacing.sm),
-        const VerticalDivider(color: AppColors.silver, thickness: 1.5, width: 1),
+        const VerticalDivider(
+          color: AppColors.silver,
+          thickness: 1.5,
+          width: 1,
+        ),
         const SizedBox(width: AppSpacing.sm),
         Expanded(
           // A visible frame around the diagram, plus a hard ClipRect —

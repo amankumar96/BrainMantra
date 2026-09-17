@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:brain_mantra/models/diagram_data.dart';
 import 'package:brain_mantra/widgets/answer_button.dart';
+import 'package:brain_mantra/widgets/diagram_painter.dart';
 
 const _sampleDiagram = DiagramData(
   kind: DiagramKind.polygon,
@@ -137,6 +138,23 @@ void main() {
         expect(find.byType(ClipRect), findsOneWidget);
         // The letter badge renders on top of the diagram for every state.
         expect(find.text('C'), findsOneWidget);
+        // Regression coverage: the CustomPaint's render box must actually
+        // fill the 80x80 box it was given, not collapse to zero size.
+        // "paints without throwing" alone wouldn't have caught a real bug
+        // this once hit — wrapping ClipRect/CustomPaint in a Stack without
+        // `fit: StackFit.expand` gives them Stack's default loose
+        // constraints, and CustomPaint has no intrinsic size of its own,
+        // so it silently rendered nothing (every diagram option showed as
+        // a blank box) while every other assertion here still passed.
+        final diagramPaint = find.byWidgetPredicate(
+          (w) => w is CustomPaint && w.painter is DiagramPainter,
+        );
+        // Not an exact 80x80 (the button's own border insets it slightly)
+        // — the point is confirming it's nowhere near the degenerate 0x0
+        // collapse this test would otherwise miss entirely.
+        final size = tester.getSize(diagramPaint);
+        expect(size.width, greaterThan(50));
+        expect(size.height, greaterThan(50));
       }
     });
   });

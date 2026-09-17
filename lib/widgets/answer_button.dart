@@ -116,34 +116,27 @@ class AnswerButton extends StatelessWidget {
 /// options) so both option styles read as the same visual family, kept as
 /// one small pure function so the color scheme can be adjusted in a single
 /// place.
-(Color, Color, Color) colorsForAnswerState(AnswerButtonState state) =>
-    switch (state) {
-      AnswerButtonState.normal => (
-          Colors.white,
-          Colors.black87,
-          AppColors.silver,
-        ),
-      AnswerButtonState.selected => (
-          AppColors.primary.withValues(alpha: 0.12),
-          AppColors.primary,
-          AppColors.primary,
-        ),
-      AnswerButtonState.correct => (
-          AppColors.correct.withValues(alpha: 0.15),
-          AppColors.correct,
-          AppColors.correct,
-        ),
-      AnswerButtonState.wrong => (
-          AppColors.wrong.withValues(alpha: 0.15),
-          AppColors.wrong,
-          AppColors.wrong,
-        ),
-      AnswerButtonState.disabled => (
-          Colors.white,
-          Colors.black38,
-          Colors.black12,
-        ),
-    };
+(Color, Color, Color) colorsForAnswerState(
+  AnswerButtonState state,
+) => switch (state) {
+  AnswerButtonState.normal => (Colors.white, Colors.black87, AppColors.silver),
+  AnswerButtonState.selected => (
+    AppColors.primary.withValues(alpha: 0.12),
+    AppColors.primary,
+    AppColors.primary,
+  ),
+  AnswerButtonState.correct => (
+    AppColors.correct.withValues(alpha: 0.15),
+    AppColors.correct,
+    AppColors.correct,
+  ),
+  AnswerButtonState.wrong => (
+    AppColors.wrong.withValues(alpha: 0.15),
+    AppColors.wrong,
+    AppColors.wrong,
+  ),
+  AnswerButtonState.disabled => (Colors.white, Colors.black38, Colors.black12),
+};
 
 /// A multiple-choice option rendered as a small diagram instead of text —
 /// used when `Puzzle.optionDiagrams` is set (Phase 13: mirror/water image
@@ -194,11 +187,19 @@ class DiagramAnswerButton extends StatelessWidget {
           // visually escape this option's bounds regardless of a future
           // edge case in the painter, the same belt-and-braces pattern
           // game_screen.dart's question-diagram frame already uses.
+          //
+          // fit: StackFit.expand is required here — Stack's default
+          // StackFit.loose gives non-positioned children (the
+          // ClipRect/CustomPaint) only loose constraints, and CustomPaint
+          // has no intrinsic size of its own, so it collapsed to 0x0 and
+          // painted nothing at all (a real regression caught from an
+          // on-device screenshot: every diagram option rendered as a
+          // blank white box). expand forces it to fill the Container's
+          // actual bounds, exactly as it did before this Stack existed.
           child: Stack(
+            fit: StackFit.expand,
             children: [
-              ClipRect(
-                child: CustomPaint(painter: DiagramPainter(diagram)),
-              ),
+              ClipRect(child: CustomPaint(painter: DiagramPainter(diagram))),
               Positioned(
                 top: 4,
                 left: 4,

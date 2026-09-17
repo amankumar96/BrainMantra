@@ -76,6 +76,58 @@ enum PuzzleType {
 
 const _uuid = Uuid();
 
+/// A short, friendly, single-line display name for [type] — shown as the
+/// small topic badge on `game_screen.dart`'s question card. Purely
+/// cosmetic (never affects generation/scoring); every case is a plain,
+/// player-facing label for what the enum's own doc-comment groupings
+/// above already say each type covers.
+String topicLabel(PuzzleType type) => switch (type) {
+  PuzzleType.arithmetic => 'Arithmetic',
+  PuzzleType.trueFalse => 'True or False',
+  PuzzleType.missingNumber => 'Missing Number',
+  PuzzleType.oddOneOut => 'Odd One Out',
+  PuzzleType.sequence => 'Number Sequence',
+  PuzzleType.targetNumber => 'Target Number',
+  PuzzleType.bodmas => 'BODMAS',
+  PuzzleType.speedDistance => 'Speed & Distance',
+  PuzzleType.profitLoss => 'Profit & Loss',
+  PuzzleType.interest => 'Interest',
+  PuzzleType.perimeter => 'Perimeter',
+  PuzzleType.probability => 'Probability',
+  PuzzleType.ratio => 'Ratio',
+  PuzzleType.angleFinding => 'Angle Finding',
+  PuzzleType.areaVolume => 'Area & Volume',
+  PuzzleType.coordinateDistance => 'Coordinate Distance',
+  PuzzleType.graphReading => 'Graph Reading',
+  PuzzleType.numberClassification => 'Number Classification',
+  PuzzleType.surds => 'Surds',
+  PuzzleType.algebraicIdentity => 'Algebraic Identity',
+  PuzzleType.linearEquation => 'Linear Equation',
+  PuzzleType.quadraticEquation => 'Quadratic Equation',
+  PuzzleType.progression => 'Progression',
+  PuzzleType.trigRatio => 'Trigonometry',
+  PuzzleType.mensurationAdvanced => 'Mensuration',
+  PuzzleType.coordinateGeometry => 'Coordinate Geometry',
+  PuzzleType.logarithm => 'Logarithm',
+  PuzzleType.permutationCombination => 'Permutation & Combination',
+  PuzzleType.statistics => 'Statistics',
+  PuzzleType.unitConversion => 'Unit Conversion',
+  PuzzleType.workTime => 'Work & Time',
+  PuzzleType.mixtureAlligation => 'Mixture & Alligation',
+  PuzzleType.familyTree => 'Family Tree',
+  PuzzleType.shapeIdentification => 'Shape Identification',
+  PuzzleType.mirrorImage => 'Mirror & Water Image',
+  PuzzleType.paperFolding => 'Paper Folding',
+  PuzzleType.figureSeries => 'Figure Series',
+  PuzzleType.seatingArrangement => 'Seating Arrangement',
+  PuzzleType.coding => 'Coding-Decoding',
+  PuzzleType.directionSense => 'Direction Sense',
+  PuzzleType.wordPuzzle => 'Word Puzzle',
+  PuzzleType.analogy => 'Analogy',
+  PuzzleType.ranking => 'Ranking',
+  PuzzleType.statementConclusion => 'Statement & Conclusion',
+};
+
 /// A single question. Generic enough to represent both a math-test question
 /// (e.g. "7 × 8 = ?") and a reasoning-test question (e.g. a family-tree
 /// relationship or a shape-identification prompt) — both are just
@@ -126,25 +178,25 @@ class Puzzle {
     this.diagramData,
     this.hint,
     this.optionDiagrams,
-  })  : assert(
-          optionDiagrams == null || optionDiagrams.length == options.length,
-          'optionDiagrams must be null or exactly one entry per option',
-        ),
-        id = id ?? _uuid.v4();
+  }) : assert(
+         optionDiagrams == null || optionDiagrams.length == options.length,
+         'optionDiagrams must be null or exactly one entry per option',
+       ),
+       id = id ?? _uuid.v4();
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'category': category.name,
-        'type': type.name,
-        'questionText': questionText,
-        'options': options,
-        'correctAnswer': correctAnswer,
-        'difficultyTier': difficultyTier,
-        'timeLimitSeconds': timeLimitSeconds,
-        'diagramData': diagramData?.toJson(),
-        'hint': hint,
-        'optionDiagrams': optionDiagrams?.map((d) => d.toJson()).toList(),
-      };
+    'id': id,
+    'category': category.name,
+    'type': type.name,
+    'questionText': questionText,
+    'options': options,
+    'correctAnswer': correctAnswer,
+    'difficultyTier': difficultyTier,
+    'timeLimitSeconds': timeLimitSeconds,
+    'diagramData': diagramData?.toJson(),
+    'hint': hint,
+    'optionDiagrams': optionDiagrams?.map((d) => d.toJson()).toList(),
+  };
 
   factory Puzzle.fromJson(Map<String, dynamic> json) {
     final correctAnswer = json['correctAnswer'];
@@ -167,7 +219,9 @@ class Puzzle {
       correctAnswer: correctAnswer,
       difficultyTier: json['difficultyTier'] as int,
       timeLimitSeconds: json['timeLimitSeconds'] as int,
-      diagramData: diagramJson == null ? null : DiagramData.fromJson(diagramJson),
+      diagramData: diagramJson == null
+          ? null
+          : DiagramData.fromJson(diagramJson),
       hint: json['hint'] as String?,
       optionDiagrams: optionDiagramsJson
           ?.map((d) => DiagramData.fromJson(d as Map<String, dynamic>))
@@ -194,18 +248,18 @@ class Puzzle {
 
   @override
   int get hashCode => Object.hash(
-        id,
-        category,
-        type,
-        questionText,
-        Object.hashAll(options),
-        correctAnswer,
-        difficultyTier,
-        timeLimitSeconds,
-        diagramData,
-        hint,
-        optionDiagrams == null ? null : Object.hashAll(optionDiagrams!),
-      );
+    id,
+    category,
+    type,
+    questionText,
+    Object.hashAll(options),
+    correctAnswer,
+    difficultyTier,
+    timeLimitSeconds,
+    diagramData,
+    hint,
+    optionDiagrams == null ? null : Object.hashAll(optionDiagrams!),
+  );
 
   @override
   String toString() =>

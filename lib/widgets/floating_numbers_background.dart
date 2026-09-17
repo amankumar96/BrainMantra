@@ -18,7 +18,12 @@ import '../utils/constants.dart';
 /// devices; this is decorative-only and never affects gameplay, so that
 /// rule doesn't apply here.
 class FloatingNumbersBackground extends StatefulWidget {
-  const FloatingNumbersBackground({super.key});
+  const FloatingNumbersBackground({super.key, this.glyphCount = 16});
+
+  /// How many glyphs drift at once — TUNABLE per screen. The Play screen
+  /// uses a smaller count than this default so the effect stays subtle
+  /// behind its busier foreground (question card, options).
+  final int glyphCount;
 
   @override
   State<FloatingNumbersBackground> createState() =>
@@ -31,8 +36,20 @@ class _FloatingNumbersBackgroundState extends State<FloatingNumbersBackground>
   late final List<_FloatingGlyph> _glyphs;
 
   static const _glyphChars = [
-    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-    '+', '×', '÷', '−',
+    '0',
+    '1',
+    '2',
+    '3',
+    '4',
+    '5',
+    '6',
+    '7',
+    '8',
+    '9',
+    '+',
+    '×',
+    '÷',
+    '−',
   ];
 
   @override
@@ -46,7 +63,7 @@ class _FloatingNumbersBackgroundState extends State<FloatingNumbersBackground>
     )..repeat();
 
     final rng = Random();
-    _glyphs = List.generate(16, (_) {
+    _glyphs = List.generate(widget.glyphCount, (_) {
       return _FloatingGlyph(
         char: _glyphChars[rng.nextInt(_glyphChars.length)],
         startX: rng.nextDouble(),
@@ -136,7 +153,10 @@ class _FloatingNumbersPainter extends CustomPainter {
       )..layout();
       textPainter.paint(
         canvas,
-        Offset((x < 0 ? x + 1 : x) * size.width, (y < 0 ? y + 1 : y) * size.height),
+        Offset(
+          (x < 0 ? x + 1 : x) * size.width,
+          (y < 0 ? y + 1 : y) * size.height,
+        ),
       );
     }
   }

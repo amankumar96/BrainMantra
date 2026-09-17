@@ -88,9 +88,21 @@ abstract final class LeaderboardService {
   /// rank (1-based) among players active in the last 30 days — computed
   /// as a count, not by scanning [fetchTopRankings]' capped list, so it's
   /// accurate even for a player far outside the top 50. `null` if nobody
-  /// is signed in. Same RLS posture as [fetchTopRankings]: that call
-  /// already reads `current_score` across every profile, not just the
-  /// caller's own row, so a `count()` aggregate needs no new policy.
+  /// is signed in, *or* if their `profiles` row doesn't exist yet.
+  ///
+  /// `.maybeSingle()`, not `.single()` — a real bug caught via a device
+  /// log: `.single()` throws `PostgrestException(code: PGRST116)` outright
+  /// when the row is missing (e.g. right after sign-in, before
+  /// `AuthService.ensureProfileExists()` has finished, or straight after
+  /// account deletion/recreation), which took down the *entire*
+  /// leaderboard fetch — including the top-10 list, which had nothing to
+  /// do with the caller's own missing row — with a generic "could not
+  /// load" error. This method's own return type is already nullable for
+  /// exactly this case; `.maybeSingle()` is what actually honors that.
+  ///
+  /// Same RLS posture as [fetchTopRankings]: that call already reads
+  /// `current_score` across every profile, not just the caller's own row,
+  /// so a `count()` aggregate needs no new policy.
   static Future<({LeaderboardEntry entry, int rank})?>
   fetchMyEntryAndRank() async {
     final user = _client.auth.currentUser;
@@ -100,7 +112,8 @@ abstract final class LeaderboardService {
         .from('profiles')
         .select('id, display_name, current_score')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
+    if (profileRow == null) return null;
     final entry = LeaderboardEntry.fromRow(profileRow);
 
     final cutoff = DateTime.now().toUtc().subtract(const Duration(days: 30));

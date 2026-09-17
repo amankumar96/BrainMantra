@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
+import '../utils/constants.dart';
+
 /// Wraps `google_mobile_ads` (banner, interstitial, and rewarded — see
 /// ARCHITECTURE.md's Phase 4 write-up; rewarded was originally out of
 /// scope for lack of a real reward to attach it to, revisited once
@@ -270,18 +272,26 @@ class AdsService {
     }
   }
 
-  /// The Home-screen-only banner slot (see ARCHITECTURE.md's Phase 4
-  /// write-up for why it's confined to Home — never gameplay/results).
-  /// Always safe to embed: collapses to nothing on web, in tests, or
-  /// while unloaded — never throws.
-  Widget bannerAdWidget() {
+  /// The shared banner slot (Home and the Play/game screen — see
+  /// ARCHITECTURE.md's Phase 4 write-up). Always safe to embed: collapses
+  /// to nothing on web, in tests, or while unloaded — never throws.
+  ///
+  /// [showPlaceholder] controls what renders while no real ad is loaded
+  /// yet (or one failed to load, e.g. `ERROR_CODE_NO_FILL`): `true` (Home
+  /// only) shows a designed placeholder card; `false` (the default — used
+  /// on the Play screen, where extra unexpected height would push
+  /// question/option content around) collapses to nothing, exactly as
+  /// before.
+  Widget bannerAdWidget({bool showPlaceholder = false}) {
     if (kIsWeb) return const SizedBox.shrink();
-    return const _BannerAdSlot();
+    return _BannerAdSlot(showPlaceholder: showPlaceholder);
   }
 }
 
 class _BannerAdSlot extends StatefulWidget {
-  const _BannerAdSlot();
+  const _BannerAdSlot({required this.showPlaceholder});
+
+  final bool showPlaceholder;
 
   @override
   State<_BannerAdSlot> createState() => _BannerAdSlotState();
@@ -335,7 +345,11 @@ class _BannerAdSlotState extends State<_BannerAdSlot> {
   @override
   Widget build(BuildContext context) {
     final ad = _bannerAd;
-    if (ad == null) return const SizedBox.shrink();
+    if (ad == null) {
+      return widget.showPlaceholder
+          ? const _AdPlaceholderCard()
+          : const SizedBox.shrink();
+    }
     return SafeArea(
       top: false,
       child: SizedBox(
@@ -345,4 +359,147 @@ class _BannerAdSlotState extends State<_BannerAdSlot> {
       ),
     );
   }
+}
+
+/// Shown in the banner slot whenever a real ad hasn't loaded yet (or
+/// failed to — e.g. `ERROR_CODE_NO_FILL` while a brand-new AdMob account
+/// is still propagating) — a designed placeholder instead of leaving a
+/// blank gap in the Home layout. Purely decorative: "Advertise Now" is
+/// not a real, tappable call-to-action.
+class _AdPlaceholderCard extends StatelessWidget {
+  const _AdPlaceholderCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return DottedAdBorder(
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.adPlaceholderCard,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              top: -4,
+              left: -4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                  vertical: 2,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  'Ad',
+                  style: TextStyle(color: Colors.white, fontSize: 11),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.sm),
+              child: Row(
+                children: [
+                  const Icon(Icons.campaign, size: 40, color: AppColors.primary),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          'Your Ad Here',
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Reach thousands of learners daily',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.black.withValues(alpha: 0.6),
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.md,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Text(
+                            'Advertise Now',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A dashed-border frame around [child] — `BoxDecoration.border` has no
+/// dashed style built in, so this hand-paints one via `CustomPaint`,
+/// matching this project's established convention (`diagram_painter.dart`,
+/// `feedback_overlay.dart`) of a small hand-rolled painter rather than a
+/// new package for a single decorative border.
+class DottedAdBorder extends StatelessWidget {
+  const DottedAdBorder({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(painter: _DashedBorderPainter(), child: child);
+  }
+}
+
+class _DashedBorderPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = AppColors.primary.withValues(alpha: 0.5)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    final rrect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      const Radius.circular(16),
+    );
+    final path = Path()..addRRect(rrect);
+    const dashWidth = 6.0;
+    const dashGap = 4.0;
+    for (final metric in path.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        final next = distance + dashWidth;
+        canvas.drawPath(
+          metric.extractPath(distance, next.clamp(0, metric.length)),
+          paint,
+        );
+        distance = next + dashGap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedBorderPainter oldDelegate) => false;
 }

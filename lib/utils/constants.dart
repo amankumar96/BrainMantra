@@ -68,6 +68,20 @@ abstract final class AppColors {
   /// that box reads as a distinct "brand" accent rather than just another
   /// indigo surface.
   static const Color neonBlue = Color(0xFF2979FF);
+
+  // --- Home screen redesign (Phase 15 follow-up: pixel-matched to a
+  // supplied mockup) — a gradient header, a gradient hero card, and
+  // pastel-tinted rows for Daily Challenge/Leaderboard, each with its own
+  // accent color for the icon badge + chevron.
+  static const Color headerGradientStart = Color(0xFF3D6FF5);
+  static const Color headerGradientEnd = Color(0xFF7C4DFF);
+  static const Color heroGradientStart = Color(0xFF2F5FE0);
+  static const Color heroGradientEnd = Color(0xFF17348C);
+  static const Color dailyChallengeCard = Color(0xFFFDF1E0);
+  static const Color dailyChallengeAccent = Color(0xFFF5A623);
+  static const Color leaderboardCard = Color(0xFFEFE9FB);
+  static const Color leaderboardAccent = Color(0xFF7C5CFC);
+  static const Color adPlaceholderCard = Color(0xFFEAF3FE);
 }
 
 /// Shared spacing scale — use these instead of one-off pixel values.

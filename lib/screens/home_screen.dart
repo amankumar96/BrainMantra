@@ -6,7 +6,6 @@ import '../services/auth_service.dart';
 import '../services/leaderboard_service.dart';
 import '../services/storage_service.dart';
 import '../utils/constants.dart';
-import '../widgets/floating_numbers_background.dart';
 import '../widgets/rules_dialog.dart';
 import 'delete_account_screen.dart';
 import 'game_screen.dart';
@@ -111,75 +110,76 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final stats = _stats ?? PlayerStats();
     return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Brain Mantra'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.info_outline),
-            tooltip: 'Rules',
-            onPressed: () => RulesDialog.show(context),
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Sign out',
-            onPressed: () => AuthService.signOut(),
-          ),
-        ],
-      ),
-      body: Stack(
+      backgroundColor: Colors.white,
+      // No standard AppBar — the header below is a custom gradient block
+      // that the scrollable white "sheet" purposely overlaps (see the
+      // Transform.translate below), matching a supplied mockup's layered
+      // look.
+      body: Column(
         children: [
-          // First child — paints behind everything else, so it never
-          // disturbs the scrollable content above it.
-          const Positioned.fill(child: FloatingNumbersBackground()),
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _GreetingAndMarksRow(
-                    displayName: _displayName,
-                    streakDays: stats.currentStreakDays,
-                    marks: stats.highScore,
+          _HomeHeader(
+            onRulesTap: () => RulesDialog.show(context),
+            onSignOutTap: () => AuthService.signOut(),
+          ),
+          Expanded(
+            // Transform (not a negative Container margin, which Flutter
+            // rejects with an assertion) is what lets this "sheet"
+            // visually overlap the header's bottom edge — it shifts
+            // painting only, so the Expanded box's true layout bottom
+            // stays put; the resulting sliver of unpainted space at the
+            // very bottom shows through as the Scaffold's own white
+            // background, matching this sheet's color exactly.
+            child: Transform.translate(
+              offset: const Offset(0, -20),
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(24),
+                    topRight: Radius.circular(24),
                   ),
-                  const SizedBox(height: AppSpacing.lg),
-                  const _LogoHeroBox(),
-                  const SizedBox(height: AppSpacing.lg),
-                  ElevatedButton(
-                    onPressed: () => _navigateToGame(isDailyChallenge: false),
-                    style: ElevatedButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      padding:
-                          const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                ),
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(24),
+                    topRight: Radius.circular(24),
+                  ),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _GreetingAndMarksRow(
+                          displayName: _displayName,
+                          streakDays: stats.currentStreakDays,
+                          marks: stats.highScore,
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        _HeroCard(
+                          onPlay: () =>
+                              _navigateToGame(isDailyChallenge: false),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        _DailyChallengeBox(
+                          onTap: () =>
+                              _navigateToGame(isDailyChallenge: true),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        _LeaderboardBox(onTap: _navigateToLeaderboard),
+                        const SizedBox(height: AppSpacing.md),
+                        // Banner ads are confined to Home only — never
+                        // gameplay's countdown or results' Play-Again/Home
+                        // decision (see ARCHITECTURE.md's Phase 4
+                        // write-up).
+                        AdsService.instance.bannerAdWidget(showPlaceholder: true),
+                        const SizedBox(height: AppSpacing.md),
+                        _DeleteAccountBox(onTap: _navigateToDeleteAccount),
+                        const SizedBox(height: AppSpacing.lg),
+                        const _Footer(),
+                      ],
                     ),
-                    child: const Text(
-                      'PLAY',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.5,
-                      ),
-                    ),
                   ),
-                  const SizedBox(height: AppSpacing.md),
-                  _DailyChallengeBox(
-                    onTap: () => _navigateToGame(isDailyChallenge: true),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  _LeaderboardBox(onTap: _navigateToLeaderboard),
-                  const SizedBox(height: AppSpacing.md),
-                  // Banner ads are confined to Home only — never
-                  // gameplay's countdown or results' Play-Again/Home
-                  // decision (see ARCHITECTURE.md's Phase 4 write-up).
-                  // Now a normal flow item (was Scaffold.bottomNavigationBar)
-                  // so it sits in this specific position, per spec.
-                  AdsService.instance.bannerAdWidget(),
-                  const SizedBox(height: AppSpacing.md),
-                  _DeleteAccountBox(onTap: _navigateToDeleteAccount),
-                ],
+                ),
               ),
             ),
           ),
@@ -189,11 +189,90 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-/// A single `Text.rich` — "Hey {name}, welcome to your day streak of
-/// {N}" with the name and streak number bolded, everything else regular
-/// weight — next to a highlighted marks pill. `Text.rich`/`TextSpan`
-/// (not several separate `Text` widgets) so the whole greeting reads and
-/// wraps as one sentence.
+/// The gradient top block — brain mark + app name/tagline on the left,
+/// the Rules/Sign-out icons on the right. Replaces the plain `AppBar`;
+/// its bottom edge is deliberately overlapped by the scrollable white
+/// sheet below it (see `HomeScreen.build`'s `Transform.translate`) for
+/// the "card sitting on the header" look.
+class _HomeHeader extends StatelessWidget {
+  const _HomeHeader({required this.onRulesTap, required this.onSignOutTap});
+
+  final VoidCallback onRulesTap;
+  final VoidCallback onSignOutTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        MediaQuery.paddingOf(context).top + AppSpacing.sm,
+        AppSpacing.md,
+        AppSpacing.xl,
+      ),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.headerGradientStart, AppColors.headerGradientEnd],
+        ),
+      ),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.asset(
+              'assets/icons/icon.png',
+              width: 44,
+              height: 44,
+              fit: BoxFit.cover,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Brain Mantra',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 22,
+                  ),
+                ),
+                Text(
+                  'Train Today, Brighter Tomorrow',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.info_outline, color: Colors.white),
+            tooltip: 'Rules',
+            onPressed: onRulesTap,
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.white),
+            tooltip: 'Sign out',
+            onPressed: onSignOutTap,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Two-line greeting ("Hey **{name}** 👋" / "Welcome back! Your day
+/// streak is **{N}** 🔥") next to a highlighted marks pill. Each line is
+/// its own `Text.rich`/`TextSpan` (not several separate `Text` widgets)
+/// so it reads and wraps as one sentence, with the name/streak bolded
+/// and colored.
 class _GreetingAndMarksRow extends StatelessWidget {
   const _GreetingAndMarksRow({
     required this.displayName,
@@ -211,22 +290,47 @@ class _GreetingAndMarksRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
-          child: Text.rich(
-            TextSpan(
-              style: const TextStyle(fontSize: 15, color: Colors.black87),
-              children: [
-                const TextSpan(text: 'Hey '),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text.rich(
                 TextSpan(
-                  text: displayName,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  style: const TextStyle(fontSize: 17, color: Colors.black87),
+                  children: [
+                    const TextSpan(text: 'Hey '),
+                    TextSpan(
+                      text: displayName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const TextSpan(text: ' 👋'),
+                  ],
                 ),
-                const TextSpan(text: ', welcome to your day streak of '),
+              ),
+              const SizedBox(height: 2),
+              Text.rich(
                 TextSpan(
-                  text: '$streakDays',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.black.withValues(alpha: 0.6),
+                  ),
+                  children: [
+                    const TextSpan(text: 'Welcome back! Your day streak is '),
+                    TextSpan(
+                      text: '$streakDays',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const TextSpan(text: ' 🔥'),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
         const SizedBox(width: AppSpacing.sm),
@@ -236,7 +340,12 @@ class _GreetingAndMarksRow extends StatelessWidget {
             vertical: AppSpacing.xs,
           ),
           decoration: BoxDecoration(
-            color: AppColors.primary,
+            gradient: const LinearGradient(
+              colors: [
+                AppColors.headerGradientStart,
+                AppColors.headerGradientEnd,
+              ],
+            ),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Row(
@@ -260,29 +369,94 @@ class _GreetingAndMarksRow extends StatelessWidget {
   }
 }
 
-/// The app logo, framed in a "neon blue" hero box with a small tagline —
-/// the app's own visual identity moment above the Play button.
-class _LogoHeroBox extends StatelessWidget {
-  const _LogoHeroBox();
+/// The main hero card: gradient background, the brain mascot, a
+/// "Challenge your skills" headline, and the PLAY button — the app's
+/// central visual identity moment on Home.
+class _HeroCard extends StatelessWidget {
+  const _HeroCard({required this.onPlay});
+
+  final VoidCallback onPlay;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.neonBlue,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.heroGradientStart, AppColors.heroGradientEnd],
+        ),
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Column(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Image.asset('assets/icons/icon.png', width: 120, height: 120),
-          const SizedBox(height: AppSpacing.sm),
-          const Text(
-            'Challenge your skills',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
+          Expanded(
+            flex: 5,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Challenge\nyour skills',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 22,
+                    height: 1.15,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  'Sharpen your mind with fun questions every day!',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.85),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            flex: 4,
+            child: Image.asset('assets/icons/icon.png'),
+          ),
+          Expanded(
+            flex: 4,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: onPlay,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: AppColors.heroGradientEnd,
+                    shape: const StadiumBorder(),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.sm,
+                    ),
+                  ),
+                  icon: const Icon(Icons.play_arrow, size: 18),
+                  label: const Text(
+                    'PLAY',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                const Text(
+                  'Small Steps\nBig Progress!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontStyle: FontStyle.italic,
+                    fontSize: 11,
+                    decoration: TextDecoration.underline,
+                    decorationColor: Colors.amberAccent,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -291,8 +465,80 @@ class _LogoHeroBox extends StatelessWidget {
   }
 }
 
-/// A rounded box promoting Daily Challenge — same navigation as before,
-/// now with a tagline explaining the extra reward.
+/// A pastel-tinted row shared by Daily Challenge and Leaderboard: a
+/// circular icon badge, a title/subtitle column, and a trailing chevron
+/// badge — all sharing one [accent] color per row.
+class _MenuRow extends StatelessWidget {
+  const _MenuRow({
+    required this.onTap,
+    required this.backgroundColor,
+    required this.accent,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final VoidCallback onTap;
+  final Color backgroundColor;
+  final Color accent;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: backgroundColor,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 22,
+                backgroundColor: accent.withValues(alpha: 0.15),
+                child: Icon(icon, color: accent),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.black.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              CircleAvatar(
+                radius: 14,
+                backgroundColor: accent.withValues(alpha: 0.2),
+                child: Icon(Icons.chevron_right, color: accent, size: 18),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _DailyChallengeBox extends StatelessWidget {
   const _DailyChallengeBox({required this.onTap});
 
@@ -300,42 +546,19 @@ class _DailyChallengeBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.silver),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Daily Challenge',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                'Earn extra Marks solving these Questions',
-                style: TextStyle(color: Colors.black.withValues(alpha: 0.6)),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return _MenuRow(
+      onTap: onTap,
+      backgroundColor: AppColors.dailyChallengeCard,
+      accent: AppColors.dailyChallengeAccent,
+      icon: Icons.event_available_rounded,
+      title: 'Daily Challenge',
+      subtitle: 'Earn extra Marks solving these Questions',
     );
   }
 }
 
-/// A rounded box linking to the Leaderboard — replaces the old plain
-/// `TextButton.icon` link with a styled box matching the other Home
-/// sections, reusing `leaderboard_screen.dart`'s rounded-box/silver-border
-/// visual language.
+/// Replaces the old plain `TextButton.icon` link with a styled row
+/// matching Daily Challenge's visual language.
 class _LeaderboardBox extends StatelessWidget {
   const _LeaderboardBox({required this.onTap});
 
@@ -343,37 +566,19 @@ class _LeaderboardBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.silver),
-          ),
-          child: const Row(
-            children: [
-              Icon(Icons.bar_chart_rounded, color: AppColors.primary),
-              SizedBox(width: AppSpacing.sm),
-              Text(
-                'Leaderboard',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return _MenuRow(
+      onTap: onTap,
+      backgroundColor: AppColors.leaderboardCard,
+      accent: AppColors.leaderboardAccent,
+      icon: Icons.bar_chart_rounded,
+      title: 'Leaderboard',
+      subtitle: 'See how you rank among sharp minds!',
     );
   }
 }
 
-/// A full-width, red destructive-action box — replaces the old small
-/// corner-pinned link with a normal flow item at the very end of the
-/// page, same navigation as before.
+/// A full-width, red destructive-action box — a normal flow item at the
+/// very end of the page (not corner-pinned).
 class _DeleteAccountBox extends StatelessWidget {
   const _DeleteAccountBox({required this.onTap});
 
@@ -396,6 +601,32 @@ class _DeleteAccountBox extends StatelessWidget {
         'Delete Account',
         style: TextStyle(fontWeight: FontWeight.bold),
       ),
+    );
+  }
+}
+
+/// The small centered tagline at the very bottom of the page, flanked by
+/// thin divider lines.
+class _Footer extends StatelessWidget {
+  const _Footer();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(child: Divider(color: AppColors.silver)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+          child: Text(
+            'A Sharper You, A Brighter Tomorrow',
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.black.withValues(alpha: 0.45),
+            ),
+          ),
+        ),
+        Expanded(child: Divider(color: AppColors.silver)),
+      ],
     );
   }
 }

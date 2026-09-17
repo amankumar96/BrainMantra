@@ -6,13 +6,13 @@ import 'package:brain_mantra/screens/home_screen.dart';
 import 'package:brain_mantra/services/storage_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Home now paints a `FloatingNumbersBackground` that repeats forever
-/// (`AnimationController(...)..repeat()`), so `pumpAndSettle()` would wait
-/// indefinitely for it to "finish" and eventually time out — the same
-/// class of problem `game_screen_test.dart`'s Play-button test already
-/// works around for `TimerBar`'s long-running controller. A couple of
-/// bounded manual pumps (enough for a dialog fade-in or a route
-/// transition to complete) replaces every `pumpAndSettle()` below.
+/// GameScreen's own `TimerBar` runs a genuinely long-running
+/// `AnimationController`, so `pumpAndSettle()` after navigating there
+/// would wait indefinitely and eventually time out — the same class of
+/// problem `game_screen_test.dart`'s Play-button test already works
+/// around. A couple of bounded manual pumps (enough for a dialog
+/// fade-in or a route transition to complete) replaces every
+/// `pumpAndSettle()` below.
 Future<void> _settle(WidgetTester tester) async {
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 500));
@@ -25,8 +25,9 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
     await _settle(tester);
 
+    expect(find.textContaining('Hey '), findsOneWidget);
     expect(
-      find.textContaining('welcome to your day streak of 0'),
+      find.textContaining('Your day streak is 0'),
       findsOneWidget,
     );
     // The marks badge — a standalone Text showing just the number
@@ -49,7 +50,7 @@ void main() {
     await _settle(tester);
 
     expect(
-      find.textContaining('welcome to your day streak of 3'),
+      find.textContaining('Your day streak is 3'),
       findsOneWidget,
     );
     expect(find.text('250'), findsOneWidget);

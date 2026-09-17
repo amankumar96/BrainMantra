@@ -76,8 +76,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _navigateToGame({required bool isDailyChallenge}) async {
     // Play resumes from the player's persisted score; Daily Challenge
     // always starts fresh at 0, per its fairness rules.
-    final startingScore =
-        isDailyChallenge ? 0 : await AuthService.fetchCurrentScore();
+    final startingScore = isDailyChallenge
+        ? 0
+        : await AuthService.fetchCurrentScore();
     if (!mounted) return;
 
     // Reload stats once this pushed route is replaced (GameScreen
@@ -85,25 +86,25 @@ class _HomeScreenState extends State<HomeScreen> {
     // resolves this push's Future) — by then StorageService.saveStats
     // has already run, so the refreshed high score/streak are ready the
     // next time this screen is actually visible again.
-    await Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => GameScreen(
-        isDailyChallenge: isDailyChallenge,
-        startingScore: startingScore,
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => GameScreen(
+          isDailyChallenge: isDailyChallenge,
+          startingScore: startingScore,
+        ),
       ),
-    ));
+    );
     _loadStats();
   }
 
   void _navigateToLeaderboard() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const LeaderboardScreen()),
-    );
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const LeaderboardScreen()));
   }
 
   void _navigateToDeleteAccount() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const DeleteAccountScreen()),
-    );
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const DeleteAccountScreen()));
   }
 
   @override
@@ -144,39 +145,47 @@ class _HomeScreenState extends State<HomeScreen> {
                     topLeft: Radius.circular(24),
                     topRight: Radius.circular(24),
                   ),
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(AppSpacing.lg),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _GreetingAndMarksRow(
-                          displayName: _displayName,
-                          streakDays: stats.currentStreakDays,
-                          marks: stats.highScore,
-                        ),
-                        const SizedBox(height: AppSpacing.lg),
-                        _HeroCard(
-                          onPlay: () =>
-                              _navigateToGame(isDailyChallenge: false),
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-                        _DailyChallengeBox(
-                          onTap: () =>
-                              _navigateToGame(isDailyChallenge: true),
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-                        _LeaderboardBox(onTap: _navigateToLeaderboard),
-                        const SizedBox(height: AppSpacing.md),
-                        // Banner ads are confined to Home only — never
-                        // gameplay's countdown or results' Play-Again/Home
-                        // decision (see ARCHITECTURE.md's Phase 4
-                        // write-up).
-                        AdsService.instance.bannerAdWidget(showPlaceholder: true),
-                        const SizedBox(height: AppSpacing.md),
-                        _DeleteAccountBox(onTap: _navigateToDeleteAccount),
-                        const SizedBox(height: AppSpacing.lg),
-                        const _Footer(),
-                      ],
+                  // top: false — the header above already accounts for
+                  // the status bar itself; this only needs to keep the
+                  // footer clear of the system nav/gesture area below.
+                  child: SafeArea(
+                    top: false,
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(AppSpacing.lg),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _GreetingAndMarksRow(
+                            displayName: _displayName,
+                            streakDays: stats.currentStreakDays,
+                            marks: stats.highScore,
+                          ),
+                          const SizedBox(height: AppSpacing.lg),
+                          _HeroCard(
+                            onPlay: () =>
+                                _navigateToGame(isDailyChallenge: false),
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          _DailyChallengeBox(
+                            onTap: () =>
+                                _navigateToGame(isDailyChallenge: true),
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          _LeaderboardBox(onTap: _navigateToLeaderboard),
+                          const SizedBox(height: AppSpacing.md),
+                          // Banner ads are confined to Home only — never
+                          // gameplay's countdown or results' Play-Again/Home
+                          // decision (see ARCHITECTURE.md's Phase 4
+                          // write-up).
+                          AdsService.instance.bannerAdWidget(
+                            showPlaceholder: true,
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          _DeleteAccountBox(onTap: _navigateToDeleteAccount),
+                          const SizedBox(height: AppSpacing.lg),
+                          const _Footer(),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -244,10 +253,7 @@ class _HomeHeader extends StatelessWidget {
                 ),
                 Text(
                   'Train Today, Brighter Tomorrow',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
                 ),
               ],
             ),
@@ -418,12 +424,9 @@ class _HeroCard extends StatelessWidget {
               ],
             ),
           ),
+          Expanded(flex: 3, child: Image.asset('assets/icons/icon.png')),
           Expanded(
-            flex: 4,
-            child: Image.asset('assets/icons/icon.png'),
-          ),
-          Expanded(
-            flex: 4,
+            flex: 5,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -434,14 +437,17 @@ class _HeroCard extends StatelessWidget {
                     foregroundColor: AppColors.heroGradientEnd,
                     shape: const StadiumBorder(),
                     padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.md,
+                      horizontal: AppSpacing.sm,
                       vertical: AppSpacing.sm,
                     ),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-                  icon: const Icon(Icons.play_arrow, size: 18),
+                  icon: const Icon(Icons.play_arrow, size: 16),
                   label: const Text(
                     'PLAY',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    softWrap: false,
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.xs),
@@ -592,9 +598,7 @@ class _DeleteAccountBox extends StatelessWidget {
         backgroundColor: AppColors.wrong,
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       icon: const Icon(Icons.delete_outline),
       label: const Text(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
 import '../utils/constants.dart';
+import '../utils/network_error.dart';
 
 /// The in-app half of Google Play's required account-deletion flow (the
 /// other half is the public instructions page linked from the Play
@@ -19,11 +20,13 @@ class DeleteAccountScreen extends StatefulWidget {
 class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
   bool _isDeleting = false;
   String? _errorMessage;
+  bool _isOffline = false;
 
   Future<void> _confirmDelete() async {
     setState(() {
       _isDeleting = true;
       _errorMessage = null;
+      _isOffline = false;
     });
     try {
       await AuthService.deleteAccount();
@@ -39,9 +42,15 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
       }
     } catch (e) {
       if (!mounted) return;
+      // A dropped connection (confirmed via a real offline device test)
+      // otherwise surfaced as a raw FunctionsFetchException/
+      // SocketException string — an OfflineNotice reads far better than
+      // that for something as ordinary as "no signal right now".
+      final offline = isOfflineError(e);
       setState(() {
         _isDeleting = false;
-        _errorMessage = 'Could not delete your account: $e';
+        _isOffline = offline;
+        _errorMessage = offline ? null : 'Could not delete your account: $e';
       });
     }
   }
@@ -64,14 +73,20 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
               const SizedBox(height: AppSpacing.md),
               const Text('This removes:'),
               const SizedBox(height: AppSpacing.sm),
-              const _DeletedItem('Your account and sign-in (email or linked Google account)'),
+              const _DeletedItem(
+                'Your account and sign-in (email or linked Google account)',
+              ),
               const _DeletedItem('Your display name'),
               const _DeletedItem('Your persistent score'),
               const _DeletedItem('Your day streak'),
               const _DeletedItem(
-                  "Your Daily Challenge history and leaderboard placement"),
+                "Your Daily Challenge history and leaderboard placement",
+              ),
               const SizedBox(height: AppSpacing.lg),
-              if (_errorMessage != null) ...[
+              if (_isOffline) ...[
+                const OfflineNotice(actionDescription: 'delete your account'),
+                const SizedBox(height: AppSpacing.md),
+              ] else if (_errorMessage != null) ...[
                 Text(
                   _errorMessage!,
                   style: const TextStyle(color: AppColors.wrong),
@@ -102,8 +117,9 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
               SizedBox(
                 width: double.infinity,
                 child: TextButton(
-                  onPressed:
-                      _isDeleting ? null : () => Navigator.of(context).pop(),
+                  onPressed: _isDeleting
+                      ? null
+                      : () => Navigator.of(context).pop(),
                   child: const Text('Cancel'),
                 ),
               ),

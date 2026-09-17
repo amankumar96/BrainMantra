@@ -23,10 +23,20 @@ abstract final class MirrorImageGenerator {
   // and from the other flip axis. Flattened [x0,y0,x1,y1,...] unit
   // coordinates — DiagramPainter.polygonPoints fits these to whatever box
   // they're actually drawn in, so the exact scale here doesn't matter.
+  // Template 2 was originally [0,0.6, 1.2,0.6, 1.2,0, 2,1, 1.2,2, 1.2,1.4,
+  // 0,1.4] (an arrow) — a real bug caught from a device screenshot showing
+  // two visually-identical option pairs: that shape is exactly symmetric
+  // about its own horizontal centerline (every (x,y) has a matching
+  // (x, 2-y) elsewhere in the list), so flipV rendered identically to the
+  // original, and rotate180 rendered identically to flipH — 2 of the 4
+  // options always collapsed into indistinguishable duplicate pairs,
+  // regardless of which one the generator considered "correct". Fixed by
+  // nudging the final vertex ((0,1.4) → (0.2,1.5)) to break that
+  // symmetry while keeping the shape simple and non-self-intersecting.
   static const _templates = [
     [0.0, 0.0, 0.0, 3.0, 2.0, 2.0, 2.0, 1.3, 0.7, 1.3, 0.7, 0.0],
     [0.0, 0.0, 0.0, 2.0, 1.0, 2.0, 1.0, 1.0, 2.0, 1.0, 2.0, 0.0],
-    [0.0, 0.6, 1.2, 0.6, 1.2, 0.0, 2.0, 1.0, 1.2, 2.0, 1.2, 1.4, 0.0, 1.4],
+    [0.0, 0.6, 1.2, 0.6, 1.2, 0.0, 2.0, 1.0, 1.2, 2.0, 1.2, 1.4, 0.2, 1.5],
   ];
 
   static Puzzle generate({required int tier, required RngService rng}) {
@@ -51,8 +61,9 @@ abstract final class MirrorImageGenerator {
       (id: 'opt3', vertices: rotated),
     ];
     shuffleList(candidates, rng);
-    final correctId =
-        candidates.firstWhere((c) => c.vertices == correctShape).id;
+    final correctId = candidates
+        .firstWhere((c) => c.vertices == correctShape)
+        .id;
 
     return Puzzle(
       id: deterministicId(rng),
@@ -60,9 +71,9 @@ abstract final class MirrorImageGenerator {
       type: PuzzleType.mirrorImage,
       questionText: askMirror
           ? 'Which figure is the MIRROR image (reflected left-right) of '
-              'the shape shown above?'
+                'the shape shown above?'
           : 'Which figure is the WATER image (reflected upside-down) of '
-              'the shape shown above?',
+                'the shape shown above?',
       options: candidates.map((c) => c.id).toList(),
       correctAnswer: correctId,
       difficultyTier: tier,
@@ -74,21 +85,21 @@ abstract final class MirrorImageGenerator {
       ],
       hint: askMirror
           ? 'A mirror image flips the shape left-right, like standing a '
-              'mirror upright beside it.'
+                'mirror upright beside it.'
           : 'A water image flips the shape upside-down, like its '
-              "reflection in water below it.",
+                "reflection in water below it.",
     );
   }
 
   static List<double> _flipH(List<double> v) => [
-        for (var i = 0; i < v.length; i += 2) ...[-v[i], v[i + 1]],
-      ];
+    for (var i = 0; i < v.length; i += 2) ...[-v[i], v[i + 1]],
+  ];
 
   static List<double> _flipV(List<double> v) => [
-        for (var i = 0; i < v.length; i += 2) ...[v[i], -v[i + 1]],
-      ];
+    for (var i = 0; i < v.length; i += 2) ...[v[i], -v[i + 1]],
+  ];
 
   static List<double> _rotate180(List<double> v) => [
-        for (var i = 0; i < v.length; i += 2) ...[-v[i], -v[i + 1]],
-      ];
+    for (var i = 0; i < v.length; i += 2) ...[-v[i], -v[i + 1]],
+  ];
 }

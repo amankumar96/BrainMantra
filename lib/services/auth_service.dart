@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'storage_service.dart';
 import 'supabase_config.dart';
 
 /// Wraps Supabase Auth so the rest of the app never touches the
@@ -28,7 +29,8 @@ abstract final class AuthService {
   /// since `supabase_flutter` persists sessions locally by default (this
   /// is what makes a signed-up player stay logged in until they actually
   /// sign out or uninstall, with no extra work needed).
-  static Stream<AuthState> get authStateChanges => _client.auth.onAuthStateChange;
+  static Stream<AuthState> get authStateChanges =>
+      _client.auth.onAuthStateChange;
 
   static Future<SignUpResult> signUp({
     required String email,
@@ -91,11 +93,15 @@ abstract final class AuthService {
     }
 
     final googleSignIn = GoogleSignIn.instance;
-    await googleSignIn.initialize(serverClientId: SupabaseConfig.googleWebClientId);
+    await googleSignIn.initialize(
+      serverClientId: SupabaseConfig.googleWebClientId,
+    );
     final googleUser = await googleSignIn.authenticate();
 
-    final authorization = await googleUser.authorizationClient
-            .authorizationForScopes(_googleScopes) ??
+    final authorization =
+        await googleUser.authorizationClient.authorizationForScopes(
+          _googleScopes,
+        ) ??
         await googleUser.authorizationClient.authorizeScopes(_googleScopes);
     final idToken = googleUser.authentication.idToken;
     if (idToken == null) {
@@ -128,9 +134,19 @@ abstract final class AuthService {
   /// after `invoke` returns successfully (i.e. the server has confirmed
   /// deletion), since supabase_flutter's local session has no way to
   /// notice a server-side deletion on its own.
+  ///
+  /// Also clears every locally-cached stat (`StorageService.clearAll()`)
+  /// — a real bug caught on-device: without this, Home kept showing the
+  /// deleted account's old marks/streak (read from the phone's own
+  /// SharedPreferences cache, untouched by server-side deletion) even
+  /// after signing back in fresh, since that fresh sign-in's `PlayerStats`
+  /// never gets separately re-fetched from anywhere — Home just trusts
+  /// whatever was last saved locally. A brand new account must start
+  /// from a genuinely clean local slate, not the previous account's.
   static Future<void> deleteAccount() async {
     await _client.functions.invoke('delete-own-account');
     await signOut();
+    await StorageService.clearAll();
   }
 
   /// Creates this player's `profiles` row if one doesn't already exist.
@@ -138,7 +154,9 @@ abstract final class AuthService {
   /// again from the auth-state listener on every sign-in (covering
   /// Google sign-in, which never goes through [signUp] and so needs its
   /// profile created the first time that user is ever seen).
-  static Future<void> ensureProfileExists({String? preferredDisplayName}) async {
+  static Future<void> ensureProfileExists({
+    String? preferredDisplayName,
+  }) async {
     final user = currentUser;
     if (user == null) return;
 
@@ -149,7 +167,8 @@ abstract final class AuthService {
         .maybeSingle();
     if (existing != null) return;
 
-    final displayName = preferredDisplayName ??
+    final displayName =
+        preferredDisplayName ??
         // Set by signUp() at account-creation time — the name the player
         // typed survives even though profile creation itself only
         // happens later, once they've clicked the confirmation link and
@@ -201,7 +220,8 @@ abstract final class AuthService {
     if (user == null) return;
     await _client
         .from('profiles')
-        .update({'current_score': score}).eq('id', user.id);
+        .update({'current_score': score})
+        .eq('id', user.id);
   }
 
   /// Marks this player as active right now — called at the end of every

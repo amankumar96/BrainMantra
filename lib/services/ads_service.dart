@@ -282,11 +282,12 @@ class AdsService {
   /// to nothing on web, in tests, or while unloaded — never throws.
   ///
   /// [showPlaceholder] controls what renders while no real ad is loaded
-  /// yet (or one failed to load, e.g. `ERROR_CODE_NO_FILL`): `true` (Home
-  /// only) shows a designed placeholder card; `false` (the default — used
-  /// on the Play screen, where extra unexpected height would push
-  /// question/option content around) collapses to nothing, exactly as
-  /// before.
+  /// yet (or one failed to load, e.g. `ERROR_CODE_NO_FILL`): `true` shows
+  /// a designed "Your Ad Here" placeholder card instead of collapsing to
+  /// nothing — used by both Home and the Play screen, so the ad slot
+  /// always reads as an intentional part of the layout rather than a gap.
+  /// Default `false` is only for callers (tests, mainly) that want the
+  /// old collapse-to-nothing behavior.
   Widget bannerAdWidget({bool showPlaceholder = false}) {
     if (kIsWeb) return const SizedBox.shrink();
     return _BannerAdSlot(showPlaceholder: showPlaceholder);

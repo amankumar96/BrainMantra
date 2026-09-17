@@ -302,8 +302,11 @@ class _GameScreenBody extends StatelessWidget {
                 // Banner: very top of the screen, above the marks/timer bar
                 // — by explicit product decision (this was previously
                 // Home-only; see ARCHITECTURE.md's Phase 4 write-up for the
-                // superseded reasoning).
-                AdsService.instance.bannerAdWidget(),
+                // superseded reasoning). showPlaceholder: true so this slot
+                // shows the same designed "Your Ad Here" card Home uses
+                // (rather than collapsing to nothing) whenever no real ad
+                // has loaded yet.
+                AdsService.instance.bannerAdWidget(showPlaceholder: true),
                 MarksIndicator(
                   currentQuestionNumber: controller.questionNumber,
                   totalQuestions: controller.totalQuestions,

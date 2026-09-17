@@ -117,6 +117,11 @@ void main() {
     await tester.pump();
 
     final correctLabel = _correctLabel(controller.currentPuzzle!);
+    // The ad placeholder card above the question now takes real height in
+    // this small test viewport — scroll the option into view first, same
+    // as any tall content on a real phone screen.
+    await tester.ensureVisible(find.text(correctLabel));
+    await tester.pump();
     await tester.tap(find.text(correctLabel));
     await tester.pump();
     await tester.tap(find.text('Submit'));
@@ -138,6 +143,8 @@ void main() {
     final puzzle = controller.currentPuzzle!;
     final correctLabel = _correctLabel(puzzle);
     final wrongAnswer = puzzle.options.firstWhere((o) => o != correctLabel);
+    await tester.ensureVisible(find.text(wrongAnswer));
+    await tester.pump();
     await tester.tap(find.text(wrongAnswer));
     await tester.pump();
     await tester.tap(find.text('Submit'));
@@ -184,6 +191,8 @@ void main() {
       // ahead (without scoring) whenever one comes up rather than
       // failing this navigation-focused test on an unrelated puzzle type.
       if (controller.currentPuzzle!.optionDiagrams != null) {
+        await tester.ensureVisible(find.text('Skip'));
+        await tester.pump();
         await tester.tap(find.text('Skip'));
         await tester.pump();
         await _pumpMillis(
@@ -193,6 +202,8 @@ void main() {
         continue;
       }
       final answer = _correctLabel(controller.currentPuzzle!);
+      await tester.ensureVisible(find.text(answer));
+      await tester.pump();
       await tester.tap(find.text(answer));
       await tester.pump();
       await tester.tap(find.text('Submit'));
@@ -222,6 +233,8 @@ void main() {
     // Answer one question first, just to prove End works mid-session, not
     // only on the very first question.
     final answer = _correctLabel(controller.currentPuzzle!);
+    await tester.ensureVisible(find.text(answer));
+    await tester.pump();
     await tester.tap(find.text(answer));
     await tester.pump();
     await tester.tap(find.text('Submit'));

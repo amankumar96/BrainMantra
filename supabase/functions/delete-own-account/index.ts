@@ -20,7 +20,7 @@
 // profiles/daily_test_results rows are removed automatically via the
 // same `on delete cascade` foreign keys delete-inactive-users relies on.
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 
 Deno.serve(async (req: Request) => {
   const authHeader = req.headers.get('Authorization');

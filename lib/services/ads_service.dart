@@ -85,6 +85,25 @@ class AdsService {
     'B70BE1903265316E13E37EACC45AD7B4', // 2311DRN14I
   ];
 
+  /// The ad-serving rules applied to every request, in debug and release.
+  ///
+  /// Audience: Brain Mantra is declared 13+ / general audience in Play
+  /// Console (NOT child-directed - see [isChildDirectedTreatment]), so ads
+  /// are capped at PG content ([MaxAdContentRating.pg]) as an extra safety
+  /// net on top of whatever is blocked in the AdMob dashboard. Test-device
+  /// ids are only ever included in debug builds.
+  @visibleForTesting
+  static RequestConfiguration buildRequestConfiguration({
+    bool debugMode = kDebugMode,
+  }) {
+    return RequestConfiguration(
+      maxAdContentRating: MaxAdContentRating.pg,
+      ageRestrictedTreatment:
+          isChildDirectedTreatment ? AgeRestrictedTreatment.child : null,
+      testDeviceIds: debugMode ? _debugTestDeviceIds : null,
+    );
+  }
+
   /// Call once from `main()`, after `Supabase.initialize(...)`, before
   /// `runApp`. Never throws — an ad SDK failing to initialize must not
   /// block the app from starting.
@@ -92,16 +111,9 @@ class AdsService {
     if (kIsWeb) return; // no web support in google_mobile_ads at all
     try {
       await MobileAds.instance.initialize();
-      if (isChildDirectedTreatment || kDebugMode) {
-        MobileAds.instance.updateRequestConfiguration(
-          RequestConfiguration(
-            ageRestrictedTreatment: isChildDirectedTreatment
-                ? AgeRestrictedTreatment.child
-                : null,
-            testDeviceIds: kDebugMode ? _debugTestDeviceIds : null,
-          ),
-        );
-      }
+      MobileAds.instance.updateRequestConfiguration(
+        buildRequestConfiguration(),
+      );
       await _requestConsentIfNeeded();
       loadInterstitial();
       loadRewarded();

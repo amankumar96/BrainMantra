@@ -1,0 +1,8 @@
+# Copy this file to android/key.properties (same folder) and fill in the real
+# values. key.properties is git-ignored - NEVER commit it or share it.
+# See Documents/FOUNDER_LAUNCH_GUIDE.md, section "Create your upload key".
+storePassword=YOUR_KEYSTORE_PASSWORD
+keyPassword=YOUR_KEY_PASSWORD
+keyAlias=upload
+# Path is relative to android/app/. Example if you keep the file next to the app folder:
+storeFile=../upload-keystore.jks

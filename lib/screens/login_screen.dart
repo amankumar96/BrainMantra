@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' show AuthException;
 
 import '../services/auth_service.dart';
 import '../utils/constants.dart';
+import '../utils/legal_links.dart';
 import 'sign_up_screen.dart';
 
 /// Returning-player login. Google is the steered-toward path — it's the
@@ -150,6 +151,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   child: const Text("Don't have an account? Sign up"),
                 ),
+                const SizedBox(height: AppSpacing.sm),
+                const LegalLinksRow(),
               ],
             ),
           ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
 import '../utils/constants.dart';
+import '../utils/legal_links.dart';
 import 'login_screen.dart';
 
 /// Account creation. Google is the steered-toward path — it's the first,
@@ -186,6 +187,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
             'before you can log in.',
             style: TextStyle(fontSize: 12, color: Colors.black54),
           ),
+          const SizedBox(height: AppSpacing.sm),
+          const Text(
+            'By signing up or continuing with Google, you agree to our:',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12, color: Colors.black54),
+          ),
+          const LegalLinksRow(),
           const SizedBox(height: AppSpacing.md),
           OutlinedButton(
             onPressed: _isSubmitting ? null : _submitEmailSignUp,

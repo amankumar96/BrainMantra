@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
 import '../utils/constants.dart';
+import '../utils/legal_links.dart';
 import '../utils/network_error.dart';
 
 /// The in-app half of Google Play's required account-deletion flow (the
@@ -123,6 +124,8 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
                   child: const Text('Cancel'),
                 ),
               ),
+              const SizedBox(height: AppSpacing.sm),
+              const Center(child: LegalLinksRow()),
             ],
           ),
         ),

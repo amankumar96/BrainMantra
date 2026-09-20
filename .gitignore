@@ -57,3 +57,11 @@ app.*.map.json
 
 # Local-only throwaway scripts for manually poking at the code
 /dev_scratch/
+
+# Secrets - never commit (see Documents/FOUNDER_LAUNCH_GUIDE.md)
+.env
+.env.*
+google-services.json
+android/key.properties
+*.jks
+*.keystore

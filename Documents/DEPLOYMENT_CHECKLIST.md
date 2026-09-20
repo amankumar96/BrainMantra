@@ -31,9 +31,10 @@ step by step, rather than you following written instructions alone.
 
 - ✅ In-app deletion built and deployed (`delete-own-account` Edge Function,
   confirmed `ACTIVE`) — see `ARCHITECTURE.md` §4c.
-- ✅ Public web instructions page published as a Claude Artifact, flipped to
-  public/shared via its share menu, and republished with both the current
-  corner-button deletion flow and Brain Mantra branding (§4c).
+- ⬜ Public web instructions page: the old Claude Artifact link is **replaced**
+  by `docs/delete-account.html` on GitHub Pages (source:
+  `Documents/DELETE_ACCOUNT_PAGE.md`). Publish it and put its URL in Play
+  Console — see `FOUNDER_LAUNCH_GUIDE.md` step 3.
 - ⬜ **Live verification**: create a throwaway test account, delete it from
   inside the app, then confirm in the Supabase dashboard that both its
   `profiles` row and its `auth.users` row are actually gone. This is the one
@@ -43,22 +44,19 @@ step by step, rather than you following written instructions alone.
 
 ## 3. Ads (AdMob)
 
-Currently running entirely on Google's published **TEST** ad-unit IDs (banner,
-interstitial, rewarded) and a TEST App ID in `AndroidManifest.xml` — this is
-deliberate and safe for development (serving real ads without a real AdMob
-account risks getting your future account banned), but every one of these
-needs to be swapped before a release build:
+The real AdMob App ID and ad-unit IDs are wired in (Android). Remaining:
 
 - ✅ **Real AdMob account created**, Brain Mantra (Android) registered in it,
   real App ID + banner/interstitial/rewarded ad unit IDs created and wired
   into `AndroidManifest.xml`/`ads_service.dart`. iOS still on TEST IDs — no
   iOS app registered in AdMob yet (Android-first).
+- ✅ `AdsService` now caps ads at **PG** content rating (`maxAdContentRating`)
+  and declares `AD_ID` in the manifest.
 - ⬜ **Blocking controls → Sensitive categories** in the AdMob dashboard —
-  this is where content/sensitivity filtering is handled for this app (by
-  deliberate design, `AdsService` sets no `maxAdContentRating` in code).
-- ⬜ **Play Console → Target Audience declaration** — a business/legal
-  decision about who the app is aimed at; `AdsService.isChildDirectedTreatment`
-  is a single flag to flip if that declaration ever includes children.
+  additional filtering on top of the PG cap set in code.
+- ⬜ **Play Console → Target Audience declaration** — choose **13 and over
+  only** (not child-directed); this matches `AdsService.isChildDirectedTreatment
+  = false`. Answers: `PLAY_STORE_COMPLIANCE.md`.
 - ⬜ **On-device manual check** (Android — `google_mobile_ads` has no Flutter
   Web support, so this can't be checked in the Chrome dev loop): banner and
   interstitial placement, frequency (every 10 questions), and that the UMP
@@ -70,14 +68,16 @@ the real IDs is more efficient as one live session than doing it piecemeal.
 
 ## 4. Release build signing
 
-- ⬜ **Generate a real release signing key** — right now
-  `android/app/build.gradle.kts` signs release builds with the *debug* key
-  (there's a `// TODO` marking exactly this), which works for `flutter run
-  --release` locally but Google will reject or you'll be unable to publish
-  updates later with a debug-signed build.
-- ⬜ **Enroll in Play App Signing** (Google's recommended approach — you keep
-  an upload key, Google manages the final signing key, so a lost local key
-  doesn't permanently lock you out of updating the app).
+Code is ready (`build.gradle.kts` reads `android/key.properties`). You still:
+
+- ⬜ **Generate the upload keystore** and fill `android/key.properties`
+  (`FOUNDER_LAUNCH_GUIDE.md` step 1). Back it up in two places. Never commit it.
+- ⬜ **Build the bundle:** `flutter build appbundle --release`, upload the
+  `.aab` from `build/app/outputs/bundle/release/`.
+- ⬜ **Enroll in Play App Signing** (default for new apps): you keep the
+  upload key, Google holds the final key.
+- ⬜ **Every upload needs a higher build number** — bump `version: 1.0.0+N` in
+  `pubspec.yaml` (the number after `+` is Android's versionCode).
 
 ## 5. Store presence & assets
 
@@ -97,18 +97,19 @@ the real IDs is more efficient as one live session than doing it piecemeal.
 
 ## 6. Legal & compliance
 
-- ⬜ **Privacy Policy** — must be hosted at a public URL (this can reuse the
-  same Claude Artifact approach as the account-deletion page, or any static
-  host) and must accurately describe what Brain Mantra actually collects
-  (email, display name, score/streak history) and how account deletion
-  works.
-- ⬜ **Play Console Data Safety form** — must match the Privacy Policy
-  exactly; Google spot-checks for mismatches and will reject/suspend for
-  them.
-- ⬜ **Content rating questionnaire** (Play Console) — a short form about the
-  app's content; for a math quiz game this should be straightforward.
-- ⬜ **Ads declaration** in Play Console (the app does show ads — this must
-  be declared truthfully).
+- ✅ Privacy Policy, Terms of Service, deletion page **drafted**
+  (`Documents/PRIVACY_POLICY.md`, `TERMS_OF_SERVICE.md`, `DELETE_ACCOUNT_PAGE.md`)
+  and rendered to `docs/*.html` by `python tool/build_legal_pages.py`.
+  In-app links added (sign-up, login, home footer, delete screen).
+- ⬜ Replace `[SUPPORT_EMAIL]` and `[YOUR_COUNTRY / STATE]` in those three
+  files, re-run the build script, publish `docs/` (step 3 of the guide) and
+  make sure `LegalLinks.baseUrl` in `lib/utils/legal_links.dart` matches.
+- ⬜ **Play Console Data Safety form** — copy answers from
+  `PLAY_STORE_COMPLIANCE.md` (they match the Privacy Policy).
+- ⬜ **Content rating (IARC)** — answers in `PLAY_STORE_COMPLIANCE.md`.
+- ⬜ **Ads declaration** — "Yes, contains ads"; advertising ID: Yes.
+- ⬜ **Supabase hardening** — `SUPABASE_SECURITY.md` (export schema, set
+  `CRON_SECRET`, update cron job, deploy functions).
 
 ## 7. Submission
 

@@ -8,6 +8,7 @@ import '../services/auth_service.dart';
 import '../services/leaderboard_service.dart';
 import '../services/storage_service.dart';
 import '../utils/constants.dart';
+import '../utils/legal_links.dart';
 import '../widgets/rules_dialog.dart';
 import 'delete_account_screen.dart';
 import 'game_screen.dart';
@@ -759,20 +760,26 @@ class _Footer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Column(
       children: [
-        Expanded(child: Divider(color: AppColors.silver)),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-          child: Text(
-            'A Sharper You, A Brighter Tomorrow',
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.black.withValues(alpha: 0.45),
+        Row(
+          children: [
+            Expanded(child: Divider(color: AppColors.silver)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+              child: Text(
+                'A Sharper You, A Brighter Tomorrow',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.black.withValues(alpha: 0.45),
+                ),
+              ),
             ),
-          ),
+            Expanded(child: Divider(color: AppColors.silver)),
+          ],
         ),
-        Expanded(child: Divider(color: AppColors.silver)),
+        const SizedBox(height: AppSpacing.xs),
+        const LegalLinksRow(),
       ],
     );
   }

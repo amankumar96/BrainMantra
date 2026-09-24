@@ -43,23 +43,22 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  /// Warns before actually creating the guest account — a guest has no
-  /// email/password/Google identity to sign back in with, so once they
-  /// sign out (or 30 days of inactivity trigger the same account-cleanup
-  /// job every account is subject to — see `SUPABASE_SECURITY.md`),
-  /// there's no way back into that specific account. Better to say so
-  /// upfront than let it be a surprise later on `home_screen.dart`'s
-  /// sign-out button.
+  /// Warns before actually creating the guest account — signing out of a
+  /// guest account **deletes it immediately** (see `home_screen.dart`'s
+  /// `_handleSignOutTap`), rather than merely being unreachable, and an
+  /// account left inactive for 30 days is auto-deleted regardless, the
+  /// same as every account (`SUPABASE_SECURITY.md`). Better to say so
+  /// upfront than let it be a surprise later at the sign-out button.
   Future<void> _submitGuest() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Play as Guest?'),
         content: const Text(
-          "Guest progress can't be recovered once you sign out — there's "
-          'no email or password to sign back in with. Guest accounts left '
-          'inactive for 30 days are also deleted automatically, the same '
-          'as every account.',
+          'Guest progress is temporary — signing out deletes it '
+          "immediately, and there's no email or password to sign back in "
+          'with. Guest accounts left inactive for 30 days are also '
+          'deleted automatically, the same as every account.',
         ),
         actions: [
           TextButton(

@@ -139,14 +139,17 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   /// A guest (`AuthService.isGuest`) has no email/password/Google identity
-  /// to sign back in with — signing out is effectively the same as
-  /// permanently losing that account, unlike a real account where signing
-  /// out is always safely reversible. `login_screen.dart` warns about this
-  /// once, before the guest account is even created; this is the second,
-  /// harder-to-miss checkpoint, right at the moment it would actually
-  /// happen. Non-guest accounts skip straight to signing out, same as
-  /// before — signing out of a real account has never needed a
-  /// confirmation, and still doesn't.
+  /// to sign back in with, so — by deliberate product decision — signing
+  /// out of a guest account actually **deletes** it (`AuthService.
+  /// deleteAccount()`, the same call the Delete Account screen uses) right
+  /// then, rather than leaving an orphaned, permanently-unreachable
+  /// anonymous row behind for a full 30 days until the inactive-account
+  /// cleanup job would otherwise catch it. `login_screen.dart` warns about
+  /// this once, before the guest account is even created; this is the
+  /// second, harder-to-miss checkpoint, right at the moment it happens.
+  /// Non-guest accounts skip straight to an ordinary, reversible sign-out,
+  /// same as before — this has never needed a confirmation and still
+  /// doesn't.
   Future<void> _handleSignOutTap() async {
     if (!AuthService.isGuest) {
       await AuthService.signOut();
@@ -157,9 +160,9 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Sign out of Guest account?'),
         content: const Text(
-          "This guest account can't be recovered once you sign out — "
-          "there's no email or password to sign back in with, and your "
-          'score, streak and history will be gone for good.',
+          'Signing out deletes this guest account immediately — score, '
+          "streak and history included. There's no email or password to "
+          'sign back into it afterwards, so this cannot be undone.',
         ),
         actions: [
           TextButton(
@@ -169,12 +172,23 @@ class _HomeScreenState extends State<HomeScreen> {
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: AppColors.wrong),
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Sign Out'),
+            child: const Text('Sign Out & Delete'),
           ),
         ],
       ),
     );
-    if (confirmed == true) await AuthService.signOut();
+    if (confirmed != true || !mounted) return;
+    try {
+      await AuthService.deleteAccount();
+    } catch (_) {
+      // Best-effort: if the delete call fails (e.g. offline), fall back
+      // to a plain sign-out rather than leaving the player stuck unable
+      // to leave the screen at all — matches this app's established
+      // "never let a Supabase failure strand the player" precedent (see
+      // e.g. game_screen.dart's _persistAndShowResults). The orphaned
+      // guest row still gets caught by the 30-day cleanup job either way.
+      await AuthService.signOut();
+    }
   }
 
   void _navigateToDeleteAccount() {

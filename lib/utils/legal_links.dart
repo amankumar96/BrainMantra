@@ -12,7 +12,7 @@ import 'constants.dart';
 /// NOTE for the founder: after you publish the pages, change [baseUrl] to your
 /// real address (it must end with a slash) and re-release.
 abstract final class LegalLinks {
-  static const String baseUrl = 'https://amankumar96.github.io/brain-mantra-legal/';
+  static const String baseUrl = 'https://amankumar96.github.io/BrainMantra/';
 
   static final Uri privacyPolicy = Uri.parse('${baseUrl}privacy.html');
   static final Uri termsOfService = Uri.parse('${baseUrl}terms.html');

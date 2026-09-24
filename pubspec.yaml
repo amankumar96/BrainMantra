@@ -89,6 +89,8 @@ flutter:
   assets:
     - assets/icons/icon.png
     - assets/icons/mascot_transparent.png
+    - assets/icons/login_screen_mascot.jpeg
+    - assets/icons/google_icon.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

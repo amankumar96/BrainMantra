@@ -1,24 +1,23 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' show AuthException;
 
 import '../services/auth_service.dart';
-import '../utils/auth_config.dart';
 import '../utils/constants.dart';
 import '../utils/legal_links.dart';
-import '../widgets/brand_header.dart';
-import '../widgets/math_background_decoration.dart';
-import 'sign_up_screen.dart';
 
-/// Returning-player login. Google is the steered-toward path — it's the
-/// first, most prominent action on screen, and (while
-/// [kEmailPasswordSignInEnabled] is off — see that flag's doc comment for
-/// why) currently the *only* one: email/password is fully implemented
-/// below but not shown. A login attempt on an account that hasn't clicked
-/// its confirmation email yet gets a friendly explanation instead of
-/// Supabase's raw error text. Like SignUpScreen, this screen doesn't
-/// navigate anywhere on success itself — the root auth-gate in main.dart
-/// reacts to the session becoming active and swaps to HomeScreen
-/// automatically.
+/// The welcome/login screen — the very first thing an unauthenticated
+/// player sees (see `main.dart`'s auth gate). Google is the steered-toward
+/// path (works immediately, no email infrastructure needed); guest play
+/// (`AuthService.signInAsGuest`) is the fallback for anyone who'd rather
+/// not sign in with an account at all. Email/password exists in
+/// [AuthService] but is deliberately not offered here — see
+/// `lib/utils/auth_config.dart`'s `kEmailPasswordSignInEnabled`.
+///
+/// Visual design: `assets/icons/login_screen_mascot.jpeg` as the
+/// full-screen background artwork (unmodified — this screen only lays UI
+/// on top of it, never redraws or replaces it), with a small
+/// `mascot_transparent.png` badge next to the title.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -27,42 +26,16 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-
   bool _isSubmitting = false;
   String? _errorMessage;
 
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submitEmailLogin() async {
-    if (!_formKey.currentState!.validate()) return;
+  Future<void> _submitGoogle() async {
     setState(() {
       _isSubmitting = true;
       _errorMessage = null;
     });
     try {
-      await AuthService.signIn(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
-    } on AuthException catch (e) {
-      if (!mounted) return;
-      final isUnconfirmed =
-          e.code == 'email_not_confirmed' ||
-          e.message.toLowerCase().contains('not confirmed');
-      setState(
-        () => _errorMessage = isUnconfirmed
-            ? "Almost there — click the confirmation link we emailed you "
-                  'before logging in.'
-            : e.message,
-      );
+      await AuthService.signInWithGoogle();
     } catch (e) {
       if (mounted) setState(() => _errorMessage = e.toString());
     } finally {
@@ -70,218 +43,372 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _submitGoogle() async {
-    setState(() => _errorMessage = null);
+  /// Warns before actually creating the guest account — a guest has no
+  /// email/password/Google identity to sign back in with, so once they
+  /// sign out (or 30 days of inactivity trigger the same account-cleanup
+  /// job every account is subject to — see `SUPABASE_SECURITY.md`),
+  /// there's no way back into that specific account. Better to say so
+  /// upfront than let it be a surprise later on `home_screen.dart`'s
+  /// sign-out button.
+  Future<void> _submitGuest() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Play as Guest?'),
+        content: const Text(
+          "Guest progress can't be recovered once you sign out — there's "
+          'no email or password to sign back in with. Guest accounts left '
+          'inactive for 30 days are also deleted automatically, the same '
+          'as every account.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Continue as Guest'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
     try {
-      await AuthService.signInWithGoogle();
+      await AuthService.signInAsGuest();
     } catch (e) {
-      if (mounted) setState(() => _errorMessage = e.toString());
+      if (mounted) {
+        setState(
+          () => _errorMessage = e is StateError ? e.message : e.toString(),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // No AppBar — replaced by BrandHeader below, matching Home's own
-      // gradient banner (see class doc).
       backgroundColor: AppColors.background,
-      body: Column(
+      body: Stack(
+        fit: StackFit.expand,
         children: [
-          const BrandHeader(tagline: 'Welcome back — let\'s keep sharpening'),
-          Expanded(
-            child: Stack(
-              children: [
-                // Same soft-blue AppColors.background as before, just no
-                // longer flat — the mascot watermark + slowly bobbing math
-                // symbols sit behind the card, never behind readable text.
-                const Positioned.fill(child: MathBackgroundDecoration()),
-                SafeArea(
-                  top: false,
-                  // With the email/password fields hidden (Google-only —
-                  // see kEmailPasswordSignInEnabled), the card is now short
-                  // enough that top-anchoring it left a large, unbalanced
-                  // gap of empty background below it. LayoutBuilder +
-                  // ConstrainedBox centers it vertically instead, while
-                  // still scrolling normally if content ever grows past
-                  // one screen (e.g. the email fields being re-enabled, or
-                  // a long error message).
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      return SingleChildScrollView(
-                        padding: const EdgeInsets.all(AppSpacing.lg),
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            minHeight:
-                                constraints.maxHeight - AppSpacing.lg * 2,
-                          ),
-                          child: Center(
-                            child: Form(
-                              key: _formKey,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const SizedBox(height: AppSpacing.sm),
-                                  Container(
-                                    padding: const EdgeInsets.all(
-                                      AppSpacing.lg,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(24),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: AppColors.primary.withValues(
-                                            alpha: 0.10,
-                                          ),
-                                          blurRadius: 24,
-                                          offset: const Offset(0, 10),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.stretch,
-                                      children: [
-                                        if (_errorMessage != null) ...[
-                                          Text(
-                                            _errorMessage!,
-                                            style: const TextStyle(
-                                              color: AppColors.wrong,
-                                            ),
-                                          ),
-                                          const SizedBox(height: AppSpacing.md),
-                                        ],
-                                        // Google first and most prominent — it's
-                                        // the path most players should take, and
-                                        // it never needs email confirmation.
-                                        FilledButton.icon(
-                                          onPressed: _isSubmitting
-                                              ? null
-                                              : _submitGoogle,
-                                          icon: const Icon(
-                                            Icons.g_mobiledata,
-                                            size: 28,
-                                          ),
-                                          label: const Padding(
-                                            padding: EdgeInsets.symmetric(
-                                              vertical: AppSpacing.sm,
-                                            ),
-                                            child: Text(
-                                              'Continue with Google',
-                                              style: TextStyle(fontSize: 16),
-                                            ),
-                                          ),
-                                        ),
-                                        if (kEmailPasswordSignInEnabled) ...[
-                                          const SizedBox(height: AppSpacing.lg),
-                                          const Row(
-                                            children: [
-                                              Expanded(
-                                                child: Divider(
-                                                  color: AppColors.silver,
-                                                ),
-                                              ),
-                                              Padding(
-                                                padding: EdgeInsets.symmetric(
-                                                  horizontal: AppSpacing.sm,
-                                                ),
-                                                child: Text(
-                                                  'or log in with email',
-                                                ),
-                                              ),
-                                              Expanded(
-                                                child: Divider(
-                                                  color: AppColors.silver,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: AppSpacing.lg),
-                                          TextFormField(
-                                            controller: _emailController,
-                                            decoration: const InputDecoration(
-                                              labelText: 'Email',
-                                            ),
-                                            keyboardType:
-                                                TextInputType.emailAddress,
-                                            validator: (value) =>
-                                                (value == null ||
-                                                    !value.contains('@'))
-                                                ? 'Enter a valid email'
-                                                : null,
-                                          ),
-                                          const SizedBox(height: AppSpacing.md),
-                                          TextFormField(
-                                            controller: _passwordController,
-                                            decoration: const InputDecoration(
-                                              labelText: 'Password',
-                                            ),
-                                            obscureText: true,
-                                            validator: (value) =>
-                                                (value == null || value.isEmpty)
-                                                ? 'Enter your password'
-                                                : null,
-                                          ),
-                                          const SizedBox(height: AppSpacing.md),
-                                          OutlinedButton(
-                                            onPressed: _isSubmitting
-                                                ? null
-                                                : _submitEmailLogin,
-                                            child: _isSubmitting
-                                                ? const SizedBox(
-                                                    width: 20,
-                                                    height: 20,
-                                                    child:
-                                                        CircularProgressIndicator(
-                                                          strokeWidth: 2,
-                                                        ),
-                                                  )
-                                                : const Text(
-                                                    'Log In with Email',
-                                                  ),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                  ),
-                                  // The "Sign up" toggle only matters when the
-                                  // email/password path exists — with Google-only,
-                                  // Login and Sign-up render identically, and
-                                  // Google's own flow already creates the account
-                                  // on first use, so there's nothing new to send a
-                                  // player to.
-                                  if (kEmailPasswordSignInEnabled) ...[
-                                    const SizedBox(height: AppSpacing.lg),
-                                    TextButton(
-                                      onPressed: () => Navigator.of(context)
-                                          .pushReplacement(
-                                            MaterialPageRoute(
-                                              builder: (_) =>
-                                                  const SignUpScreen(),
-                                            ),
-                                          ),
-                                      child: const Text(
-                                        "Don't have an account? Sign up",
-                                      ),
-                                    ),
-                                  ],
-                                  const SizedBox(height: AppSpacing.sm),
-                                  const LegalLinksRow(),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+          // The supplied artwork, unmodified, filling the whole screen —
+          // this image's own proportions are close to a phone screen's,
+          // so BoxFit.cover only trims a little off the sides rather than
+          // cropping into the mascot itself.
+          Positioned.fill(
+            child: Image.asset(
+              'assets/icons/login_screen_mascot.jpeg',
+              fit: BoxFit.cover,
+            ),
+          ),
+          // A soft scrim over the very bottom, behind the glass panel —
+          // this image's own bottom section (mountains/books) is busier
+          // and lighter than its night-sky top, and the panel's own
+          // translucency wasn't quite enough contrast without it.
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  stops: const [0.55, 1],
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.35),
+                  ],
                 ),
-              ],
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: Column(
+                children: [
+                  const SizedBox(height: AppSpacing.sm),
+                  _TopBranding(),
+                  // Pushes the panel toward the lower part of the screen,
+                  // clear of the mascot in the background artwork above.
+                  const Spacer(),
+                  if (_errorMessage != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(AppSpacing.sm),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.85),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        _errorMessage!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: AppColors.wrong),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                  ],
+                  _AuthGlassPanel(
+                    isSubmitting: _isSubmitting,
+                    onGoogle: _submitGoogle,
+                    onGuest: _submitGuest,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  const Text(
+                    'Ready to chant your brain Mantra?',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      shadows: [Shadow(color: Colors.black45, blurRadius: 6)],
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                ],
+              ),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Small logo + "Brain Mantra" title + subtitle, top-of-screen — held in
+/// its own translucent "band" rather than floating directly over the
+/// background artwork. Plain text with a drop shadow (the first version
+/// of this screen) wasn't reliably legible against this particular
+/// illustration's busiest area (stars, the ringed planet, a shooting
+/// star), so the band gives it a consistent, readable surface no matter
+/// what's directly behind it.
+class _TopBranding extends StatelessWidget {
+  const _TopBranding();
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.32),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+          ),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Image.asset(
+                  'assets/icons/mascot_transparent.png',
+                  width: 48,
+                  height: 48,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Brain Mantra',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 24,
+                      ),
+                    ),
+                    Text(
+                      'Let your brain do the Magic',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The compact glassmorphism authentication panel: Google button, an "OR"
+/// divider, Guest button, and the legal links — all in one semi-
+/// transparent, blurred, rounded card so the background artwork stays
+/// visible around and through it.
+class _AuthGlassPanel extends StatelessWidget {
+  const _AuthGlassPanel({
+    required this.isSubmitting,
+    required this.onGoogle,
+    required this.onGuest,
+  });
+
+  final bool isSubmitting;
+  final VoidCallback onGoogle;
+  final VoidCallback onGuest;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(28),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          decoration: BoxDecoration(
+            // White/lavender, semi-transparent — the artwork behind still
+            // shows through, this just softens/frosts it rather than
+            // hiding it under an opaque card.
+            color: const Color(0xFFF4F0FF).withValues(alpha: 0.55),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.6),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withValues(alpha: 0.18),
+                blurRadius: 24,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _GoogleButton(onPressed: isSubmitting ? null : onGoogle),
+              const SizedBox(height: AppSpacing.md),
+              const _OrDivider(),
+              const SizedBox(height: AppSpacing.md),
+              _GuestButton(onPressed: isSubmitting ? null : onGuest),
+              const SizedBox(height: AppSpacing.md),
+              const LegalLinksRow(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GoogleButton extends StatelessWidget {
+  const _GoogleButton({required this.onPressed});
+
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 56,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.white,
+          foregroundColor: AppColors.submitButtonText,
+          elevation: 3,
+          shadowColor: Colors.black.withValues(alpha: 0.2),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.asset(
+              'assets/icons/google_icon.png',
+              width: 22,
+              height: 22,
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            const Text(
+              'Continue with Google',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+            const Spacer(),
+            Icon(
+              Icons.arrow_forward_rounded,
+              size: 18,
+              color: AppColors.submitButtonText.withValues(alpha: 0.4),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GuestButton extends StatelessWidget {
+  const _GuestButton({required this.onPressed});
+
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 56,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.submitButtonText,
+          side: BorderSide(
+            color: AppColors.submitButtonText.withValues(alpha: 0.4),
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        child: const Text(
+          'Continue as Guest',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        ),
+      ),
+    );
+  }
+}
+
+class _OrDivider extends StatelessWidget {
+  const _OrDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    final lineColor = AppColors.submitButtonText.withValues(alpha: 0.2);
+    return Row(
+      children: [
+        Expanded(child: Divider(color: lineColor)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+          child: Text(
+            'OR',
+            style: TextStyle(
+              color: AppColors.submitButtonText.withValues(alpha: 0.55),
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1,
+            ),
+          ),
+        ),
+        Expanded(child: Divider(color: lineColor)),
+      ],
     );
   }
 }

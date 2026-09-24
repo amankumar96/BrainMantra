@@ -115,6 +115,45 @@ abstract final class AuthService {
     );
   }
 
+  /// True once signed in through [signInAsGuest] rather than a real
+  /// identity (Google or email) — Supabase's own `is_anonymous` JWT claim,
+  /// exposed via `User.isAnonymous`. Nothing in the schema/RLS treats an
+  /// anonymous user differently from any other `auth.uid()` — they get a
+  /// real `profiles` row, a real leaderboard entry, and can delete their
+  /// account (`delete_account_screen.dart`) exactly like everyone else.
+  /// The one place this matters: the *external* deletion web page's
+  /// "email us if you no longer have the app" fallback doesn't apply to a
+  /// guest (no email is ever on file for them) — worth noting if that
+  /// page's copy is ever revisited, though it isn't referenced from code.
+  static bool get isGuest => currentUser?.isAnonymous ?? false;
+
+  /// Signs in as a guest — a real Supabase account with no email or
+  /// password (`auth.signInAnonymously()`), not a fake/local-only mode.
+  /// Scores, the leaderboard, and Play progress all work normally; the
+  /// account can later be tied to Google sign-in via Supabase's identity
+  /// linking (not currently wired into the UI — this just gets a guest
+  /// playing immediately, with account creation invisible to them).
+  ///
+  /// Throws a [StateError] with a founder-friendly message if the
+  /// Supabase project doesn't have anonymous sign-ins turned on yet
+  /// (Dashboard → Authentication → Sign In / Providers → Anonymous) —
+  /// callers should show that message directly rather than Supabase's raw
+  /// one, which otherwise reads as a generic, confusing HTTP error.
+  static Future<void> signInAsGuest() async {
+    try {
+      await _client.auth.signInAnonymously();
+    } on AuthException catch (e) {
+      if (e.message.toLowerCase().contains('anonymous')) {
+        throw StateError(
+          'Guest play isn\'t turned on yet for this app. (Founder: enable '
+          'it in Supabase Dashboard → Authentication → Sign In / '
+          'Providers → Anonymous Sign-Ins.)',
+        );
+      }
+      rethrow;
+    }
+  }
+
   static Future<void> signOut() => _client.auth.signOut();
 
   /// Permanently deletes the signed-in player's account and all their
@@ -177,7 +216,12 @@ abstract final class AuthService {
         user.userMetadata?['full_name'] as String? ??
         user.userMetadata?['name'] as String? ??
         user.email?.split('@').first ??
-        'Player';
+        // A guest has no email/Google name to fall back to — a short,
+        // stable suffix from their own id keeps every guest's leaderboard
+        // entry distinct instead of an indistinguishable sea of "Player".
+        (user.isAnonymous
+            ? 'Guest${user.id.substring(0, 4).toUpperCase()}'
+            : 'Player');
 
     try {
       await _client.from('profiles').insert({

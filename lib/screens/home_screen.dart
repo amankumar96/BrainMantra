@@ -138,6 +138,45 @@ class _HomeScreenState extends State<HomeScreen> {
         .push(MaterialPageRoute(builder: (_) => const LeaderboardScreen()));
   }
 
+  /// A guest (`AuthService.isGuest`) has no email/password/Google identity
+  /// to sign back in with — signing out is effectively the same as
+  /// permanently losing that account, unlike a real account where signing
+  /// out is always safely reversible. `login_screen.dart` warns about this
+  /// once, before the guest account is even created; this is the second,
+  /// harder-to-miss checkpoint, right at the moment it would actually
+  /// happen. Non-guest accounts skip straight to signing out, same as
+  /// before — signing out of a real account has never needed a
+  /// confirmation, and still doesn't.
+  Future<void> _handleSignOutTap() async {
+    if (!AuthService.isGuest) {
+      await AuthService.signOut();
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sign out of Guest account?'),
+        content: const Text(
+          "This guest account can't be recovered once you sign out — "
+          "there's no email or password to sign back in with, and your "
+          'score, streak and history will be gone for good.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.wrong),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Sign Out'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) await AuthService.signOut();
+  }
+
   void _navigateToDeleteAccount() {
     Navigator.of(context)
         .push(MaterialPageRoute(builder: (_) => const DeleteAccountScreen()));
@@ -168,7 +207,7 @@ class _HomeScreenState extends State<HomeScreen> {
               IconButton(
                 icon: const Icon(Icons.logout, color: Colors.white),
                 tooltip: 'Sign out',
-                onPressed: () => AuthService.signOut(),
+                onPressed: _handleSignOutTap,
               ),
             ],
           ),

@@ -65,6 +65,18 @@ android {
             } else {
                 signingConfigs.getByName("debug")
             }
+            // Code shrinking (R8) is left OFF deliberately. AGP 9's default
+            // release behaviour renames/strips classes, which broke
+            // WorkManager's Room database at startup (a transitive
+            // dependency, likely pulled in by google_mobile_ads or
+            // supabase_flutter) with no keep rules in place to protect it
+            // — confirmed via a real crash on a physical device (logcat:
+            // "Failed to create an instance of androidx.work.impl.
+            // WorkDatabase"). A smaller, obfuscated build is a worthwhile
+            // later optimization, but needs its own dedicated round of
+            // R8 keep-rule testing rather than shipping it untested.
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }

@@ -4,6 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart' show AuthException;
 import '../services/auth_service.dart';
 import '../utils/constants.dart';
 import '../utils/legal_links.dart';
+import '../widgets/brand_header.dart';
+import '../widgets/math_background_decoration.dart';
 import 'sign_up_screen.dart';
 
 /// Returning-player login. Google is the steered-toward path — it's the
@@ -74,89 +76,156 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // No AppBar — replaced by BrandHeader below, matching Home's own
+      // gradient banner (see class doc).
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Brain Mantra')),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+      body: Column(
+        children: [
+          const BrandHeader(tagline: 'Welcome back — let\'s keep sharpening'),
+          Expanded(
+            child: Stack(
               children: [
-                if (_errorMessage != null) ...[
-                  Text(
-                    _errorMessage!,
-                    style: const TextStyle(color: AppColors.wrong),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                ],
-                // Google first and most prominent — it's the path most
-                // players should take, and it never needs email
-                // confirmation.
-                FilledButton.icon(
-                  onPressed: _isSubmitting ? null : _submitGoogle,
-                  icon: const Icon(Icons.g_mobiledata, size: 28),
-                  label: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
-                    child:
-                        Text('Continue with Google', style: TextStyle(fontSize: 16)),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                const Row(
-                  children: [
-                    Expanded(child: Divider(color: AppColors.silver)),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                      child: Text('or log in with email'),
+                // Same soft-blue AppColors.background as before, just no
+                // longer flat — the mascot watermark + slowly bobbing math
+                // symbols sit behind the card, never behind readable text.
+                const Positioned.fill(child: MathBackgroundDecoration()),
+                SafeArea(
+                  top: false,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const SizedBox(height: AppSpacing.sm),
+                          Container(
+                            padding: const EdgeInsets.all(AppSpacing.lg),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(24),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.primary
+                                      .withValues(alpha: 0.10),
+                                  blurRadius: 24,
+                                  offset: const Offset(0, 10),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                if (_errorMessage != null) ...[
+                                  Text(
+                                    _errorMessage!,
+                                    style: const TextStyle(
+                                      color: AppColors.wrong,
+                                    ),
+                                  ),
+                                  const SizedBox(height: AppSpacing.md),
+                                ],
+                                // Google first and most prominent — it's
+                                // the path most players should take, and
+                                // it never needs email confirmation.
+                                FilledButton.icon(
+                                  onPressed:
+                                      _isSubmitting ? null : _submitGoogle,
+                                  icon: const Icon(
+                                    Icons.g_mobiledata,
+                                    size: 28,
+                                  ),
+                                  label: const Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      vertical: AppSpacing.sm,
+                                    ),
+                                    child: Text(
+                                      'Continue with Google',
+                                      style: TextStyle(fontSize: 16),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: AppSpacing.lg),
+                                const Row(
+                                  children: [
+                                    Expanded(
+                                      child: Divider(color: AppColors.silver),
+                                    ),
+                                    Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: AppSpacing.sm,
+                                      ),
+                                      child: Text('or log in with email'),
+                                    ),
+                                    Expanded(
+                                      child: Divider(color: AppColors.silver),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: AppSpacing.lg),
+                                TextFormField(
+                                  controller: _emailController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Email',
+                                  ),
+                                  keyboardType: TextInputType.emailAddress,
+                                  validator: (value) =>
+                                      (value == null || !value.contains('@'))
+                                          ? 'Enter a valid email'
+                                          : null,
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                TextFormField(
+                                  controller: _passwordController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Password',
+                                  ),
+                                  obscureText: true,
+                                  validator: (value) =>
+                                      (value == null || value.isEmpty)
+                                          ? 'Enter your password'
+                                          : null,
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                OutlinedButton(
+                                  onPressed: _isSubmitting
+                                      ? null
+                                      : _submitEmailLogin,
+                                  child: _isSubmitting
+                                      ? const SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Text('Log In with Email'),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.lg),
+                          TextButton(
+                            onPressed: () =>
+                                Navigator.of(context).pushReplacement(
+                              MaterialPageRoute(
+                                builder: (_) => const SignUpScreen(),
+                              ),
+                            ),
+                            child:
+                                const Text("Don't have an account? Sign up"),
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          const LegalLinksRow(),
+                        ],
+                      ),
                     ),
-                    Expanded(child: Divider(color: AppColors.silver)),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                TextFormField(
-                  controller: _emailController,
-                  decoration: const InputDecoration(labelText: 'Email'),
-                  keyboardType: TextInputType.emailAddress,
-                  validator: (value) =>
-                      (value == null || !value.contains('@'))
-                          ? 'Enter a valid email'
-                          : null,
-                ),
-                const SizedBox(height: AppSpacing.md),
-                TextFormField(
-                  controller: _passwordController,
-                  decoration: const InputDecoration(labelText: 'Password'),
-                  obscureText: true,
-                  validator: (value) => (value == null || value.isEmpty)
-                      ? 'Enter your password'
-                      : null,
-                ),
-                const SizedBox(height: AppSpacing.md),
-                OutlinedButton(
-                  onPressed: _isSubmitting ? null : _submitEmailLogin,
-                  child: _isSubmitting
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Log In with Email'),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(builder: (_) => const SignUpScreen()),
                   ),
-                  child: const Text("Don't have an account? Sign up"),
                 ),
-                const SizedBox(height: AppSpacing.sm),
-                const LegalLinksRow(),
               ],
             ),
           ),
-        ),
+        ],
       ),
     );
   }

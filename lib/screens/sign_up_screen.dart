@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../utils/constants.dart';
 import '../utils/legal_links.dart';
+import '../widgets/brand_header.dart';
+import '../widgets/math_background_decoration.dart';
 import 'login_screen.dart';
 
 /// Account creation. Google is the steered-toward path — it's the first,
@@ -78,15 +80,55 @@ class _SignUpScreenState extends State<SignUpScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // No AppBar — replaced by BrandHeader below, matching Home's (and
+      // Login's) own gradient banner.
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Create Account')),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: _confirmationSentTo != null
-              ? _buildConfirmationPending(_confirmationSentTo!)
-              : _buildForm(),
-        ),
+      body: Column(
+        children: [
+          const BrandHeader(tagline: 'Join thousands sharpening their mind'),
+          Expanded(
+            child: Stack(
+              children: [
+                // Same soft-blue AppColors.background as before, just no
+                // longer flat — see LoginScreen for the identical
+                // treatment this was copied from.
+                const Positioned.fill(child: MathBackgroundDecoration()),
+                SafeArea(
+                  top: false,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(height: AppSpacing.sm),
+                        Container(
+                          padding: const EdgeInsets.all(AppSpacing.lg),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color:
+                                    AppColors.primary.withValues(alpha: 0.10),
+                                blurRadius: 24,
+                                offset: const Offset(0, 10),
+                              ),
+                            ],
+                          ),
+                          child: _confirmationSentTo != null
+                              ? _buildConfirmationPending(
+                                  _confirmationSentTo!,
+                                )
+                              : _buildForm(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -95,7 +137,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: AppSpacing.lg),
         const Icon(Icons.mark_email_read_outlined, size: 64, color: AppColors.primary),
         const SizedBox(height: AppSpacing.md),
         const Text(

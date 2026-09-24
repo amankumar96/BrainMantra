@@ -98,8 +98,9 @@ class AdsService {
   }) {
     return RequestConfiguration(
       maxAdContentRating: MaxAdContentRating.pg,
-      ageRestrictedTreatment:
-          isChildDirectedTreatment ? AgeRestrictedTreatment.child : null,
+      ageRestrictedTreatment: isChildDirectedTreatment
+          ? AgeRestrictedTreatment.child
+          : null,
       testDeviceIds: debugMode ? _debugTestDeviceIds : null,
     );
   }
@@ -334,13 +335,21 @@ class _BannerAdSlotState extends State<_BannerAdSlot> {
     try {
       final allowed = await AdsService.instance._canRequestAds();
       if (!allowed || !mounted) return;
-      final width = MediaQuery.sizeOf(context).width.truncate();
-      final size = await AdSize.getLargeAnchoredAdaptiveBannerAdSize(width);
-      if (size == null || !mounted) return;
+      // A FIXED size (not an adaptive one) is deliberate here: adaptive
+      // sizes (AdSize.getLargeAnchoredAdaptiveBannerAdSize and similar)
+      // scale their height up to 15% of the device's screen height once a
+      // real ad actually loads — noticeably taller than the compact
+      // placeholder card below, which was exactly the bug reported on the
+      // Play/question screen: the ad slot visibly grew once a real ad
+      // filled, shrinking the space left for the answer options and
+      // forcing players to scroll to see them. A fixed size is always the
+      // same known height, on every device, whether a real ad is loaded
+      // or not — see _kAdSlotHeight, which both this and the placeholder
+      // card are built to fit exactly.
       final ad = BannerAd(
         adUnitId: AdsService._bannerAdUnitId,
         request: const AdRequest(),
-        size: size,
+        size: AdSize.banner,
         listener: BannerAdListener(
           onAdLoaded: (ad) {
             if (mounted) setState(() => _bannerAd = ad as BannerAd);
@@ -377,21 +386,36 @@ class _BannerAdSlotState extends State<_BannerAdSlot> {
       ),
     );
     if (!widget.showPlaceholder) return adWidget;
-    // Home only — wrap the real, loaded ad in the same rounded/padded
-    // card shape _AdPlaceholderCard uses, so this slot doesn't visually
-    // "jump" in shape once a real ad actually loads and replaces the
-    // placeholder.
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: AppColors.adPlaceholderCard,
-        borderRadius: BorderRadius.circular(16),
+    // Home and Play both use showPlaceholder: true, so this slot must
+    // occupy the exact same amount of vertical space whether it's showing
+    // the placeholder or a real, loaded ad — a mismatch here is what
+    // caused the Play screen's answer options to need scrolling once a
+    // real ad filled (see _loadAd's fixed AdSize.banner comment). Fixing
+    // the outer height explicitly is a belt-and-suspenders guarantee on
+    // top of that fixed ad size, not just relying on the two happening to
+    // match.
+    return SizedBox(
+      height: kAdSlotHeight,
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.sm),
+        decoration: BoxDecoration(
+          color: AppColors.adPlaceholderCard,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        alignment: Alignment.center,
+        child: FittedBox(fit: BoxFit.scaleDown, child: adWidget),
       ),
-      alignment: Alignment.center,
-      child: adWidget,
     );
   }
 }
+
+/// The fixed height every `showPlaceholder: true` ad slot occupies —
+/// whether showing the "Your Ad Here" placeholder or a real, loaded ad —
+/// so a real ad filling in never changes the surrounding layout's height.
+/// Sized to comfortably fit [AdSize.banner] (50) plus this slot's own
+/// padding, with a little headroom.
+@visibleForTesting
+const double kAdSlotHeight = 66;
 
 /// Shown in the banner slot whenever a real ad hasn't loaded yet (or
 /// failed to — e.g. `ERROR_CODE_NO_FILL` while a brand-new AdMob account
@@ -405,81 +429,87 @@ class _AdPlaceholderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // A single compact row (was a taller icon-over-stacked-text layout
     // with an overlapping "Ad" corner badge) — closer to a real banner
-    // ad's aspect ratio: short and wide, not square/tall.
-    return DottedAdBorder(
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm,
-          vertical: AppSpacing.xs,
-        ),
-        decoration: BoxDecoration(
-          color: AppColors.adPlaceholderCard,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Text(
-                'Ad',
-                style: TextStyle(color: Colors.white, fontSize: 10),
-              ),
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            const Icon(Icons.campaign, size: 20, color: AppColors.primary),
-            const SizedBox(width: AppSpacing.xs),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'Your Ad Here',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                  ),
-                  Text(
-                    'Reach thousands of learners daily',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.black.withValues(alpha: 0.6),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.sm,
-                vertical: 4,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Text(
-                'Advertise Now',
-                maxLines: 1,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 11,
+    // ad's aspect ratio: short and wide, not square/tall. Pinned to
+    // kAdSlotHeight explicitly (not just left to size itself) so this
+    // placeholder always occupies exactly the same height as the loaded-ad
+    // state above — see kAdSlotHeight's doc comment.
+    return SizedBox(
+      height: kAdSlotHeight,
+      child: DottedAdBorder(
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: AppSpacing.xs,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.adPlaceholderCard,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  'Ad',
+                  style: TextStyle(color: Colors.white, fontSize: 10),
                 ),
               ),
-            ),
-          ],
+              const SizedBox(width: AppSpacing.xs),
+              const Icon(Icons.campaign, size: 20, color: AppColors.primary),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Your Ad Here',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                    Text(
+                      'Reach thousands of learners daily',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.black.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text(
+                  'Advertise Now',
+                  maxLines: 1,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

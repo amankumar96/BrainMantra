@@ -9,6 +9,8 @@ import '../services/leaderboard_service.dart';
 import '../services/storage_service.dart';
 import '../utils/constants.dart';
 import '../utils/legal_links.dart';
+import '../widgets/brand_header.dart';
+import '../widgets/math_background_decoration.dart';
 import '../widgets/rules_dialog.dart';
 import 'delete_account_screen.dart';
 import 'game_screen.dart';
@@ -145,16 +147,30 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final stats = _stats ?? PlayerStats();
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       // No standard AppBar — the header below is a custom gradient block
-      // that the scrollable white "sheet" purposely overlaps (see the
+      // that the scrollable "sheet" purposely overlaps (see the
       // Transform.translate below), matching a supplied mockup's layered
-      // look.
+      // look. The sheet itself now carries the same soft-blue background +
+      // mascot/floating-numbers decoration as the Login/Sign-up screens
+      // (see MathBackgroundDecoration) rather than flat white, so the
+      // greeting and the cards below it sit on the same "alive"
+      // background those screens introduced.
       body: Column(
         children: [
-          _HomeHeader(
-            onRulesTap: () => RulesDialog.show(context),
-            onSignOutTap: () => AuthService.signOut(),
+          BrandHeader(
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.info_outline, color: Colors.white),
+                tooltip: 'Rules',
+                onPressed: () => RulesDialog.show(context),
+              ),
+              IconButton(
+                icon: const Icon(Icons.logout, color: Colors.white),
+                tooltip: 'Sign out',
+                onPressed: () => AuthService.signOut(),
+              ),
+            ],
           ),
           Expanded(
             // Transform (not a negative Container margin, which Flutter
@@ -168,7 +184,7 @@ class _HomeScreenState extends State<HomeScreen> {
               offset: const Offset(0, -20),
               child: Container(
                 decoration: const BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.background,
                   borderRadius: BorderRadius.only(
                     topLeft: Radius.circular(24),
                     topRight: Radius.circular(24),
@@ -184,42 +200,54 @@ class _HomeScreenState extends State<HomeScreen> {
                   // footer clear of the system nav/gesture area below.
                   child: SafeArea(
                     top: false,
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(AppSpacing.lg),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _GreetingAndMarksRow(
-                            displayName: _displayName,
-                            streakDays: stats.currentStreakDays,
-                            marks: _currentMarks,
+                    child: Stack(
+                      children: [
+                        // Fixed backdrop (doesn't scroll with the content
+                        // below it) — same widget Login/Sign-up use, so
+                        // all three screens share one visual identity.
+                        const Positioned.fill(
+                          child: MathBackgroundDecoration(),
+                        ),
+                        SingleChildScrollView(
+                          padding: const EdgeInsets.all(AppSpacing.lg),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _GreetingAndMarksRow(
+                                displayName: _displayName,
+                                streakDays: stats.currentStreakDays,
+                                marks: _currentMarks,
+                              ),
+                              const SizedBox(height: AppSpacing.lg),
+                              _HeroCard(
+                                onPlay: () =>
+                                    _navigateToGame(isDailyChallenge: false),
+                              ),
+                              const SizedBox(height: AppSpacing.md),
+                              _DailyChallengeBox(
+                                onTap: () =>
+                                    _navigateToGame(isDailyChallenge: true),
+                              ),
+                              const SizedBox(height: AppSpacing.md),
+                              _LeaderboardBox(onTap: _navigateToLeaderboard),
+                              const SizedBox(height: AppSpacing.md),
+                              // Banner ads are confined to Home only —
+                              // never gameplay's countdown or results'
+                              // Play-Again/Home decision (see
+                              // ARCHITECTURE.md's Phase 4 write-up).
+                              AdsService.instance.bannerAdWidget(
+                                showPlaceholder: true,
+                              ),
+                              const SizedBox(height: AppSpacing.md),
+                              _DeleteAccountBox(
+                                onTap: _navigateToDeleteAccount,
+                              ),
+                              const SizedBox(height: AppSpacing.lg),
+                              const _Footer(),
+                            ],
                           ),
-                          const SizedBox(height: AppSpacing.lg),
-                          _HeroCard(
-                            onPlay: () =>
-                                _navigateToGame(isDailyChallenge: false),
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-                          _DailyChallengeBox(
-                            onTap: () =>
-                                _navigateToGame(isDailyChallenge: true),
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-                          _LeaderboardBox(onTap: _navigateToLeaderboard),
-                          const SizedBox(height: AppSpacing.md),
-                          // Banner ads are confined to Home only — never
-                          // gameplay's countdown or results' Play-Again/Home
-                          // decision (see ARCHITECTURE.md's Phase 4
-                          // write-up).
-                          AdsService.instance.bannerAdWidget(
-                            showPlaceholder: true,
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-                          _DeleteAccountBox(onTap: _navigateToDeleteAccount),
-                          const SizedBox(height: AppSpacing.lg),
-                          const _Footer(),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -230,134 +258,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-}
-
-/// The gradient top block — brain mark + app name/tagline on the left,
-/// the Rules/Sign-out icons on the right. Replaces the plain `AppBar`;
-/// its bottom edge is deliberately overlapped by the scrollable white
-/// sheet below it (see `HomeScreen.build`'s `Transform.translate`) for
-/// the "card sitting on the header" look.
-class _HomeHeader extends StatelessWidget {
-  const _HomeHeader({required this.onRulesTap, required this.onSignOutTap});
-
-  final VoidCallback onRulesTap;
-  final VoidCallback onSignOutTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.headerGradientStart, AppColors.headerGradientEnd],
-        ),
-      ),
-      // A Stack so the wave decoration paints behind the actual header
-      // content, never disturbing that content's own layout.
-      child: Stack(
-        children: [
-          Positioned.fill(child: CustomPaint(painter: _HeaderWavePainter())),
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              AppSpacing.lg,
-              MediaQuery.paddingOf(context).top + AppSpacing.sm,
-              AppSpacing.md,
-              AppSpacing.xl,
-            ),
-            child: Row(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.asset(
-                    'assets/icons/icon.png',
-                    width: 44,
-                    height: 44,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Brain Mantra',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 22,
-                        ),
-                      ),
-                      // A short, plainly descriptive line — deliberately
-                      // not a slogan/tagline that could resemble anyone
-                      // else's copyrighted wording. Single line always:
-                      // smaller font + maxLines/overflow guard rather than
-                      // a wrapped second line.
-                      Text(
-                        'Boost Your Brainpower Daily',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: Colors.white70, fontSize: 11),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.info_outline, color: Colors.white),
-                  tooltip: 'Rules',
-                  onPressed: onRulesTap,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.logout, color: Colors.white),
-                  tooltip: 'Sign out',
-                  onPressed: onSignOutTap,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// A few soft, semi-transparent white wave curves low in the header —
-/// purely decorative, painted behind the header's actual content.
-class _HeaderWavePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    void drawWave(double baseline, double amplitude, double opacity) {
-      final path = Path()..moveTo(-20, baseline);
-      path.quadraticBezierTo(
-        size.width * 0.25,
-        baseline - amplitude,
-        size.width * 0.5,
-        baseline,
-      );
-      path.quadraticBezierTo(
-        size.width * 0.75,
-        baseline + amplitude,
-        size.width + 20,
-        baseline,
-      );
-      path.lineTo(size.width + 20, size.height + 20);
-      path.lineTo(-20, size.height + 20);
-      path.close();
-      canvas.drawPath(
-        path,
-        Paint()..color = Colors.white.withValues(alpha: opacity),
-      );
-    }
-
-    drawWave(size.height * 0.72, 14, 0.06);
-    drawWave(size.height * 0.85, 10, 0.05);
-  }
-
-  @override
-  bool shouldRepaint(covariant _HeaderWavePainter oldDelegate) => false;
 }
 
 /// Two-line greeting ("Hey **{name}** 👋" / "Welcome back! Your day

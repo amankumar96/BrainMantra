@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show AuthException;
 
 import '../services/auth_service.dart';
+import '../utils/auth_config.dart';
 import '../utils/constants.dart';
 import '../utils/legal_links.dart';
 import '../widgets/brand_header.dart';
@@ -9,10 +10,12 @@ import '../widgets/math_background_decoration.dart';
 import 'sign_up_screen.dart';
 
 /// Returning-player login. Google is the steered-toward path — it's the
-/// first, most prominent action on screen. Email/password is offered as a
-/// secondary option below it; a login attempt on an account that hasn't
-/// clicked its confirmation email yet gets a friendly explanation instead
-/// of Supabase's raw error text. Like SignUpScreen, this screen doesn't
+/// first, most prominent action on screen, and (while
+/// [kEmailPasswordSignInEnabled] is off — see that flag's doc comment for
+/// why) currently the *only* one: email/password is fully implemented
+/// below but not shown. A login attempt on an account that hasn't clicked
+/// its confirmation email yet gets a friendly explanation instead of
+/// Supabase's raw error text. Like SignUpScreen, this screen doesn't
 /// navigate anywhere on success itself — the root auth-gate in main.dart
 /// reacts to the session becoming active and swaps to HomeScreen
 /// automatically.
@@ -145,76 +148,89 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                                   ),
                                 ),
-                                const SizedBox(height: AppSpacing.lg),
-                                const Row(
-                                  children: [
-                                    Expanded(
-                                      child: Divider(color: AppColors.silver),
-                                    ),
-                                    Padding(
-                                      padding: EdgeInsets.symmetric(
-                                        horizontal: AppSpacing.sm,
+                                if (kEmailPasswordSignInEnabled) ...[
+                                  const SizedBox(height: AppSpacing.lg),
+                                  const Row(
+                                    children: [
+                                      Expanded(
+                                        child:
+                                            Divider(color: AppColors.silver),
                                       ),
-                                      child: Text('or log in with email'),
-                                    ),
-                                    Expanded(
-                                      child: Divider(color: AppColors.silver),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: AppSpacing.lg),
-                                TextFormField(
-                                  controller: _emailController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Email',
+                                      Padding(
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: AppSpacing.sm,
+                                        ),
+                                        child: Text('or log in with email'),
+                                      ),
+                                      Expanded(
+                                        child:
+                                            Divider(color: AppColors.silver),
+                                      ),
+                                    ],
                                   ),
-                                  keyboardType: TextInputType.emailAddress,
-                                  validator: (value) =>
-                                      (value == null || !value.contains('@'))
-                                          ? 'Enter a valid email'
-                                          : null,
-                                ),
-                                const SizedBox(height: AppSpacing.md),
-                                TextFormField(
-                                  controller: _passwordController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Password',
+                                  const SizedBox(height: AppSpacing.lg),
+                                  TextFormField(
+                                    controller: _emailController,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Email',
+                                    ),
+                                    keyboardType: TextInputType.emailAddress,
+                                    validator: (value) => (value == null ||
+                                            !value.contains('@'))
+                                        ? 'Enter a valid email'
+                                        : null,
                                   ),
-                                  obscureText: true,
-                                  validator: (value) =>
-                                      (value == null || value.isEmpty)
-                                          ? 'Enter your password'
-                                          : null,
-                                ),
-                                const SizedBox(height: AppSpacing.md),
-                                OutlinedButton(
-                                  onPressed: _isSubmitting
-                                      ? null
-                                      : _submitEmailLogin,
-                                  child: _isSubmitting
-                                      ? const SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
-                                        )
-                                      : const Text('Log In with Email'),
-                                ),
+                                  const SizedBox(height: AppSpacing.md),
+                                  TextFormField(
+                                    controller: _passwordController,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Password',
+                                    ),
+                                    obscureText: true,
+                                    validator: (value) =>
+                                        (value == null || value.isEmpty)
+                                            ? 'Enter your password'
+                                            : null,
+                                  ),
+                                  const SizedBox(height: AppSpacing.md),
+                                  OutlinedButton(
+                                    onPressed: _isSubmitting
+                                        ? null
+                                        : _submitEmailLogin,
+                                    child: _isSubmitting
+                                        ? const SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : const Text('Log In with Email'),
+                                  ),
+                                ],
                               ],
                             ),
                           ),
-                          const SizedBox(height: AppSpacing.lg),
-                          TextButton(
-                            onPressed: () =>
-                                Navigator.of(context).pushReplacement(
-                              MaterialPageRoute(
-                                builder: (_) => const SignUpScreen(),
+                          // The "Sign up" toggle only matters when the
+                          // email/password path exists — with Google-only,
+                          // Login and Sign-up render identically, and
+                          // Google's own flow already creates the account
+                          // on first use, so there's nothing new to send a
+                          // player to.
+                          if (kEmailPasswordSignInEnabled) ...[
+                            const SizedBox(height: AppSpacing.lg),
+                            TextButton(
+                              onPressed: () =>
+                                  Navigator.of(context).pushReplacement(
+                                MaterialPageRoute(
+                                  builder: (_) => const SignUpScreen(),
+                                ),
+                              ),
+                              child: const Text(
+                                "Don't have an account? Sign up",
                               ),
                             ),
-                            child:
-                                const Text("Don't have an account? Sign up"),
-                          ),
+                          ],
                           const SizedBox(height: AppSpacing.sm),
                           const LegalLinksRow(),
                         ],

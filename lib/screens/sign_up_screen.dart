@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
+import '../utils/auth_config.dart';
 import '../utils/constants.dart';
 import '../utils/legal_links.dart';
 import '../widgets/brand_header.dart';
@@ -8,14 +9,16 @@ import '../widgets/math_background_decoration.dart';
 import 'login_screen.dart';
 
 /// Account creation. Google is the steered-toward path — it's the first,
-/// most prominent action on screen, and never involves email confirmation.
-/// Email/password sign-up is offered as a secondary option below it; with
-/// "Confirm email" turned on for this project, a successful email sign-up
-/// doesn't log the player in — it sends a confirmation link, and this
-/// screen switches to a "check your email" state until they click it and
-/// come back to log in. (The root auth-gate in main.dart reacts to a
-/// session becoming active and swaps to HomeScreen on its own; this
-/// screen never navigates there itself.)
+/// most prominent action on screen, never involves email confirmation, and
+/// (while [kEmailPasswordSignInEnabled] is off — see that flag's doc
+/// comment) currently the *only* path shown. Email/password sign-up is
+/// fully implemented below but hidden for now; with "Confirm email" turned
+/// on for this project, a successful email sign-up doesn't log the player
+/// in — it sends a confirmation link, and this screen switches to a "check
+/// your email" state until they click it and come back to log in. (The
+/// root auth-gate in main.dart reacts to a session becoming active and
+/// swaps to HomeScreen on its own; this screen never navigates there
+/// itself.)
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
 
@@ -184,75 +187,80 @@ class _SignUpScreenState extends State<SignUpScreen> {
               child: Text('Continue with Google', style: TextStyle(fontSize: 16)),
             ),
           ),
-          const SizedBox(height: AppSpacing.lg),
-          const Row(
-            children: [
-              Expanded(child: Divider(color: AppColors.silver)),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                child: Text('or sign up with email'),
-              ),
-              Expanded(child: Divider(color: AppColors.silver)),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          TextFormField(
-            controller: _displayNameController,
-            decoration: const InputDecoration(labelText: 'Display name'),
-            validator: (value) => (value == null || value.trim().isEmpty)
-                ? 'Enter a display name'
-                : null,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          TextFormField(
-            controller: _emailController,
-            decoration: const InputDecoration(labelText: 'Email'),
-            keyboardType: TextInputType.emailAddress,
-            validator: (value) =>
-                (value == null || !value.contains('@'))
-                    ? 'Enter a valid email'
-                    : null,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          TextFormField(
-            controller: _passwordController,
-            decoration: const InputDecoration(labelText: 'Password'),
-            obscureText: true,
-            validator: (value) => (value == null || value.length < 6)
-                ? 'At least 6 characters'
-                : null,
-          ),
+          if (kEmailPasswordSignInEnabled) ...[
+            const SizedBox(height: AppSpacing.lg),
+            const Row(
+              children: [
+                Expanded(child: Divider(color: AppColors.silver)),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                  child: Text('or sign up with email'),
+                ),
+                Expanded(child: Divider(color: AppColors.silver)),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            TextFormField(
+              controller: _displayNameController,
+              decoration: const InputDecoration(labelText: 'Display name'),
+              validator: (value) => (value == null || value.trim().isEmpty)
+                  ? 'Enter a display name'
+                  : null,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            TextFormField(
+              controller: _emailController,
+              decoration: const InputDecoration(labelText: 'Email'),
+              keyboardType: TextInputType.emailAddress,
+              validator: (value) => (value == null || !value.contains('@'))
+                  ? 'Enter a valid email'
+                  : null,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            TextFormField(
+              controller: _passwordController,
+              decoration: const InputDecoration(labelText: 'Password'),
+              obscureText: true,
+              validator: (value) => (value == null || value.length < 6)
+                  ? 'At least 6 characters'
+                  : null,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            const Text(
+              "We'll email you a confirmation link — you'll need to click "
+              "it before you can log in.",
+              style: TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+          ],
           const SizedBox(height: AppSpacing.sm),
-          const Text(
-            "We'll email you a confirmation link — you'll need to click it "
-            'before you can log in.',
-            style: TextStyle(fontSize: 12, color: Colors.black54),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          const Text(
-            'By signing up or continuing with Google, you agree to our:',
+          Text(
+            kEmailPasswordSignInEnabled
+                ? 'By signing up or continuing with Google, you agree to our:'
+                : 'By continuing with Google, you agree to our:',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, color: Colors.black54),
+            style: const TextStyle(fontSize: 12, color: Colors.black54),
           ),
           const LegalLinksRow(),
-          const SizedBox(height: AppSpacing.md),
-          OutlinedButton(
-            onPressed: _isSubmitting ? null : _submitEmailSignUp,
-            child: _isSubmitting
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Sign Up with Email'),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          TextButton(
-            onPressed: () => Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (_) => const LoginScreen()),
+          if (kEmailPasswordSignInEnabled) ...[
+            const SizedBox(height: AppSpacing.md),
+            OutlinedButton(
+              onPressed: _isSubmitting ? null : _submitEmailSignUp,
+              child: _isSubmitting
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Sign Up with Email'),
             ),
-            child: const Text('Already have an account? Log in'),
-          ),
+            const SizedBox(height: AppSpacing.lg),
+            TextButton(
+              onPressed: () => Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+              ),
+              child: const Text('Already have an account? Log in'),
+            ),
+          ],
         ],
       ),
     );

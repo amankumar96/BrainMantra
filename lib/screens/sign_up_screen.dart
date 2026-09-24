@@ -98,34 +98,55 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 const Positioned.fill(child: MathBackgroundDecoration()),
                 SafeArea(
                   top: false,
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(AppSpacing.lg),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const SizedBox(height: AppSpacing.sm),
-                        Container(
-                          padding: const EdgeInsets.all(AppSpacing.lg),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(24),
-                            boxShadow: [
-                              BoxShadow(
-                                color:
-                                    AppColors.primary.withValues(alpha: 0.10),
-                                blurRadius: 24,
-                                offset: const Offset(0, 10),
-                              ),
-                            ],
+                  // With the email/password fields hidden (Google-only —
+                  // see kEmailPasswordSignInEnabled), the card is short
+                  // enough that top-anchoring it left a large, unbalanced
+                  // gap below it — see LoginScreen for the identical fix
+                  // this was copied from.
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      return SingleChildScrollView(
+                        padding: const EdgeInsets.all(AppSpacing.lg),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight:
+                                constraints.maxHeight - AppSpacing.lg * 2,
                           ),
-                          child: _confirmationSentTo != null
-                              ? _buildConfirmationPending(
-                                  _confirmationSentTo!,
-                                )
-                              : _buildForm(),
+                          child: Center(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const SizedBox(height: AppSpacing.sm),
+                                Container(
+                                  padding: const EdgeInsets.all(
+                                    AppSpacing.lg,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(24),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: AppColors.primary.withValues(
+                                          alpha: 0.10,
+                                        ),
+                                        blurRadius: 24,
+                                        offset: const Offset(0, 10),
+                                      ),
+                                    ],
+                                  ),
+                                  child: _confirmationSentTo != null
+                                      ? _buildConfirmationPending(
+                                          _confirmationSentTo!,
+                                        )
+                                      : _buildForm(),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ],
-                    ),
+                      );
+                    },
                   ),
                 ),
               ],

@@ -10,6 +10,7 @@ import '../services/ad_frequency_cap.dart';
 import '../services/ads_service.dart';
 import '../services/auth_service.dart';
 import '../services/leaderboard_service.dart';
+import '../services/notification_service.dart';
 import '../services/storage_service.dart';
 import '../services/streak_service.dart';
 import '../utils/constants.dart';
@@ -208,22 +209,34 @@ class _GameScreenState extends State<GameScreen> {
       lastPlayedDate: currentStats.lastPlayedDate,
       now: playedAt,
     );
-    await StorageService.saveStats(
-      PlayerStats(
-        highScore: isNewHighScore ? updatedScore : currentStats.highScore,
-        currentStreakDays: newStreakDays,
-        lastPlayedDate: playedAt,
-        totalCoins: currentStats.totalCoins,
-        bestScoreByTier: currentStats.bestScoreByTier,
-        lastDailyChallengeDate: _controller.isDailyChallenge
-            ? playedAt
-            : currentStats.lastDailyChallengeDate,
-        // The Age-Group Test cooldown stamp itself is written up-front,
-        // at launch (see home_screen.dart's _navigateToAgeGroupTest) —
-        // currentStats already carries it, just pass it through unchanged.
-        lastAgeGroupTestAttempt: currentStats.lastAgeGroupTestAttempt,
-      ),
+    final newStats = PlayerStats(
+      highScore: isNewHighScore ? updatedScore : currentStats.highScore,
+      currentStreakDays: newStreakDays,
+      lastPlayedDate: playedAt,
+      totalCoins: currentStats.totalCoins,
+      bestScoreByTier: currentStats.bestScoreByTier,
+      lastDailyChallengeDate: _controller.isDailyChallenge
+          ? playedAt
+          : currentStats.lastDailyChallengeDate,
+      // The Age-Group Test cooldown stamp itself is written up-front,
+      // at launch (see home_screen.dart's _navigateToAgeGroupTest) —
+      // currentStats already carries it, just pass it through unchanged.
+      lastAgeGroupTestAttempt: currentStats.lastAgeGroupTestAttempt,
     );
+    await StorageService.saveStats(newStats);
+    // Best-effort, same precedent as everything else here — state just
+    // changed, so reminders must reflect it immediately rather than
+    // waiting for the next Home visit.
+    try {
+      await NotificationService.rescheduleAll(
+        stats: newStats,
+        dailyChallengeDoneToday:
+            NotificationService.isDailyChallengeDoneToday(newStats, playedAt),
+        now: playedAt,
+      );
+    } catch (_) {
+      // Never let a notification-scheduling failure strand the player.
+    }
 
     if (!mounted) return;
     // Captured before pushReplacement disposes _controller (see dispose()

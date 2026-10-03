@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'notification_service.dart';
 import 'storage_service.dart';
 import 'supabase_config.dart';
 
@@ -182,10 +183,17 @@ abstract final class AuthService {
   /// never gets separately re-fetched from anywhere — Home just trusts
   /// whatever was last saved locally. A brand new account must start
   /// from a genuinely clean local slate, not the previous account's.
+  ///
+  /// Also cancels every pending local reminder (`NotificationService.
+  /// cancelAll()`) — a deleted account's device must stop getting Daily
+  /// Challenge/streak/inactivity nudges tied to an identity that no
+  /// longer exists. Deliberately NOT called from plain [signOut] — a
+  /// signed-out player still benefits from being reminded to come back.
   static Future<void> deleteAccount() async {
     await _client.functions.invoke('delete-own-account');
     await signOut();
     await StorageService.clearAll();
+    await NotificationService.cancelAll();
   }
 
   /// Creates this player's `profiles` row if one doesn't already exist.

@@ -7,6 +7,7 @@ import '../models/player_stats.dart';
 import '../services/ads_service.dart';
 import '../services/auth_service.dart';
 import '../services/leaderboard_service.dart';
+import '../services/notification_service.dart';
 import '../services/storage_service.dart';
 import '../services/test_cooldown_service.dart';
 import '../utils/constants.dart';
@@ -72,6 +73,19 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadStats() async {
     final stats = await StorageService.loadStats();
     if (mounted) setState(() => _stats = stats);
+    // Best-effort — Home is the natural "player is actively using the
+    // app right now" signal for recomputing every reminder.
+    try {
+      final now = DateTime.now();
+      await NotificationService.rescheduleAll(
+        stats: stats,
+        dailyChallengeDoneToday:
+            NotificationService.isDailyChallengeDoneToday(stats, now),
+        now: now,
+      );
+    } catch (_) {
+      // Never let a notification-scheduling failure affect Home.
+    }
   }
 
   Future<void> _loadCurrentMarks() async {

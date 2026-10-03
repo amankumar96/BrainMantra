@@ -6,6 +6,11 @@
     <!-- Android 13+ advertising ID, used by AdMob. Must also be declared as
          "yes, we use the advertising ID" in Play Console -> App content. -->
     <uses-permission android:name="com.google.android.gms.permission.AD_ID"/>
+    <!-- Android 13+ (API 33) runtime permission, required for any local
+         notification to actually show (NotificationService). Requested at
+         runtime via flutter_local_notifications; without this declaration
+         the OS silently refuses to show anything, even pre-granted. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
         android:allowBackup="false"
         android:label="Brain Mantra"

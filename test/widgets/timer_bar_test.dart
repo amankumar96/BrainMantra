@@ -106,4 +106,43 @@ void main() {
     await tester.pump();
     expect(find.text('00:05'), findsOneWidget);
   });
+
+  testWidgets(
+      'extraSeconds extends the countdown without resetting elapsed progress',
+      (tester) async {
+    var expiredCount = 0;
+    final key = GlobalKey();
+    await tester.pumpWidget(
+      _wrap(TimerBar(
+        key: key,
+        durationSeconds: 10,
+        isRunning: true,
+        onExpired: () => expiredCount++,
+      )),
+    );
+
+    await _pumpSeconds(tester, 4); // 6s remaining
+    expect(find.text('00:06'), findsOneWidget);
+
+    // Same key, extraSeconds goes from 0 to 60 — a hint-ad reward.
+    await tester.pumpWidget(
+      _wrap(TimerBar(
+        key: key,
+        durationSeconds: 10,
+        isRunning: true,
+        onExpired: () => expiredCount++,
+        extraSeconds: 60,
+      )),
+    );
+    await tester.pump();
+
+    // The 4 already-elapsed seconds are preserved, not reset — total is
+    // now 70s, so 66s should remain, not a fresh 60s or an unaffected 6s.
+    expect(find.text('01:06'), findsOneWidget);
+
+    // The original 10s mark passing (6 more seconds) must NOT fire
+    // onExpired now that the real total is 70s.
+    await _pumpSeconds(tester, 6);
+    expect(expiredCount, equals(0));
+  });
 }

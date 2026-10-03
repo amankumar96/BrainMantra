@@ -17,6 +17,7 @@ class TimerBar extends StatefulWidget {
     required this.durationSeconds,
     required this.isRunning,
     required this.onExpired,
+    this.extraSeconds = 0,
   });
 
   final int durationSeconds;
@@ -28,6 +29,11 @@ class TimerBar extends StatefulWidget {
 
   /// Called exactly once, when the countdown reaches zero.
   final VoidCallback onExpired;
+
+  /// Bonus time granted mid-countdown (e.g. a rewarded hint ad). Raising
+  /// this across widget updates extends the live countdown by the delta,
+  /// in place, without resetting elapsed progress.
+  final int extraSeconds;
 
   @override
   State<TimerBar> createState() => _TimerBarState();
@@ -42,13 +48,35 @@ class _TimerBarState extends State<TimerBar>
   // more than once per question.
   bool _hasFiredExpired = false;
 
+  /// The true total duration once a bonus has been applied — starts equal
+  /// to widget.durationSeconds and grows by each extraSeconds delta.
+  late int _effectiveTotalSeconds;
+
   @override
   void initState() {
     super.initState();
+    _effectiveTotalSeconds = widget.durationSeconds;
     _controller = AnimationController(
-      duration: Duration(seconds: widget.durationSeconds),
+      duration: Duration(seconds: _effectiveTotalSeconds),
       vsync: this,
     )..addStatusListener(_handleStatusChange);
+    if (widget.isRunning) {
+      _controller.forward();
+    }
+  }
+
+  /// Stretches the countdown by [deltaSeconds]: keeps the elapsed wall-clock
+  /// time fixed, re-expresses it as a smaller fraction of the new (longer)
+  /// total, then resumes forwarding from there — so the player keeps
+  /// whatever time they'd already used, plus the bonus, rather than having
+  /// the bar jump or reset.
+  void _extendDuration(int deltaSeconds) {
+    if (deltaSeconds <= 0) return;
+    final elapsedSeconds = _controller.value * _effectiveTotalSeconds;
+    _effectiveTotalSeconds += deltaSeconds;
+    final newValue = elapsedSeconds / _effectiveTotalSeconds;
+    _controller.duration = Duration(seconds: _effectiveTotalSeconds);
+    _controller.value = newValue;
     if (widget.isRunning) {
       _controller.forward();
     }
@@ -64,6 +92,9 @@ class _TimerBarState extends State<TimerBar>
   @override
   void didUpdateWidget(covariant TimerBar oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.extraSeconds > oldWidget.extraSeconds) {
+      _extendDuration(widget.extraSeconds - oldWidget.extraSeconds);
+    }
     // Pause/resume in response to the parent's isRunning flag — this is
     // what makes the bar freeze during the feedback animation instead of
     // continuing to drain underneath it.
@@ -87,7 +118,7 @@ class _TimerBarState extends State<TimerBar>
       builder: (context, _) {
         final elapsedFraction = _controller.value;
         final remainingSeconds =
-            (widget.durationSeconds * (1 - elapsedFraction)).ceil();
+            (_effectiveTotalSeconds * (1 - elapsedFraction)).ceil();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,

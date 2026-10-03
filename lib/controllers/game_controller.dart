@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../models/age_group.dart';
 import '../models/game_session.dart';
 import '../models/puzzle.dart';
 import '../models/test_session.dart';
@@ -21,11 +22,18 @@ import '../services/rng_service.dart';
 /// screen-wide rebuild on every change.
 class GameController extends ChangeNotifier {
   GameController({
-    this.totalQuestions, // null = no cap (Play); a number = fixed-length (Daily Challenge passes 10)
+    int? totalQuestions, // null = no cap (Play); a number = fixed-length (Daily Challenge passes 10)
     required this.isDailyChallenge,
-    this.startingScore = 0, // Play resumes from the player's last-saved score; Daily Challenge always starts at 0
+    int startingScore = 0, // Play resumes from the player's last-saved score; Daily Challenge always starts at 0
+    this.ageGroupTest,
     RngService? rng,
-  })  : _rng = rng ??
+  })  : // An Age-Group Test always overrides to the fixed 30-question,
+        // from-zero shape regardless of what the caller passed — matches
+        // Daily Challenge's own "ignore the caller's startingScore"
+        // fairness precedent.
+        totalQuestions = ageGroupTest != null ? 30 : totalQuestions,
+        startingScore = ageGroupTest != null ? 0 : startingScore,
+        _rng = rng ??
             (isDailyChallenge
                 ? RngService.seeded(_todaySeedString())
                 : RngService.free()),
@@ -38,10 +46,16 @@ class GameController extends ChangeNotifier {
 
   /// Null means this session never ends on its own (Play mode) — the only
   /// way out is [endSession]. A number means a fixed-length test (Daily
-  /// Challenge).
+  /// Challenge, or an Age-Group Test — always 30).
   final int? totalQuestions;
   final bool isDailyChallenge;
   final int startingScore;
+
+  /// Non-null for an Age-Group Test (13+/16+/18+ Home card) — a fixed
+  /// 30-question, pass/fail Test with no score/leaderboard effect, drawn
+  /// from a maths-only pool scoped by [AgeGroup.mathPool]. Null for
+  /// ordinary Play/Daily Challenge.
+  final AgeGroup? ageGroupTest;
   final RngService _rng;
 
   /// Only set for a Daily Challenge — recorded so [TestSession] can carry
@@ -61,6 +75,16 @@ class GameController extends ChangeNotifier {
   final List<AnswerOutcome> _outcomes = [];
   final List<int> _marksAwarded = []; // parallel to _outcomes: +4/-2/0
 
+  // --- hint-ad timer state ---
+  // Both reset per question (see onFeedbackAnimationComplete) so a new
+  // puzzle's fresh TimerBar always starts unpaused with no carried-over
+  // bonus. Lives here rather than in game_screen's widget state because
+  // the rewarded-ad trigger (inside _QuestionAndOptions) and the TimerBar
+  // it needs to pause/extend (a sibling in _GameScreenBody) only share
+  // this controller as common state.
+  bool _isHintAdPlaying = false;
+  int _hintBonusSeconds = 0;
+
   /// The last 5 puzzle TYPES shown, oldest first — used by [_pickNextType]
   /// so the same topic doesn't come back too soon. Bounded to 5 entries
   /// (see [_pickNextType]'s trim step below).
@@ -75,6 +99,31 @@ class GameController extends ChangeNotifier {
   String? get selectedOption => _selectedOption;
   bool get hasSelection => _selectedOption != null;
   bool get isSubmitted => _isSubmitted;
+
+  /// True while a "Watch Ad for Hint" rewarded ad is on screen — the
+  /// question timer pauses for the duration (see `game_screen.dart`'s
+  /// `TimerBar.isRunning` wiring).
+  bool get isHintAdPlaying => _isHintAdPlaying;
+
+  /// Extra seconds granted this question from watching hint ads — passed
+  /// straight through as `TimerBar.extraSeconds`.
+  int get hintBonusSeconds => _hintBonusSeconds;
+
+  /// Called right before/after a hint's rewarded ad is shown, to pause/
+  /// resume the question timer for its duration.
+  void setHintAdPlaying(bool playing) {
+    if (_isHintAdPlaying == playing) return;
+    _isHintAdPlaying = playing;
+    notifyListeners();
+  }
+
+  /// Called when a hint ad's reward is earned — adds to, never replaces,
+  /// this question's bonus (in case a player could somehow watch more
+  /// than once, the time keeps stacking rather than resetting).
+  void addHintBonusSeconds(int seconds) {
+    _hintBonusSeconds += seconds;
+    notifyListeners();
+  }
 
   /// [startingScore] plus everything scored so far this session — this is
   /// what makes Play mode's score continue across sessions rather than
@@ -190,6 +239,10 @@ class GameController extends ChangeNotifier {
     _questionIndex++;
     _selectedOption = null;
     _isSubmitted = false;
+    // Hint-ad state is strictly per-question — a bonus earned on one
+    // question must never carry over and extend the next one's timer.
+    _isHintAdPlaying = false;
+    _hintBonusSeconds = 0;
 
     if (isSessionOver) {
       notifyListeners(); // game_screen sees isSessionOver and navigates
@@ -208,7 +261,12 @@ class GameController extends ChangeNotifier {
   /// within that category, excluding any type shown in the last 5
   /// questions so the same topic doesn't come back too soon.
   void _loadNextPuzzle() {
-    final tier = isDailyChallenge
+    // 13+/16+ Tests draw from the same "consistently hard" tier source as
+    // Daily Challenge; 18+ (and ordinary Play) ramp by score instead.
+    final usesHighTier = isDailyChallenge ||
+        ageGroupTest == AgeGroup.thirteenPlus ||
+        ageGroupTest == AgeGroup.sixteenPlus;
+    final tier = usesHighTier
         ? DifficultyCurve.randomHighTier(_rng)
         : DifficultyCurve.randomTierForScore(totalMarks, _rng);
     final type = _pickNextType();
@@ -259,16 +317,24 @@ class GameController extends ChangeNotifier {
       };
 
   PuzzleType _pickNextType() {
-    // ~30% reasoning / ~70% math (product spec: a 7:3 ratio), replacing
-    // the earlier 50/50 split now that the topic-gating below can also
-    // shrink the math pool for a low-scoring player.
-    final wantsReasoning = _rng.nextInt(0, 9) < 3;
+    // Age-Group Tests never draw reasoning questions, regardless of age
+    // group — reasoning stays exclusive to Play/Daily Challenge (see the
+    // feature plan). Otherwise ~30% reasoning / ~70% math (product spec:
+    // a 7:3 ratio), replacing the earlier 50/50 split now that the
+    // topic-gating below can also shrink the math pool for a low-scoring
+    // player.
+    final wantsReasoning = ageGroupTest == null && _rng.nextInt(0, 9) < 3;
     final basePool = wantsReasoning ? _reasoningTypes : _mathTypes;
-    final eligiblePool = wantsReasoning
-        ? basePool
-        : (totalMarks > _gatedTypesUnlockScore || isDailyChallenge
+
+    // 13+/16+ restrict outright to their curriculum-scoped pool; 18+
+    // (mathPool null) and ordinary Play/Daily Challenge fall through to
+    // the existing score-gating logic below, unchanged.
+    final eligiblePool = ageGroupTest?.mathPool ??
+        (wantsReasoning
             ? basePool
-            : basePool.where((t) => !_gatedTypes.contains(t)).toList());
+            : (totalMarks > _gatedTypesUnlockScore || isDailyChallenge
+                ? basePool
+                : basePool.where((t) => !_gatedTypes.contains(t)).toList()));
 
     // Exclude anything shown in the last 5 questions so a topic doesn't
     // repeat too soon. Defensive fallback to the ungated pool if that

@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../models/age_group.dart';
 import '../models/test_session.dart';
 import '../utils/constants.dart';
+
+/// Age-Group Tests pass at 12/30 (40%) correct — TUNABLE, matches the
+/// feature plan's explicit pass-threshold decision.
+const double ageGroupTestPassFraction = 0.4;
 
 /// The end-of-session screen: current score, a correct/wrong/skipped
 /// breakdown of *this* session, a "new high score" banner if earned, and
@@ -17,9 +22,16 @@ class ResultsScreen extends StatelessWidget {
     required this.currentScore,
     required this.previousHighScore,
     required this.onPlayAgain,
+    this.ageGroupTest,
   });
 
   final TestSession testSession;
+
+  /// Non-null only for an Age-Group Test (`game_screen.dart`'s
+  /// `ageGroupTest` param) — switches this whole screen to the pass/fail
+  /// presentation (no score shown, no leaderboard effect) instead of the
+  /// normal score-centric one, per the feature plan.
+  final AgeGroup? ageGroupTest;
 
   /// The headline number to show — deliberately **not**
   /// `testSession.totalMarks` (which is only this session's delta). This
@@ -44,11 +56,20 @@ class ResultsScreen extends StatelessWidget {
     final isNewHighScore = currentScore > previousHighScore;
     final bestScore = isNewHighScore ? currentScore : previousHighScore;
     final isDailyChallenge = testSession.session.isDailyChallenge;
+    final isAgeGroupTest = ageGroupTest != null;
+    final totalAnswered = testSession.outcomes.length;
+    final passed = isAgeGroupTest &&
+        totalAnswered > 0 &&
+        correctCount / totalAnswered >= ageGroupTestPassFraction;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text(isDailyChallenge ? 'Test Complete' : 'Session Ended'),
+        title: Text(
+          isAgeGroupTest
+              ? '${ageGroupTest!.label} Test Result'
+              : (isDailyChallenge ? 'Test Complete' : 'Session Ended'),
+        ),
       ),
       body: SafeArea(
         child: Padding(
@@ -56,31 +77,48 @@ class ResultsScreen extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              if (isNewHighScore) ...[
-                const Icon(Icons.emoji_events, size: 48, color: Colors.amber),
-                const SizedBox(height: AppSpacing.xs),
-                const Text(
-                  'NEW HIGH SCORE!',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+              // Age-Group Tests show no score or leaderboard effect at
+              // all — only a pass/fail verdict, per the feature plan.
+              if (isAgeGroupTest) ...[
+                Icon(
+                  passed ? Icons.check_circle : Icons.refresh,
+                  size: 48,
+                  color: passed ? AppColors.correct : AppColors.neutral,
                 ),
-                const SizedBox(height: AppSpacing.md),
-              ],
-              Text(
-                '$currentScore',
-                style: const TextStyle(
-                  fontSize: 48,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Text('score so far'),
-              if (isDailyChallenge) ...[
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  '+${testSession.totalMarks} from today\'s Daily Challenge',
-                  style: const TextStyle(fontSize: 12, color: Colors.black54),
+                  passed ? 'Congratulations! You passed' : 'Try again next time',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
                 ),
+                const SizedBox(height: AppSpacing.lg),
+              ] else ...[
+                if (isNewHighScore) ...[
+                  const Icon(Icons.emoji_events, size: 48, color: Colors.amber),
+                  const SizedBox(height: AppSpacing.xs),
+                  const Text(
+                    'NEW HIGH SCORE!',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                ],
+                Text(
+                  '$currentScore',
+                  style: const TextStyle(
+                    fontSize: 48,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Text('score so far'),
+                if (isDailyChallenge) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    '+${testSession.totalMarks} from today\'s Daily Challenge',
+                    style: const TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
+                ],
+                const SizedBox(height: AppSpacing.lg),
               ],
-              const SizedBox(height: AppSpacing.lg),
               _StatRow(
                 label: 'Correct',
                 value: correctCount,
@@ -97,20 +135,39 @@ class ResultsScreen extends StatelessWidget {
                 color: AppColors.neutral,
               ),
               const SizedBox(height: AppSpacing.lg),
-              Text('Best score: $bestScore'),
-              const SizedBox(height: AppSpacing.lg),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: onPlayAgain,
-                  child: Text(isDailyChallenge ? 'Play Again' : 'Continue Playing'),
+              if (!isAgeGroupTest) ...[
+                Text('Best score: $bestScore'),
+                const SizedBox(height: AppSpacing.lg),
+              ],
+              // An Age-Group Test is on a 2-hour cooldown, so there's no
+              // immediate "Try Again" here — bypassing it with a direct
+              // retry button would defeat the cooldown entirely. Only Home
+              // is offered; the next attempt starts from there, once due.
+              if (isAgeGroupTest)
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(context)
+                        .popUntil((route) => route.isFirst),
+                    child: const Text('Back to Home'),
+                  ),
+                )
+              else ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: onPlayAgain,
+                    child: Text(
+                      isDailyChallenge ? 'Play Again' : 'Continue Playing',
+                    ),
+                  ),
                 ),
-              ),
-              TextButton(
-                onPressed: () =>
-                    Navigator.of(context).popUntil((route) => route.isFirst),
-                child: const Text('Home'),
-              ),
+                TextButton(
+                  onPressed: () =>
+                      Navigator.of(context).popUntil((route) => route.isFirst),
+                  child: const Text('Home'),
+                ),
+              ],
             ],
           ),
         ),

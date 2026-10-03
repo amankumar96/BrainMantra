@@ -2,11 +2,13 @@ import 'dart:math' show cos, pi, sin;
 
 import 'package:flutter/material.dart';
 
+import '../models/age_group.dart';
 import '../models/player_stats.dart';
 import '../services/ads_service.dart';
 import '../services/auth_service.dart';
 import '../services/leaderboard_service.dart';
 import '../services/storage_service.dart';
+import '../services/test_cooldown_service.dart';
 import '../utils/constants.dart';
 import '../utils/legal_links.dart';
 import '../widgets/brand_header.dart';
@@ -127,6 +129,48 @@ class _HomeScreenState extends State<HomeScreen> {
           isDailyChallenge: isDailyChallenge,
           startingScore: startingScore,
         ),
+      ),
+    );
+    _loadStats();
+    _loadCurrentMarks();
+  }
+
+  /// Stamps [ageGroup]'s cooldown at launch time (not completion) — so
+  /// starting a Test and backing out early still consumes the 2-hour
+  /// window, rather than letting a player spam-retry by abandoning
+  /// attempts. Does nothing (defensive — the card itself is disabled
+  /// while on cooldown) if a cooldown check right before navigating says
+  /// it isn't due yet.
+  Future<void> _navigateToAgeGroupTest(AgeGroup ageGroup) async {
+    final stats = _stats ?? await StorageService.loadStats();
+    final now = DateTime.now();
+    if (!TestCooldownService.canAttempt(
+      ageGroup: ageGroup,
+      lastAttempt: stats.lastAgeGroupTestAttempt,
+      now: now,
+    )) {
+      return;
+    }
+
+    final updatedAttempts = Map<String, DateTime>.from(
+      stats.lastAgeGroupTestAttempt,
+    )..[ageGroup.name] = now;
+    final updatedStats = PlayerStats(
+      highScore: stats.highScore,
+      currentStreakDays: stats.currentStreakDays,
+      lastPlayedDate: stats.lastPlayedDate,
+      totalCoins: stats.totalCoins,
+      bestScoreByTier: stats.bestScoreByTier,
+      lastDailyChallengeDate: stats.lastDailyChallengeDate,
+      lastAgeGroupTestAttempt: updatedAttempts,
+    );
+    await StorageService.saveStats(updatedStats);
+    if (!mounted) return;
+    setState(() => _stats = updatedStats);
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => GameScreen(ageGroupTest: ageGroup),
       ),
     );
     _loadStats();
@@ -280,6 +324,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               _DailyChallengeBox(
                                 onTap: () =>
                                     _navigateToGame(isDailyChallenge: true),
+                              ),
+                              const SizedBox(height: AppSpacing.md),
+                              _AgeGroupTestSection(
+                                lastAttempt: stats.lastAgeGroupTestAttempt,
+                                onTap: _navigateToAgeGroupTest,
                               ),
                               const SizedBox(height: AppSpacing.md),
                               _LeaderboardBox(onTap: _navigateToLeaderboard),
@@ -640,6 +689,138 @@ class _MenuRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The 3 Age-Group Test cards (13+/16+/18+), horizontally arranged between
+/// Daily Challenge and Leaderboard — each a compact, vertical take on
+/// `_MenuRow`'s pastel-background + accent-color + icon-badge visual
+/// language (icon top, label below, rather than a full-width row) so all
+/// 3 fit across the screen at once.
+class _AgeGroupTestSection extends StatelessWidget {
+  const _AgeGroupTestSection({required this.lastAttempt, required this.onTap});
+
+  final Map<String, DateTime> lastAttempt;
+  final void Function(AgeGroup) onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    return Row(
+      children: [
+        for (final ageGroup in AgeGroup.values) ...[
+          if (ageGroup != AgeGroup.values.first)
+            const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: _AgeGroupCard(
+              ageGroup: ageGroup,
+              remaining: TestCooldownService.remaining(
+                ageGroup: ageGroup,
+                lastAttempt: lastAttempt,
+                now: now,
+              ),
+              onTap: () => onTap(ageGroup),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _AgeGroupCard extends StatelessWidget {
+  const _AgeGroupCard({
+    required this.ageGroup,
+    required this.remaining,
+    required this.onTap,
+  });
+
+  final AgeGroup ageGroup;
+
+  /// Zero means the Test is available right now; otherwise this many
+  /// seconds/minutes/hours remain of its 2-hour cooldown.
+  final Duration remaining;
+  final VoidCallback onTap;
+
+  (Color card, Color accent) get _colors => switch (ageGroup) {
+        AgeGroup.thirteenPlus => (
+            AppColors.ageGroup13Card,
+            AppColors.ageGroup13Accent,
+          ),
+        AgeGroup.sixteenPlus => (
+            AppColors.ageGroup16Card,
+            AppColors.ageGroup16Accent,
+          ),
+        AgeGroup.eighteenPlus => (
+            AppColors.ageGroup18Card,
+            AppColors.ageGroup18Accent,
+          ),
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final onCooldown = remaining > Duration.zero;
+    final (card, accent) = _colors;
+    return Material(
+      color: onCooldown ? AppColors.silver.withValues(alpha: 0.25) : card,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onCooldown ? null : onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            vertical: AppSpacing.sm,
+            horizontal: AppSpacing.xs,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: (onCooldown ? AppColors.neutral : accent)
+                    .withValues(alpha: 0.15),
+                child: Icon(
+                  Icons.school_rounded,
+                  color: onCooldown ? AppColors.neutral : accent,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                ageGroup.label,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: onCooldown ? AppColors.neutral : Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                onCooldown ? _formatRemaining(remaining) : 'Take Test',
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: onCooldown
+                      ? AppColors.neutral
+                      : Colors.black.withValues(alpha: 0.6),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// "1h 24m left" / "24m left" — never shows seconds, since the cooldown is
+/// hours-scale and second-level precision would just be visual noise.
+String _formatRemaining(Duration remaining) {
+  final hours = remaining.inHours;
+  final minutes = remaining.inMinutes % 60;
+  if (hours > 0) return '${hours}h ${minutes}m left';
+  return '${minutes}m left';
 }
 
 class _DailyChallengeBox extends StatelessWidget {

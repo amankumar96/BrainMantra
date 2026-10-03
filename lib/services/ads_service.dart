@@ -268,7 +268,16 @@ class AdsService {
   /// blocks on a load), matching the rest of this codebase's "ads are
   /// best-effort, never load-bearing" precedent — a hint feature must
   /// still work when ad infrastructure hiccups.
-  bool showRewardedIfLoaded({required VoidCallback onReward}) {
+  /// [onDismissed], if given, fires whenever the ad's full-screen view
+  /// closes — whether the player watched to completion or closed it
+  /// early — right before the next rewarded ad starts pre-caching. Callers
+  /// that need to know "the ad is no longer on screen" regardless of
+  /// reward (e.g. lifting a paused timer) should use this rather than
+  /// [onReward].
+  bool showRewardedIfLoaded({
+    required VoidCallback onReward,
+    VoidCallback? onDismissed,
+  }) {
     final ad = _rewardedAd;
     if (kIsWeb || ad == null) return false;
     _rewardedAd = null;
@@ -276,10 +285,12 @@ class AdsService {
       onAdDismissedFullScreenContent: (ad) {
         ad.dispose();
         loadRewarded(); // pre-cache the next one
+        onDismissed?.call();
       },
       onAdFailedToShowFullScreenContent: (ad, _) {
         ad.dispose();
         loadRewarded();
+        onDismissed?.call();
       },
     );
     try {

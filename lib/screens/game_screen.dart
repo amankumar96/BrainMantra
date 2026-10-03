@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../controllers/game_controller.dart';
+import '../models/age_group.dart';
 import '../models/puzzle.dart';
 import '../models/player_stats.dart';
 import '../models/test_session.dart';
@@ -35,6 +36,7 @@ class GameScreen extends StatefulWidget {
     super.key,
     this.isDailyChallenge = false,
     this.startingScore = 0,
+    this.ageGroupTest,
     @visibleForTesting this.debugController,
   });
 
@@ -45,6 +47,13 @@ class GameScreen extends StatefulWidget {
   /// navigates here (see `home_screen.dart`). Daily Challenge always
   /// starts fresh at 0, per its fairness rules.
   final int startingScore;
+
+  /// Non-null launches an Age-Group Test instead of Play/Daily Challenge
+  /// (see `home_screen.dart`'s Age-Group Test cards) — 30 questions, a
+  /// maths-only pool scoped by age group, no score/leaderboard effect.
+  /// Takes precedence over [isDailyChallenge]/[startingScore], which the
+  /// caller should leave at their defaults when this is set.
+  final AgeGroup? ageGroupTest;
 
   /// Test-only hook: inject a pre-built controller (e.g. with a seeded
   /// RngService and a small totalQuestions) instead of letting this
@@ -78,6 +87,7 @@ class _GameScreenState extends State<GameScreen> {
               ? dailyChallengeQuestionCount
               : null,
           startingScore: widget.isDailyChallenge ? 0 : widget.startingScore,
+          ageGroupTest: widget.ageGroupTest,
         );
     _lastSeenQuestionNumber = _controller.questionNumber;
     _controller.addListener(_handleControllerChange);
@@ -144,8 +154,16 @@ class _GameScreenState extends State<GameScreen> {
     // or — in widget tests — Supabase never being initialized at all).
     // Losing one score-sync isn't nearly as bad as getting stuck on this
     // screen because a network call failed.
+    // An Age-Group Test never touches score/leaderboard at all, per the
+    // feature plan — not even the internal marks this session racked up
+    // (which exist only so the pass/fail % can be computed on
+    // results_screen; see its correctCount-based calculation, not marks).
+    final isAgeGroupTest = _controller.ageGroupTest != null;
+
     try {
-      if (_controller.isDailyChallenge) {
+      if (isAgeGroupTest) {
+        // Intentionally no score/leaderboard call at all.
+      } else if (_controller.isDailyChallenge) {
         await LeaderboardService.submitDailyResult(
           marks: testSession.totalMarks,
           // Daily Challenge always sets a fixed totalQuestions (see
@@ -165,8 +183,9 @@ class _GameScreenState extends State<GameScreen> {
         // and would silently discard the starting score.
         await AuthService.updateCurrentScore(updatedScore);
       }
-      // Every session (either mode) marks the player as active — this is
-      // what the 30-day inactive-account deletion job checks.
+      // Every session (any mode, Age-Group Test included) marks the
+      // player as active — this is what the 30-day inactive-account
+      // deletion job checks.
       await AuthService.touchLastActive();
     } catch (_) {
       // Best-effort sync — local stats (below) are the source of truth
@@ -175,9 +194,12 @@ class _GameScreenState extends State<GameScreen> {
     }
 
     final currentStats = await StorageService.loadStats();
-    final isNewHighScore = updatedScore > currentStats.highScore;
+    // An Age-Group Test's internal marks tally must never count towards
+    // highScore — it isn't a real score at all for this mode.
+    final isNewHighScore =
+        !isAgeGroupTest && updatedScore > currentStats.highScore;
     // lastPlayedDate/currentStreakDays are updated for every session end,
-    // either mode — a streak day means "played at all today," not
+    // any mode — a streak day means "played at all today," not
     // "completed a Daily Challenge." UTC (not local) to match
     // GameController's own day boundary for Daily Challenge's seed.
     final playedAt = DateTime.now().toUtc();
@@ -193,6 +215,13 @@ class _GameScreenState extends State<GameScreen> {
         lastPlayedDate: playedAt,
         totalCoins: currentStats.totalCoins,
         bestScoreByTier: currentStats.bestScoreByTier,
+        lastDailyChallengeDate: _controller.isDailyChallenge
+            ? playedAt
+            : currentStats.lastDailyChallengeDate,
+        // The Age-Group Test cooldown stamp itself is written up-front,
+        // at launch (see home_screen.dart's _navigateToAgeGroupTest) —
+        // currentStats already carries it, just pass it through unchanged.
+        lastAgeGroupTestAttempt: currentStats.lastAgeGroupTestAttempt,
       ),
     );
 
@@ -200,12 +229,14 @@ class _GameScreenState extends State<GameScreen> {
     // Captured before pushReplacement disposes _controller (see dispose()
     // below) — Continue Playing needs these to resume from the right spot.
     final isDailyChallenge = _controller.isDailyChallenge;
+    final ageGroupTest = _controller.ageGroupTest;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => ResultsScreen(
           testSession: testSession,
           currentScore: updatedScore,
           previousHighScore: currentStats.highScore,
+          ageGroupTest: ageGroupTest,
           onPlayAgain: () => Navigator.of(context).pushReplacement(
             MaterialPageRoute(
               builder: (_) => GameScreen(
@@ -330,8 +361,10 @@ class _GameScreenBody extends StatelessWidget {
                     // timer_bar.dart's own doc comment.
                     key: ValueKey(puzzle.id),
                     durationSeconds: puzzle.timeLimitSeconds,
-                    isRunning: !controller.isSubmitted,
+                    isRunning:
+                        !controller.isSubmitted && !controller.isHintAdPlaying,
                     onExpired: controller.skipDueToTimeout,
+                    extraSeconds: controller.hintBonusSeconds,
                   ),
                   const SizedBox(height: AppSpacing.md),
                   Expanded(
@@ -537,13 +570,24 @@ class _QuestionAndOptionsState extends State<_QuestionAndOptions> {
   /// for free. Same "ads are best-effort, never load-bearing" precedent
   /// `AdsService` already applies everywhere else; a hint is a nice-to-
   /// have, not something worth stranding a player over.
+  ///
+  /// While the ad plays, the question timer is paused (via
+  /// `controller.isHintAdPlaying`) and the reward adds 60 bonus seconds
+  /// (`controller.hintBonusSeconds`) — both live on GameController since
+  /// TimerBar is a sibling widget, not a descendant, of this one.
   void _revealHintViaRewardedAd() {
+    controller.setHintAdPlaying(true);
     final shown = AdsService.instance.showRewardedIfLoaded(
       onReward: () {
+        controller.addHintBonusSeconds(60);
         if (mounted) setState(() => _hintRevealed = true);
       },
+      // Fires whether the ad was watched fully or closed early — this is
+      // what always lifts the pause, regardless of onReward.
+      onDismissed: () => controller.setHintAdPlaying(false),
     );
     if (!shown) {
+      controller.setHintAdPlaying(false);
       setState(() => _hintRevealed = true);
     }
   }

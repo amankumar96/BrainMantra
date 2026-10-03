@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:brain_mantra/controllers/game_controller.dart';
+import 'package:brain_mantra/models/age_group.dart';
 import 'package:brain_mantra/models/puzzle.dart';
 import 'package:brain_mantra/models/test_session.dart';
 import 'package:brain_mantra/services/rng_service.dart';
@@ -629,6 +630,94 @@ void main() {
         }
         expect(sawGated, isTrue);
       });
+    });
+  });
+
+  group('ageGroupTest mode', () {
+    test('forces totalQuestions to 30 and startingScore to 0 regardless of '
+        'what the caller passed', () {
+      final controller = GameController(
+        totalQuestions: 5, // should be overridden
+        isDailyChallenge: false,
+        startingScore: 999, // should be overridden
+        ageGroupTest: AgeGroup.thirteenPlus,
+        rng: RngService.seeded('age-group-overrides'),
+      );
+      expect(controller.totalQuestions, equals(30));
+      expect(controller.startingScore, equals(0));
+    });
+
+    test('13+ never draws a type outside thirteenPlusPool, and never '
+        'reasoning', () {
+      final controller = GameController(
+        isDailyChallenge: false,
+        ageGroupTest: AgeGroup.thirteenPlus,
+        rng: RngService.seeded('age-group-13'),
+      );
+      for (var i = 0; i < 30; i++) {
+        final puzzle = controller.currentPuzzle!;
+        expect(puzzle.category, equals(PuzzleCategory.mathTest));
+        expect(thirteenPlusPool.contains(puzzle.type), isTrue);
+        controller.skipDueToTimeout();
+        controller.onFeedbackAnimationComplete();
+      }
+    });
+
+    test('16+ never draws a type outside sixteenPlusPool, and never '
+        'reasoning', () {
+      final controller = GameController(
+        isDailyChallenge: false,
+        ageGroupTest: AgeGroup.sixteenPlus,
+        rng: RngService.seeded('age-group-16'),
+      );
+      for (var i = 0; i < 30; i++) {
+        final puzzle = controller.currentPuzzle!;
+        expect(puzzle.category, equals(PuzzleCategory.mathTest));
+        expect(sixteenPlusPool.contains(puzzle.type), isTrue);
+        controller.skipDueToTimeout();
+        controller.onFeedbackAnimationComplete();
+      }
+    });
+
+    test('18+ never draws reasoning, but is not restricted to the 13+/16+ '
+        'pools (uses the full normal math library)', () {
+      final controller = GameController(
+        isDailyChallenge: false,
+        ageGroupTest: AgeGroup.eighteenPlus,
+        rng: RngService.seeded('age-group-18'),
+      );
+      var sawTypeOutsideSixteenPlusPool = false;
+      for (var i = 0; i < 30; i++) {
+        final puzzle = controller.currentPuzzle!;
+        expect(puzzle.category, equals(PuzzleCategory.mathTest));
+        if (!sixteenPlusPool.contains(puzzle.type)) {
+          sawTypeOutsideSixteenPlusPool = true;
+        }
+        controller.skipDueToTimeout();
+        controller.onFeedbackAnimationComplete();
+      }
+      // Not a strict requirement every single run, but with a basic
+      // 3-type pool (arithmetic/trueFalse/missingNumber) excluded from
+      // 16+'s pool and otherwise freely drawable at tier 1-2 for 18+, this
+      // should surface across 30 questions with a fixed seed.
+      expect(sawTypeOutsideSixteenPlusPool, isTrue);
+    });
+
+    test('isTestComplete becomes true only after all 30 questions are '
+        'answered', () {
+      final controller = GameController(
+        isDailyChallenge: false,
+        ageGroupTest: AgeGroup.thirteenPlus,
+        rng: RngService.seeded('age-group-complete'),
+      );
+      for (var i = 0; i < 29; i++) {
+        controller.skipDueToTimeout();
+        controller.onFeedbackAnimationComplete();
+        expect(controller.isTestComplete, isFalse);
+      }
+      controller.skipDueToTimeout();
+      controller.onFeedbackAnimationComplete();
+      expect(controller.isTestComplete, isTrue);
     });
   });
 }

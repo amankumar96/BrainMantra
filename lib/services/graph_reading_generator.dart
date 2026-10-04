@@ -1,3 +1,4 @@
+import '../models/app_language.dart';
 import '../models/diagram_data.dart';
 import '../models/puzzle.dart';
 import 'difficulty_curve.dart';
@@ -14,7 +15,11 @@ const List<String> _allCategoryLabels = ['A', 'B', 'C', 'D', 'E'];
 /// No hint at any tier: reading a graph isn't formula-driven, so a
 /// theorem-name nudge wouldn't help.
 abstract final class GraphReadingGenerator {
-  static Puzzle generate({required int tier, required RngService rng}) {
+  static Puzzle generate({
+    required int tier,
+    required RngService rng,
+    required AppLanguage language,
+  }) {
     final params = DifficultyCurve.paramsForTier(tier);
     final categoryCount = _categoryCountForTier(tier);
     final categories = _allCategoryLabels.take(categoryCount).toList();
@@ -36,9 +41,9 @@ abstract final class GraphReadingGenerator {
 
     return rng.nextBool()
         ? _rankingQuestion(tier, params.timeLimitSeconds, categories, values,
-            diagramData, rng)
+            diagramData, rng, language)
         : _differenceQuestion(tier, params.timeLimitSeconds, categories,
-            values, diagramData, rng);
+            values, diagramData, rng, language);
   }
 
   static Puzzle _rankingQuestion(
@@ -48,6 +53,7 @@ abstract final class GraphReadingGenerator {
     List<int> values,
     DiagramData diagramData,
     RngService rng,
+    AppLanguage language,
   ) {
     final rankedIndices = List.generate(values.length, (i) => i)
       ..sort((a, b) => values[b].compareTo(values[a]));
@@ -62,9 +68,11 @@ abstract final class GraphReadingGenerator {
       id: deterministicId(rng),
       category: PuzzleCategory.mathTest,
       type: PuzzleType.graphReading,
-      questionText:
-          'Which category has the ${askSecond ? 'second-highest' : 'highest'} '
-          'value?',
+      questionText: language == AppLanguage.english
+          ? 'Which category has the '
+              '${askSecond ? 'second-highest' : 'highest'} value?'
+          : '${askSecond ? 'दूसरे सबसे ऊंचे' : 'सबसे ऊंचे'} मूल्य वाली '
+              'श्रेणी कौन सी है?',
       options: options,
       correctAnswer: correctAnswer,
       difficultyTier: tier,
@@ -80,6 +88,7 @@ abstract final class GraphReadingGenerator {
     List<int> values,
     DiagramData diagramData,
     RngService rng,
+    AppLanguage language,
   ) {
     final i = rng.nextInt(0, categories.length - 1);
     int j;
@@ -92,8 +101,11 @@ abstract final class GraphReadingGenerator {
       id: deterministicId(rng),
       category: PuzzleCategory.mathTest,
       type: PuzzleType.graphReading,
-      questionText: 'What is the difference between category ${categories[i]} '
-          'and category ${categories[j]}?',
+      questionText: language == AppLanguage.english
+          ? 'What is the difference between category ${categories[i]} '
+              'and category ${categories[j]}?'
+          : 'श्रेणी ${categories[i]} और श्रेणी ${categories[j]} के बीच '
+              'अंतर कितना है?',
       options: buildNumericMcOptions(correctAnswer, rng, spread: 15),
       correctAnswer: correctAnswer,
       difficultyTier: tier,

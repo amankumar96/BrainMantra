@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../models/age_group.dart';
+import '../models/app_language.dart';
 import '../models/test_session.dart';
+import '../services/language_controller.dart';
 import '../utils/constants.dart';
 
 /// Age-Group Tests pass at 12/30 (40%) correct — TUNABLE, matches the
@@ -47,6 +50,7 @@ class ResultsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<LanguageController>().language;
     final correctCount =
         testSession.outcomes.where((o) => o == AnswerOutcome.correct).length;
     final wrongCount =
@@ -67,8 +71,10 @@ class ResultsScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text(
           isAgeGroupTest
-              ? '${ageGroupTest!.label} Test Result'
-              : (isDailyChallenge ? 'Test Complete' : 'Session Ended'),
+              ? '${ageGroupTest!.label} ${_t(language, 'Test Result', 'टेस्ट परिणाम')}'
+              : (isDailyChallenge
+                  ? _t(language, 'Test Complete', 'टेस्ट पूरा हुआ')
+                  : _t(language, 'Session Ended', 'सत्र समाप्त हुआ')),
         ),
       ),
       body: SafeArea(
@@ -87,7 +93,11 @@ class ResultsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  passed ? 'Congratulations! You passed' : 'Try again next time',
+                  passed
+                      ? _t(language, 'Congratulations! You passed',
+                          'बधाई हो! आप पास हो गए')
+                      : _t(language, 'Try again next time',
+                          'अगली बार फिर कोशिश करें'),
                   textAlign: TextAlign.center,
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
                 ),
@@ -96,9 +106,9 @@ class ResultsScreen extends StatelessWidget {
                 if (isNewHighScore) ...[
                   const Icon(Icons.emoji_events, size: 48, color: Colors.amber),
                   const SizedBox(height: AppSpacing.xs),
-                  const Text(
-                    'NEW HIGH SCORE!',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+                  Text(
+                    _t(language, 'NEW HIGH SCORE!', 'नया हाई स्कोर!'),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
                   ),
                   const SizedBox(height: AppSpacing.md),
                 ],
@@ -109,47 +119,53 @@ class ResultsScreen extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const Text('score so far'),
+                Text(_t(language, 'score so far', 'अब तक का स्कोर')),
                 if (isDailyChallenge) ...[
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    '+${testSession.totalMarks} from today\'s Daily Challenge',
+                    _t(
+                      language,
+                      "+${testSession.totalMarks} from today's Daily Challenge",
+                      '+${testSession.totalMarks} आज की दैनिक चुनौती से',
+                    ),
                     style: const TextStyle(fontSize: 12, color: Colors.black54),
                   ),
                 ],
                 const SizedBox(height: AppSpacing.lg),
               ],
               _StatRow(
-                label: 'Correct',
+                label: _t(language, 'Correct', 'सही'),
                 value: correctCount,
                 color: AppColors.correct,
               ),
               _StatRow(
-                label: 'Wrong',
+                label: _t(language, 'Wrong', 'गलत'),
                 value: wrongCount,
                 color: AppColors.wrong,
               ),
               _StatRow(
-                label: 'Skipped',
+                label: _t(language, 'Skipped', 'छोड़ी गई'),
                 value: skippedCount,
                 color: AppColors.neutral,
               ),
               const SizedBox(height: AppSpacing.lg),
               if (!isAgeGroupTest) ...[
-                Text('Best score: $bestScore'),
+                Text(_t(language, 'Best score: $bestScore', 'सर्वश्रेष्ठ स्कोर: $bestScore')),
                 const SizedBox(height: AppSpacing.lg),
               ],
-              // An Age-Group Test is on a 2-hour cooldown, so there's no
-              // immediate "Try Again" here — bypassing it with a direct
-              // retry button would defeat the cooldown entirely. Only Home
-              // is offered; the next attempt starts from there, once due.
+              // By explicit product decision there's no cooldown on an
+              // Age-Group Test anymore (see home_screen.dart) — only Home
+              // is offered here anyway, simply because this screen never
+              // had a "retry this exact Test" callback wired to it (unlike
+              // Play/Daily Challenge's onPlayAgain); a player who wants
+              // another attempt just taps the card again from Home.
               if (isAgeGroupTest)
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () => Navigator.of(context)
                         .popUntil((route) => route.isFirst),
-                    child: const Text('Back to Home'),
+                    child: Text(_t(language, 'Back to Home', 'होम पर वापस जाएं')),
                   ),
                 )
               else ...[
@@ -158,14 +174,16 @@ class ResultsScreen extends StatelessWidget {
                   child: ElevatedButton(
                     onPressed: onPlayAgain,
                     child: Text(
-                      isDailyChallenge ? 'Play Again' : 'Continue Playing',
+                      isDailyChallenge
+                          ? _t(language, 'Play Again', 'फिर से खेलें')
+                          : _t(language, 'Continue Playing', 'खेलना जारी रखें'),
                     ),
                   ),
                 ),
                 TextButton(
                   onPressed: () =>
                       Navigator.of(context).popUntil((route) => route.isFirst),
-                  child: const Text('Home'),
+                  child: Text(_t(language, 'Home', 'होम')),
                 ),
               ],
             ],
@@ -206,3 +224,7 @@ class _StatRow extends StatelessWidget {
     );
   }
 }
+
+/// Picks [en] or [hi] depending on [language].
+String _t(AppLanguage language, String en, String hi) =>
+    language == AppLanguage.english ? en : hi;

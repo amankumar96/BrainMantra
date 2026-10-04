@@ -1,3 +1,4 @@
+import '../models/app_language.dart';
 import '../models/puzzle.dart';
 import 'difficulty_curve.dart';
 import 'rng_service.dart';
@@ -7,7 +8,11 @@ import 'rng_utils.dart';
 /// applied to given symbolic log values so every answer is an exact
 /// integer sum/difference rather than a rounded decimal.
 abstract final class LogarithmGenerator {
-  static Puzzle generate({required int tier, required RngService rng}) {
+  static Puzzle generate({
+    required int tier,
+    required RngService rng,
+    required AppLanguage language,
+  }) {
     final params = DifficultyCurve.paramsForTier(tier);
     final range = _rangeForTier(tier);
     final logX = rng.nextInt(2, range);
@@ -18,9 +23,15 @@ abstract final class LogarithmGenerator {
       id: deterministicId(rng),
       category: PuzzleCategory.mathTest,
       type: PuzzleType.logarithm,
-      questionText: isProduct
-          ? 'If logₐx = $logX and logₐy = $logY, find logₐ(xy).'
-          : 'If logₐx = $logX and logₐy = $logY, find logₐ(x/y).',
+      questionText: language == AppLanguage.english
+          ? (isProduct
+              ? 'If logₐx = $logX and logₐy = $logY, find logₐ(xy).'
+              : 'If logₐx = $logX and logₐy = $logY, find logₐ(x/y).')
+          : (isProduct
+              ? 'यदि logₐx = $logX और logₐy = $logY है, तो logₐ(xy) '
+                  'ज्ञात करें।'
+              : 'यदि logₐx = $logX और logₐy = $logY है, तो logₐ(x/y) '
+                  'ज्ञात करें।'),
       options: buildNumericMcOptions(answer + 50, rng, spread: 6)
           .map((s) => (int.parse(s) - 50).toString())
           .toList(),

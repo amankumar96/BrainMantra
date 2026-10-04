@@ -1,3 +1,4 @@
+import '../models/app_language.dart';
 import '../models/puzzle.dart';
 import 'algebraic_identity_generator.dart';
 import 'analogy_generator.dart';
@@ -56,62 +57,129 @@ abstract final class PuzzleGenerator {
     required int tier,
     required PuzzleType type,
     required RngService rng,
+    required AppLanguage language,
   }) {
     return switch (type) {
-      PuzzleType.arithmetic => generateArithmetic(tier, rng),
-      PuzzleType.trueFalse => generateTrueFalse(tier, rng),
-      PuzzleType.missingNumber => generateMissingNumber(tier, rng),
-      PuzzleType.oddOneOut => generateOddOneOut(tier, rng),
-      PuzzleType.sequence => generateSequence(tier, rng),
-      PuzzleType.targetNumber => generateTargetNumber(tier, rng),
-      PuzzleType.bodmas => BodmasGenerator.generate(tier: tier, rng: rng),
-      PuzzleType.speedDistance =>
-        SpeedDistanceGenerator.generate(tier: tier, rng: rng),
-      PuzzleType.profitLoss =>
-        ProfitLossGenerator.generate(tier: tier, rng: rng),
-      PuzzleType.interest => InterestGenerator.generate(tier: tier, rng: rng),
+      // Math generators take `language` — each renders its question text
+      // in English or basic Hindi accordingly (see the feature plan).
+      PuzzleType.arithmetic => generateArithmetic(tier, rng, language),
+      PuzzleType.trueFalse => generateTrueFalse(tier, rng, language),
+      PuzzleType.missingNumber => generateMissingNumber(tier, rng, language),
+      PuzzleType.oddOneOut => generateOddOneOut(tier, rng, language),
+      PuzzleType.sequence => generateSequence(tier, rng, language),
+      PuzzleType.targetNumber => generateTargetNumber(tier, rng, language),
+      PuzzleType.bodmas =>
+        BodmasGenerator.generate(tier: tier, rng: rng, language: language),
+      PuzzleType.speedDistance => SpeedDistanceGenerator.generate(
+        tier: tier,
+        rng: rng,
+        language: language,
+      ),
+      PuzzleType.profitLoss => ProfitLossGenerator.generate(
+        tier: tier,
+        rng: rng,
+        language: language,
+      ),
+      PuzzleType.interest =>
+        InterestGenerator.generate(tier: tier, rng: rng, language: language),
       PuzzleType.perimeter =>
-        PerimeterGenerator.generate(tier: tier, rng: rng),
-      PuzzleType.probability =>
-        ProbabilityGenerator.generate(tier: tier, rng: rng),
-      PuzzleType.ratio => RatioGenerator.generate(tier: tier, rng: rng),
-      PuzzleType.angleFinding =>
-        AngleFindingGenerator.generate(tier: tier, rng: rng),
-      PuzzleType.areaVolume =>
-        AreaVolumeGenerator.generate(tier: tier, rng: rng),
-      PuzzleType.coordinateDistance =>
-        CoordinateDistanceGenerator.generate(tier: tier, rng: rng),
-      PuzzleType.graphReading =>
-        GraphReadingGenerator.generate(tier: tier, rng: rng),
+        PerimeterGenerator.generate(tier: tier, rng: rng, language: language),
+      PuzzleType.probability => ProbabilityGenerator.generate(
+        tier: tier,
+        rng: rng,
+        language: language,
+      ),
+      PuzzleType.ratio =>
+        RatioGenerator.generate(tier: tier, rng: rng, language: language),
+      PuzzleType.angleFinding => AngleFindingGenerator.generate(
+        tier: tier,
+        rng: rng,
+        language: language,
+      ),
+      PuzzleType.areaVolume => AreaVolumeGenerator.generate(
+        tier: tier,
+        rng: rng,
+        language: language,
+      ),
+      PuzzleType.coordinateDistance => CoordinateDistanceGenerator.generate(
+        tier: tier,
+        rng: rng,
+        language: language,
+      ),
+      PuzzleType.graphReading => GraphReadingGenerator.generate(
+        tier: tier,
+        rng: rng,
+        language: language,
+      ),
       PuzzleType.numberClassification =>
-        NumberClassificationGenerator.generate(tier: tier, rng: rng),
-      PuzzleType.surds => SurdsGenerator.generate(tier: tier, rng: rng),
-      PuzzleType.algebraicIdentity =>
-        AlgebraicIdentityGenerator.generate(tier: tier, rng: rng),
-      PuzzleType.linearEquation =>
-        LinearEquationGenerator.generate(tier: tier, rng: rng),
-      PuzzleType.quadraticEquation =>
-        QuadraticEquationGenerator.generate(tier: tier, rng: rng),
-      PuzzleType.progression =>
-        ProgressionGenerator.generate(tier: tier, rng: rng),
+        NumberClassificationGenerator.generate(
+          tier: tier,
+          rng: rng,
+          language: language,
+        ),
+      PuzzleType.surds =>
+        SurdsGenerator.generate(tier: tier, rng: rng, language: language),
+      PuzzleType.algebraicIdentity => AlgebraicIdentityGenerator.generate(
+        tier: tier,
+        rng: rng,
+        language: language,
+      ),
+      PuzzleType.linearEquation => LinearEquationGenerator.generate(
+        tier: tier,
+        rng: rng,
+        language: language,
+      ),
+      PuzzleType.quadraticEquation => QuadraticEquationGenerator.generate(
+        tier: tier,
+        rng: rng,
+        language: language,
+      ),
+      PuzzleType.progression => ProgressionGenerator.generate(
+        tier: tier,
+        rng: rng,
+        language: language,
+      ),
       PuzzleType.trigRatio =>
-        TrigRatioGenerator.generate(tier: tier, rng: rng),
-      PuzzleType.mensurationAdvanced =>
-        MensurationAdvancedGenerator.generate(tier: tier, rng: rng),
-      PuzzleType.coordinateGeometry =>
-        CoordinateGeometryGenerator.generate(tier: tier, rng: rng),
+        TrigRatioGenerator.generate(tier: tier, rng: rng, language: language),
+      PuzzleType.mensurationAdvanced => MensurationAdvancedGenerator.generate(
+        tier: tier,
+        rng: rng,
+        language: language,
+      ),
+      PuzzleType.coordinateGeometry => CoordinateGeometryGenerator.generate(
+        tier: tier,
+        rng: rng,
+        language: language,
+      ),
       PuzzleType.logarithm =>
-        LogarithmGenerator.generate(tier: tier, rng: rng),
+        LogarithmGenerator.generate(tier: tier, rng: rng, language: language),
       PuzzleType.permutationCombination =>
-        PermutationCombinationGenerator.generate(tier: tier, rng: rng),
-      PuzzleType.statistics =>
-        StatisticsGenerator.generate(tier: tier, rng: rng),
-      PuzzleType.unitConversion =>
-        UnitConversionGenerator.generate(tier: tier, rng: rng),
+        PermutationCombinationGenerator.generate(
+          tier: tier,
+          rng: rng,
+          language: language,
+        ),
+      PuzzleType.statistics => StatisticsGenerator.generate(
+        tier: tier,
+        rng: rng,
+        language: language,
+      ),
+      PuzzleType.unitConversion => UnitConversionGenerator.generate(
+        tier: tier,
+        rng: rng,
+        language: language,
+      ),
       PuzzleType.workTime =>
-        WorkTimeGenerator.generate(tier: tier, rng: rng),
-      PuzzleType.mixtureAlligation =>
-        MixtureAlligationGenerator.generate(tier: tier, rng: rng),
+        WorkTimeGenerator.generate(tier: tier, rng: rng, language: language),
+      PuzzleType.mixtureAlligation => MixtureAlligationGenerator.generate(
+        tier: tier,
+        rng: rng,
+        language: language,
+      ),
+      // Reasoning generators are untouched — English-only in both
+      // language modes for now (see the feature plan's "Known
+      // limitations" for why — several need real linguistic redesign,
+      // not just translation).
       PuzzleType.familyTree => _generateFamilyTree(tier, rng),
       PuzzleType.shapeIdentification =>
         ShapeReasoningGenerator.generate(tier: tier, rng: rng),

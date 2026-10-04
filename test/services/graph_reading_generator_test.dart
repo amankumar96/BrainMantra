@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:brain_mantra/models/app_language.dart';
 import 'package:brain_mantra/models/diagram_data.dart';
 import 'package:brain_mantra/services/graph_reading_generator.dart';
 import 'package:brain_mantra/services/rng_service.dart';
@@ -11,7 +12,11 @@ void main() {
       for (final tier in [1, 2, 3, 4]) {
         final expectedCount = switch (tier) { 1 => 3, 2 => 4, _ => 5 };
         for (var i = 0; i < 300; i++) {
-          final puzzle = GraphReadingGenerator.generate(tier: tier, rng: rng);
+          final puzzle = GraphReadingGenerator.generate(
+            tier: tier,
+            rng: rng,
+            language: AppLanguage.english,
+          );
           final data = puzzle.diagramData!;
           expect(data.kind, equals(DiagramKind.barGraph));
           expect(data.categories, hasLength(expectedCount));
@@ -32,7 +37,11 @@ void main() {
       var sawRanking = false;
       var sawDifference = false;
       for (var i = 0; i < 100; i++) {
-        final puzzle = GraphReadingGenerator.generate(tier: 3, rng: rng);
+        final puzzle = GraphReadingGenerator.generate(
+          tier: 3,
+          rng: rng,
+          language: AppLanguage.english,
+        );
         if (puzzle.questionText.startsWith('Which category')) {
           sawRanking = true;
         } else {
@@ -58,7 +67,11 @@ void main() {
       final answers = <String>{};
       final valueSets = <String>{};
       for (var i = 0; i < 30; i++) {
-        final puzzle = GraphReadingGenerator.generate(tier: 3, rng: rng);
+        final puzzle = GraphReadingGenerator.generate(
+          tier: 3,
+          rng: rng,
+          language: AppLanguage.english,
+        );
         if (!puzzle.questionText.startsWith('Which category')) continue;
         answers.add(puzzle.correctAnswer as String);
         valueSets.add(puzzle.diagramData!.values.toString());
@@ -73,10 +86,12 @@ void main() {
       final a = GraphReadingGenerator.generate(
         tier: 2,
         rng: RngService.seeded('graph-reading-determinism'),
+        language: AppLanguage.english,
       );
       final b = GraphReadingGenerator.generate(
         tier: 2,
         rng: RngService.seeded('graph-reading-determinism'),
+        language: AppLanguage.english,
       );
       expect(a, equals(b));
     });

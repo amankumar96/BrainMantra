@@ -1,3 +1,4 @@
+import '../models/app_language.dart';
 import '../models/puzzle.dart';
 import 'difficulty_curve.dart';
 import 'rng_service.dart';
@@ -8,15 +9,24 @@ import 'rng_utils.dart';
 /// own tier-4 topic). Every equation is built by picking the *answer*
 /// first and deriving coefficients from it, so the root is always exact.
 abstract final class LinearEquationGenerator {
-  static Puzzle generate({required int tier, required RngService rng}) {
+  static Puzzle generate({
+    required int tier,
+    required RngService rng,
+    required AppLanguage language,
+  }) {
     final params = DifficultyCurve.paramsForTier(tier);
     final wantsPair = tier >= 3 && rng.nextBool();
     return wantsPair
-        ? _pair(tier, params.timeLimitSeconds, rng)
-        : _single(tier, params.timeLimitSeconds, rng);
+        ? _pair(tier, params.timeLimitSeconds, rng, language)
+        : _single(tier, params.timeLimitSeconds, rng, language);
   }
 
-  static Puzzle _single(int tier, int timeLimitSeconds, RngService rng) {
+  static Puzzle _single(
+    int tier,
+    int timeLimitSeconds,
+    RngService rng,
+    AppLanguage language,
+  ) {
     final range = _rangeForTier(tier);
     final a = rng.nextInt(2, range.maxCoefficient);
     final x = rng.nextInt(-range.maxRoot, range.maxRoot);
@@ -25,8 +35,9 @@ abstract final class LinearEquationGenerator {
       id: deterministicId(rng),
       category: PuzzleCategory.mathTest,
       type: PuzzleType.linearEquation,
-      questionText: 'Solve for x: ${a}x ${b >= 0 ? '+' : '-'} '
-          '${b.abs()} = 0',
+      questionText: language == AppLanguage.english
+          ? 'Solve for x: ${a}x ${b >= 0 ? '+' : '-'} ${b.abs()} = 0'
+          : 'x के लिए हल करें: ${a}x ${b >= 0 ? '+' : '-'} ${b.abs()} = 0',
       options: buildNumericMcOptions(x + 100, rng, spread: 8)
           .map((s) => (int.parse(s) - 100).toString())
           .toList(),
@@ -40,7 +51,12 @@ abstract final class LinearEquationGenerator {
   /// Builds two equations a1x+b1y=c1, a2x+b2y=c2 both satisfied by a
   /// chosen (x0, y0), with a1b2 - a2b1 guaranteed nonzero (a real,
   /// unique-solution system) — retried on the rare degenerate draw.
-  static Puzzle _pair(int tier, int timeLimitSeconds, RngService rng) {
+  static Puzzle _pair(
+    int tier,
+    int timeLimitSeconds,
+    RngService rng,
+    AppLanguage language,
+  ) {
     final range = _rangeForTier(tier);
     final x0 = rng.nextInt(-range.maxRoot, range.maxRoot);
     final y0 = rng.nextInt(-range.maxRoot, range.maxRoot);
@@ -57,8 +73,11 @@ abstract final class LinearEquationGenerator {
       id: deterministicId(rng),
       category: PuzzleCategory.mathTest,
       type: PuzzleType.linearEquation,
-      questionText: 'Solve for x: ${a1}x + ${b1}y = $c1 and '
-          '${a2}x + ${b2}y = $c2',
+      questionText: language == AppLanguage.english
+          ? 'Solve for x: ${a1}x + ${b1}y = $c1 and '
+              '${a2}x + ${b2}y = $c2'
+          : 'x के लिए हल करें: ${a1}x + ${b1}y = $c1 और '
+              '${a2}x + ${b2}y = $c2',
       options: buildNumericMcOptions(x0 + 100, rng, spread: 8)
           .map((s) => (int.parse(s) - 100).toString())
           .toList(),

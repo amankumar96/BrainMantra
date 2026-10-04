@@ -3,12 +3,14 @@ import 'package:provider/provider.dart';
 
 import '../controllers/game_controller.dart';
 import '../models/age_group.dart';
+import '../models/app_language.dart';
 import '../models/puzzle.dart';
 import '../models/player_stats.dart';
 import '../models/test_session.dart';
 import '../services/ad_frequency_cap.dart';
 import '../services/ads_service.dart';
 import '../services/auth_service.dart';
+import '../services/language_controller.dart';
 import '../services/leaderboard_service.dart';
 import '../services/notification_service.dart';
 import '../services/storage_service.dart';
@@ -89,6 +91,10 @@ class _GameScreenState extends State<GameScreen> {
               : null,
           startingScore: widget.isDailyChallenge ? 0 : widget.startingScore,
           ageGroupTest: widget.ageGroupTest,
+          // One-time read (not `watch`) — language is fixed for this
+          // whole session's lifetime, same as ageGroupTest; a mid-session
+          // change via Settings only affects the next session started.
+          language: context.read<LanguageController>().language,
         );
     _lastSeenQuestionNumber = _controller.questionNumber;
     _controller.addListener(_handleControllerChange);
@@ -308,7 +314,11 @@ class _GameScreenBody extends StatelessWidget {
       // on, so it gets its own calmer, two-tone field.
       backgroundColor: AppColors.playBackgroundBottom,
       appBar: AppBar(
-        title: Text(controller.isDailyChallenge ? 'Daily Challenge' : 'Play'),
+        title: Text(
+          controller.isDailyChallenge
+              ? _t(controller.language, 'Daily Challenge', 'दैनिक चुनौती')
+              : _t(controller.language, 'Play', 'खेलें'),
+        ),
         actions: [
           // Play only — it's the never-ending mode, so it needs an
           // explicit way to stop. Daily Challenge already has a natural
@@ -317,7 +327,10 @@ class _GameScreenBody extends StatelessWidget {
           if (!controller.isDailyChallenge)
             TextButton(
               onPressed: controller.endSession,
-              child: const Text('End', style: TextStyle(color: Colors.white)),
+              child: Text(
+                _t(controller.language, 'End', 'समाप्त करें'),
+                style: const TextStyle(color: Colors.white),
+              ),
             ),
         ],
       ),
@@ -421,7 +434,7 @@ class _GameScreenBody extends StatelessWidget {
                               vertical: AppSpacing.md,
                             ),
                           ),
-                          child: const Text('Skip'),
+                          child: Text(_t(controller.language, 'Skip', 'छोड़ें')),
                         ),
                       ),
                       const SizedBox(width: AppSpacing.md),
@@ -527,7 +540,7 @@ class _QuestionAndOptionsState extends State<_QuestionAndOptions> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
-                      topicLabel(puzzle.type),
+                      topicLabel(puzzle.type, controller.language),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -567,7 +580,9 @@ class _QuestionAndOptionsState extends State<_QuestionAndOptions> {
       child: TextButton.icon(
         onPressed: _revealHintViaRewardedAd,
         icon: const Icon(Icons.ondemand_video, size: 16),
-        label: const Text('Watch Ad for Hint'),
+        label: Text(
+          _t(controller.language, 'Watch Ad for Hint', 'हिंट के लिए विज्ञापन देखें'),
+        ),
         style: TextButton.styleFrom(foregroundColor: AppColors.neutral),
       ),
     );
@@ -787,3 +802,9 @@ String _correctOptionLetter(Puzzle puzzle) {
   // it — fall back to naming the first option rather than throwing.
   return String.fromCharCode(65 + (index < 0 ? 0 : index));
 }
+
+/// Picks [en] or [hi] depending on [language] — this screen's share of
+/// UI chrome is small enough that a shared `AppStrings` dictionary class
+/// wasn't worth it here; a one-line helper keeps every call site terse.
+String _t(AppLanguage language, String en, String hi) =>
+    language == AppLanguage.english ? en : hi;

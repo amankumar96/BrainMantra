@@ -1,5 +1,6 @@
 import 'dart:math' show pow;
 
+import '../models/app_language.dart';
 import '../models/puzzle.dart';
 import 'difficulty_curve.dart';
 import 'expression_evaluator.dart';
@@ -9,7 +10,11 @@ import 'rng_utils.dart';
 /// "2, 4, 6, 8, ?" — 4 terms of a generated sequence, asking for the 5th.
 /// The correct answer always comes from literally applying the same rule
 /// function one more step — never a separately-derived guess.
-Puzzle generateSequence(int tier, RngService rng) {
+///
+/// Both puzzle types in this file are pure numeric/symbolic notation, no
+/// English words at all, so `language` is accepted (for signature
+/// consistency with every other generator) but not actually branched on.
+Puzzle generateSequence(int tier, RngService rng, AppLanguage language) {
   final params = DifficultyCurve.paramsForTier(tier);
   final useAdvanced = tier >= 3 && rng.nextBool();
 
@@ -61,7 +66,7 @@ Puzzle generateSequence(int tier, RngService rng) {
 /// through [evaluate] for the answer. This *is* the self-validation
 /// ARCHITECTURE.md requires for this type: the evaluator, not separate
 /// generator arithmetic, is the source of truth for the result.
-Puzzle generateTargetNumber(int tier, RngService rng) {
+Puzzle generateTargetNumber(int tier, RngService rng, AppLanguage language) {
   final params = DifficultyCurve.paramsForTier(tier);
   final canDivide = params.math.allowedOperators.contains(MathOperator.divide);
   final expression = canDivide && rng.nextBool()

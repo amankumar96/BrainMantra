@@ -1,3 +1,4 @@
+import '../models/app_language.dart';
 import '../models/puzzle.dart';
 import 'difficulty_curve.dart';
 import 'rng_service.dart';
@@ -9,19 +10,28 @@ import 'rng_utils.dart';
 /// `coordinate_distance_generator.dart` (the distance formula, Phase 8),
 /// which this deliberately doesn't duplicate.
 abstract final class CoordinateGeometryGenerator {
-  static Puzzle generate({required int tier, required RngService rng}) {
+  static Puzzle generate({
+    required int tier,
+    required RngService rng,
+    required AppLanguage language,
+  }) {
     final params = DifficultyCurve.paramsForTier(tier);
     if (tier >= 3 && rng.nextBool()) {
-      return _perpendicularSlope(tier, params.timeLimitSeconds, rng);
+      return _perpendicularSlope(tier, params.timeLimitSeconds, rng, language);
     }
     return switch (rng.nextInt(0, 2)) {
-      0 => _slope(tier, params.timeLimitSeconds, rng),
-      1 => _midpoint(tier, params.timeLimitSeconds, rng),
-      _ => _triangleArea(tier, params.timeLimitSeconds, rng),
+      0 => _slope(tier, params.timeLimitSeconds, rng, language),
+      1 => _midpoint(tier, params.timeLimitSeconds, rng, language),
+      _ => _triangleArea(tier, params.timeLimitSeconds, rng, language),
     };
   }
 
-  static Puzzle _slope(int tier, int timeLimitSeconds, RngService rng) {
+  static Puzzle _slope(
+    int tier,
+    int timeLimitSeconds,
+    RngService rng,
+    AppLanguage language,
+  ) {
     final range = _rangeForTier(tier);
     final x1 = rng.nextInt(-range, range);
     final y1 = rng.nextInt(-range, range);
@@ -33,8 +43,11 @@ abstract final class CoordinateGeometryGenerator {
       id: deterministicId(rng),
       category: PuzzleCategory.mathTest,
       type: PuzzleType.coordinateGeometry,
-      questionText: 'Find the slope of the line through ($x1, $y1) and '
-          '($x2, $y2).',
+      questionText: language == AppLanguage.english
+          ? 'Find the slope of the line through ($x1, $y1) and '
+              '($x2, $y2).'
+          : '($x1, $y1) और ($x2, $y2) से गुजरने वाली रेखा की प्रवणता '
+              'ज्ञात करें।',
       options: buildNumericMcOptions(m + 20, rng, spread: 4)
           .map((s) => (int.parse(s) - 20).toString())
           .toList(),
@@ -45,7 +58,12 @@ abstract final class CoordinateGeometryGenerator {
     );
   }
 
-  static Puzzle _midpoint(int tier, int timeLimitSeconds, RngService rng) {
+  static Puzzle _midpoint(
+    int tier,
+    int timeLimitSeconds,
+    RngService rng,
+    AppLanguage language,
+  ) {
     final range = _rangeForTier(tier);
     final x1 = rng.nextInt(-range, range);
     final y1 = rng.nextInt(-range, range);
@@ -59,8 +77,11 @@ abstract final class CoordinateGeometryGenerator {
       id: deterministicId(rng),
       category: PuzzleCategory.mathTest,
       type: PuzzleType.coordinateGeometry,
-      questionText: 'Find the ${wantsX ? 'x' : 'y'}-coordinate of the '
-          'midpoint of ($x1, $y1) and ($x2, $y2).',
+      questionText: language == AppLanguage.english
+          ? 'Find the ${wantsX ? 'x' : 'y'}-coordinate of the '
+              'midpoint of ($x1, $y1) and ($x2, $y2).'
+          : '($x1, $y1) और ($x2, $y2) के मध्यबिंदु का '
+              '${wantsX ? 'x' : 'y'}-निर्देशांक ज्ञात करें।',
       options: buildNumericMcOptions(answer + 100, rng, spread: 6)
           .map((s) => (int.parse(s) - 100).toString())
           .toList(),
@@ -72,7 +93,12 @@ abstract final class CoordinateGeometryGenerator {
     );
   }
 
-  static Puzzle _triangleArea(int tier, int timeLimitSeconds, RngService rng) {
+  static Puzzle _triangleArea(
+    int tier,
+    int timeLimitSeconds,
+    RngService rng,
+    AppLanguage language,
+  ) {
     final range = _rangeForTier(tier);
     int x1, y1, x2, y2, x3, y3, area2;
     do {
@@ -88,9 +114,13 @@ abstract final class CoordinateGeometryGenerator {
       id: deterministicId(rng),
       category: PuzzleCategory.mathTest,
       type: PuzzleType.coordinateGeometry,
-      questionText: 'Find twice the area of the triangle with vertices '
-          '($x1, $y1), ($x2, $y2), ($x3, $y3) — i.e. |x₁(y₂-y₃) + '
-          'x₂(y₃-y₁) + x₃(y₁-y₂)|.',
+      questionText: language == AppLanguage.english
+          ? 'Find twice the area of the triangle with vertices '
+              '($x1, $y1), ($x2, $y2), ($x3, $y3) — i.e. |x₁(y₂-y₃) + '
+              'x₂(y₃-y₁) + x₃(y₁-y₂)|.'
+          : '($x1, $y1), ($x2, $y2), ($x3, $y3) शीर्षों वाले त्रिभुज के '
+              'क्षेत्रफल का दोगुना ज्ञात करें — अर्थात् |x₁(y₂-y₃) + '
+              'x₂(y₃-y₁) + x₃(y₁-y₂)|।',
       // Asking for 2×area (not area itself) sidesteps the "area is a
       // half-integer" case entirely, while still exercising the exact
       // same formula and staying an exact int answer.
@@ -106,6 +136,7 @@ abstract final class CoordinateGeometryGenerator {
     int tier,
     int timeLimitSeconds,
     RngService rng,
+    AppLanguage language,
   ) {
     // Restricted to ±1..±4 so the perpendicular slope (-1/m) is always an
     // exact, cleanly-reduced fraction.
@@ -122,8 +153,11 @@ abstract final class CoordinateGeometryGenerator {
       id: deterministicId(rng),
       category: PuzzleCategory.mathTest,
       type: PuzzleType.coordinateGeometry,
-      questionText: 'A line has slope $m. What is the slope of a line '
-          'perpendicular to it?',
+      questionText: language == AppLanguage.english
+          ? 'A line has slope $m. What is the slope of a line '
+              'perpendicular to it?'
+          : 'एक रेखा की प्रवणता $m है। उसके लंबवत रेखा की प्रवणता क्या '
+              'होगी?',
       options: buildMcOptionsFromCandidates(correct, candidates.toList(), rng),
       correctAnswer: correct,
       difficultyTier: tier,

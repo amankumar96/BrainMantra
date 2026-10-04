@@ -1,3 +1,4 @@
+import '../models/app_language.dart';
 import '../models/puzzle.dart';
 import 'difficulty_curve.dart';
 import 'rng_service.dart';
@@ -8,9 +9,14 @@ import 'rng_utils.dart';
 /// trueFalse (ask whether a shown result is right), and missingNumber
 /// (ask for a blanked-out operand or result). Kept in one file since they
 /// all share [_buildEquation] below.
+///
+/// `questionText` for all three is pure symbolic notation ("7 × 8 = ?")
+/// with no English words at all, so it needs no translation and ignores
+/// the `language` param entirely — except trueFalse's `options`, the one
+/// genuinely English-word pair ("True"/"False") in this file.
 
 /// "7 × 8 = ?" — ask for the result of a freshly-built equation.
-Puzzle generateArithmetic(int tier, RngService rng) {
+Puzzle generateArithmetic(int tier, RngService rng, AppLanguage language) {
   final params = DifficultyCurve.paramsForTier(tier);
   final equation = _buildEquation(_pickOperator(params, rng), params, rng);
   return Puzzle(
@@ -32,7 +38,7 @@ Puzzle generateArithmetic(int tier, RngService rng) {
 /// "9 + 10 = 21" — ask whether a shown equation is true or false. Built by
 /// taking a genuinely true equation and, half the time, deliberately
 /// corrupting the shown result by a small nonzero amount.
-Puzzle generateTrueFalse(int tier, RngService rng) {
+Puzzle generateTrueFalse(int tier, RngService rng, AppLanguage language) {
   final params = DifficultyCurve.paramsForTier(tier);
   final equation = _buildEquation(_pickOperator(params, rng), params, rng);
 
@@ -52,6 +58,12 @@ Puzzle generateTrueFalse(int tier, RngService rng) {
     type: PuzzleType.trueFalse,
     questionText:
         '${equation.a} ${equation.symbol} ${equation.b} = $shownResult',
+    // Deliberately always English, even in Hindi mode: correctAnswer is
+    // a bool whose `.toString()` is always "true"/"false", and
+    // game_controller.dart compares the selected option against that
+    // string case-insensitively — translating these two words would
+    // silently break scoring for this entire question type, since
+    // "सही"/"गलत" would never match "true"/"false". Not worth touching.
     options: const ['True', 'False'],
     correctAnswer: showTrue,
     difficultyTier: tier,
@@ -63,7 +75,7 @@ Puzzle generateTrueFalse(int tier, RngService rng) {
 /// result) of a freshly-built equation. No algebra needed to find the
 /// answer: the blanked value is already known, since it's the same value
 /// used to construct the equation in the first place.
-Puzzle generateMissingNumber(int tier, RngService rng) {
+Puzzle generateMissingNumber(int tier, RngService rng, AppLanguage language) {
   final params = DifficultyCurve.paramsForTier(tier);
   final equation = _buildEquation(_pickOperator(params, rng), params, rng);
 

@@ -1,12 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'services/ads_service.dart';
 import 'services/auth_service.dart';
+import 'services/language_controller.dart';
 import 'services/notification_service.dart';
 import 'services/supabase_config.dart';
 import 'utils/constants.dart';
@@ -25,18 +27,24 @@ Future<void> main() async {
   // comment) — an ad SDK issue must never block the app from starting.
   await AdsService.instance.initialize();
   await NotificationService.initialize();
-  runApp(const BrainMantraApp());
+  final languageController = await LanguageController.load();
+  runApp(BrainMantraApp(languageController: languageController));
 }
 
 class BrainMantraApp extends StatelessWidget {
-  const BrainMantraApp({super.key});
+  const BrainMantraApp({super.key, required this.languageController});
+
+  final LanguageController languageController;
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Brain Mantra',
-      theme: _buildTheme(),
-      home: const _AuthGate(),
+    return ChangeNotifierProvider<LanguageController>.value(
+      value: languageController,
+      child: MaterialApp(
+        title: 'Brain Mantra',
+        theme: _buildTheme(),
+        home: const _AuthGate(),
+      ),
     );
   }
 

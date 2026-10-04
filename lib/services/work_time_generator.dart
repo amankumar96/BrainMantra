@@ -1,3 +1,4 @@
+import '../models/app_language.dart';
 import '../models/puzzle.dart';
 import 'difficulty_curve.dart';
 import 'rng_service.dart';
@@ -22,23 +23,36 @@ abstract final class WorkTimeGenerator {
     (4, 12, 6), (6, 12, 12), (5, 10, 10), (2, 3, 6), (4, 20, 5),
   ];
 
-  static Puzzle generate({required int tier, required RngService rng}) {
+  static Puzzle generate({
+    required int tier,
+    required RngService rng,
+    required AppLanguage language,
+  }) {
     final params = DifficultyCurve.paramsForTier(tier);
     return rng.nextBool()
-        ? _combinedWork(tier, params.timeLimitSeconds, rng)
-        : _pipeCistern(tier, params.timeLimitSeconds, rng);
+        ? _combinedWork(tier, params.timeLimitSeconds, rng, language)
+        : _pipeCistern(tier, params.timeLimitSeconds, rng, language);
   }
 
-  static Puzzle _combinedWork(int tier, int timeLimitSeconds, RngService rng) {
+  static Puzzle _combinedWork(
+    int tier,
+    int timeLimitSeconds,
+    RngService rng,
+    AppLanguage language,
+  ) {
     final pool = _poolForTier(tier, _combinedWorkPairs);
     final (a, b, combined) = pool[rng.nextInt(0, pool.length - 1)];
     return Puzzle(
       id: deterministicId(rng),
       category: PuzzleCategory.mathTest,
       type: PuzzleType.workTime,
-      questionText: 'A can finish a job in $a days, B can finish the same '
-          'job in $b days. Working together, how many days will they '
-          'take?',
+      questionText: language == AppLanguage.english
+          ? 'A can finish a job in $a days, B can finish the same '
+              'job in $b days. Working together, how many days will they '
+              'take?'
+          : 'A एक काम को $a दिनों में पूरा कर सकता है, B वही काम $b दिनों '
+              'में पूरा कर सकता है। दोनों मिलकर काम करें तो उन्हें कितने '
+              'दिन लगेंगे?',
       options: buildNumericMcOptions(combined, rng, spread: 3),
       correctAnswer: combined,
       difficultyTier: tier,
@@ -47,16 +61,25 @@ abstract final class WorkTimeGenerator {
     );
   }
 
-  static Puzzle _pipeCistern(int tier, int timeLimitSeconds, RngService rng) {
+  static Puzzle _pipeCistern(
+    int tier,
+    int timeLimitSeconds,
+    RngService rng,
+    AppLanguage language,
+  ) {
     final pool = _poolForTier(tier, _pipeCisternPairs);
     final (fill, empty, net) = pool[rng.nextInt(0, pool.length - 1)];
     return Puzzle(
       id: deterministicId(rng),
       category: PuzzleCategory.mathTest,
       type: PuzzleType.workTime,
-      questionText: 'Pipe A fills a tank in $fill hours. Pipe B empties '
-          'the same tank in $empty hours. If both are open together, how '
-          'many hours to fill the tank?',
+      questionText: language == AppLanguage.english
+          ? 'Pipe A fills a tank in $fill hours. Pipe B empties '
+              'the same tank in $empty hours. If both are open together, '
+              'how many hours to fill the tank?'
+          : 'पाइप A एक टंकी को $fill घंटों में भर देता है। पाइप B उसी '
+              'टंकी को $empty घंटों में खाली कर देता है। यदि दोनों एक साथ '
+              'खुले हों, तो टंकी भरने में कितने घंटे लगेंगे?',
       options: buildNumericMcOptions(net, rng, spread: 3),
       correctAnswer: net,
       difficultyTier: tier,

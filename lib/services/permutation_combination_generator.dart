@@ -1,3 +1,4 @@
+import '../models/app_language.dart';
 import '../models/puzzle.dart';
 import 'difficulty_curve.dart';
 import 'rng_service.dart';
@@ -6,7 +7,11 @@ import 'rng_utils.dart';
 /// Permutation & Combination (Phase 11B, topic 12): ⁿPᵣ and ⁿCᵣ for small
 /// n (kept <= 10, so n! never risks overflow and results stay readable).
 abstract final class PermutationCombinationGenerator {
-  static Puzzle generate({required int tier, required RngService rng}) {
+  static Puzzle generate({
+    required int tier,
+    required RngService rng,
+    required AppLanguage language,
+  }) {
     final params = DifficultyCurve.paramsForTier(tier);
     final maxN = _maxNForTier(tier);
     final n = rng.nextInt(3, maxN);
@@ -17,11 +22,21 @@ abstract final class PermutationCombinationGenerator {
       id: deterministicId(rng),
       category: PuzzleCategory.mathTest,
       type: PuzzleType.permutationCombination,
-      questionText: wantsPermutation
-          ? 'In how many ways can you arrange $r items chosen from $n '
-              'distinct items (order matters)? Find ⁿPᵣ for n=$n, r=$r.'
-          : 'In how many ways can you choose $r items from $n distinct '
-              'items (order does not matter)? Find ⁿCᵣ for n=$n, r=$r.',
+      questionText: language == AppLanguage.english
+          ? (wantsPermutation
+              ? 'In how many ways can you arrange $r items chosen from '
+                  '$n distinct items (order matters)? Find ⁿPᵣ for n=$n, '
+                  'r=$r.'
+              : 'In how many ways can you choose $r items from $n '
+                  'distinct items (order does not matter)? Find ⁿCᵣ for '
+                  'n=$n, r=$r.')
+          : (wantsPermutation
+              ? '$n अलग-अलग वस्तुओं में से $r वस्तुएं कितने तरीकों से '
+                  'व्यवस्थित की जा सकती हैं (क्रम का महत्व है)? n=$n, '
+                  'r=$r के लिए ⁿPᵣ ज्ञात करें।'
+              : '$n अलग-अलग वस्तुओं में से $r वस्तुएं कितने तरीकों से '
+                  'चुनी जा सकती हैं (क्रम का महत्व नहीं है)? n=$n, r=$r '
+                  'के लिए ⁿCᵣ ज्ञात करें।'),
       options: buildNumericMcOptions(answer, rng, spread: _spreadFor(answer)),
       correctAnswer: answer,
       difficultyTier: tier,

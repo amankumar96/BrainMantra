@@ -1,3 +1,4 @@
+import '../models/app_language.dart';
 import '../models/puzzle.dart';
 import 'difficulty_curve.dart';
 import 'rng_service.dart';
@@ -9,7 +10,11 @@ import 'rng_utils.dart';
 /// independently), so the ratio always reduces to a clean, positive
 /// fraction.
 abstract final class MixtureAlligationGenerator {
-  static Puzzle generate({required int tier, required RngService rng}) {
+  static Puzzle generate({
+    required int tier,
+    required RngService rng,
+    required AppLanguage language,
+  }) {
     final params = DifficultyCurve.paramsForTier(tier);
     final range = _rangeForTier(tier);
     final cheap = rng.nextInt(range.min, range.max);
@@ -33,10 +38,15 @@ abstract final class MixtureAlligationGenerator {
       id: deterministicId(rng),
       category: PuzzleCategory.mathTest,
       type: PuzzleType.mixtureAlligation,
-      questionText: 'A shopkeeper mixes tea worth ₹$cheap/kg with tea '
-          'worth ₹$dear/kg to get a mixture worth ₹$mean/kg. Find the '
-          'ratio (cheaper : dearer) in which they should be mixed, in '
-          'simplest form.',
+      questionText: language == AppLanguage.english
+          ? 'A shopkeeper mixes tea worth ₹$cheap/kg with tea '
+              'worth ₹$dear/kg to get a mixture worth ₹$mean/kg. Find the '
+              'ratio (cheaper : dearer) in which they should be mixed, in '
+              'simplest form.'
+          : 'एक दुकानदार ₹$cheap/kg की चाय को ₹$dear/kg की चाय के साथ '
+              'मिलाकर ₹$mean/kg की चाय बनाता है। उन्हें किस अनुपात '
+              '(सस्ती : महंगी) में मिलाया जाना चाहिए, सरलतम रूप में '
+              'ज्ञात करें।',
       options: buildMcOptionsFromCandidates(correct, candidates.toList(), rng),
       correctAnswer: correct,
       difficultyTier: tier,

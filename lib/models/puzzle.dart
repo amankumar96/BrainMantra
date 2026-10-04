@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
+import 'app_language.dart';
 import 'diagram_data.dart';
 
 /// Top-level test category. Kept separate from [PuzzleType] so stats,
@@ -81,52 +82,69 @@ const _uuid = Uuid();
 /// cosmetic (never affects generation/scoring); every case is a plain,
 /// player-facing label for what the enum's own doc-comment groupings
 /// above already say each type covers.
-String topicLabel(PuzzleType type) => switch (type) {
-  PuzzleType.arithmetic => 'Arithmetic',
-  PuzzleType.trueFalse => 'True or False',
-  PuzzleType.missingNumber => 'Missing Number',
-  PuzzleType.oddOneOut => 'Odd One Out',
-  PuzzleType.sequence => 'Number Sequence',
-  PuzzleType.targetNumber => 'Target Number',
-  PuzzleType.bodmas => 'BODMAS',
-  PuzzleType.speedDistance => 'Speed & Distance',
-  PuzzleType.profitLoss => 'Profit & Loss',
-  PuzzleType.interest => 'Interest',
-  PuzzleType.perimeter => 'Perimeter',
-  PuzzleType.probability => 'Probability',
-  PuzzleType.ratio => 'Ratio',
-  PuzzleType.angleFinding => 'Angle Finding',
-  PuzzleType.areaVolume => 'Area & Volume',
-  PuzzleType.coordinateDistance => 'Coordinate Distance',
-  PuzzleType.graphReading => 'Graph Reading',
-  PuzzleType.numberClassification => 'Number Classification',
-  PuzzleType.surds => 'Surds',
-  PuzzleType.algebraicIdentity => 'Algebraic Identity',
-  PuzzleType.linearEquation => 'Linear Equation',
-  PuzzleType.quadraticEquation => 'Quadratic Equation',
-  PuzzleType.progression => 'Progression',
-  PuzzleType.trigRatio => 'Trigonometry',
-  PuzzleType.mensurationAdvanced => 'Mensuration',
-  PuzzleType.coordinateGeometry => 'Coordinate Geometry',
-  PuzzleType.logarithm => 'Logarithm',
-  PuzzleType.permutationCombination => 'Permutation & Combination',
-  PuzzleType.statistics => 'Statistics',
-  PuzzleType.unitConversion => 'Unit Conversion',
-  PuzzleType.workTime => 'Work & Time',
-  PuzzleType.mixtureAlligation => 'Mixture & Alligation',
-  PuzzleType.familyTree => 'Family Tree',
-  PuzzleType.shapeIdentification => 'Shape Identification',
-  PuzzleType.mirrorImage => 'Mirror & Water Image',
-  PuzzleType.paperFolding => 'Paper Folding',
-  PuzzleType.figureSeries => 'Figure Series',
-  PuzzleType.seatingArrangement => 'Seating Arrangement',
-  PuzzleType.coding => 'Coding-Decoding',
-  PuzzleType.directionSense => 'Direction Sense',
-  PuzzleType.wordPuzzle => 'Word Puzzle',
-  PuzzleType.analogy => 'Analogy',
-  PuzzleType.ranking => 'Ranking',
-  PuzzleType.statementConclusion => 'Statement & Conclusion',
-};
+///
+/// [language] defaults to English — reasoning-category labels stay
+/// English regardless of [language] (reasoning questions themselves
+/// stay English-only in both modes for now; see the feature plan), only
+/// the math-category labels actually branch.
+String topicLabel(PuzzleType type, [AppLanguage language = AppLanguage.english]) {
+  final isHindi = language == AppLanguage.hindi;
+  return switch (type) {
+    PuzzleType.arithmetic => isHindi ? 'अंकगणित' : 'Arithmetic',
+    PuzzleType.trueFalse => isHindi ? 'सही या गलत' : 'True or False',
+    PuzzleType.missingNumber => isHindi ? 'लुप्त संख्या' : 'Missing Number',
+    PuzzleType.oddOneOut => isHindi ? 'विषम चुनें' : 'Odd One Out',
+    PuzzleType.sequence => isHindi ? 'संख्या श्रृंखला' : 'Number Sequence',
+    PuzzleType.targetNumber => isHindi ? 'लक्ष्य संख्या' : 'Target Number',
+    PuzzleType.bodmas => 'BODMAS',
+    PuzzleType.speedDistance => isHindi ? 'चाल और दूरी' : 'Speed & Distance',
+    PuzzleType.profitLoss => isHindi ? 'लाभ और हानि' : 'Profit & Loss',
+    PuzzleType.interest => isHindi ? 'ब्याज' : 'Interest',
+    PuzzleType.perimeter => isHindi ? 'परिमाप' : 'Perimeter',
+    PuzzleType.probability => isHindi ? 'प्रायिकता' : 'Probability',
+    PuzzleType.ratio => isHindi ? 'अनुपात' : 'Ratio',
+    PuzzleType.angleFinding => isHindi ? 'कोण ज्ञात करें' : 'Angle Finding',
+    PuzzleType.areaVolume => isHindi ? 'क्षेत्रफल और आयतन' : 'Area & Volume',
+    PuzzleType.coordinateDistance =>
+      isHindi ? 'निर्देशांक दूरी' : 'Coordinate Distance',
+    PuzzleType.graphReading => isHindi ? 'ग्राफ पढ़ना' : 'Graph Reading',
+    PuzzleType.numberClassification =>
+      isHindi ? 'संख्या वर्गीकरण' : 'Number Classification',
+    PuzzleType.surds => isHindi ? 'करणी' : 'Surds',
+    PuzzleType.algebraicIdentity =>
+      isHindi ? 'बीजीय सर्वसमिका' : 'Algebraic Identity',
+    PuzzleType.linearEquation =>
+      isHindi ? 'रैखिक समीकरण' : 'Linear Equation',
+    PuzzleType.quadraticEquation =>
+      isHindi ? 'द्विघात समीकरण' : 'Quadratic Equation',
+    PuzzleType.progression => isHindi ? 'श्रेणी' : 'Progression',
+    PuzzleType.trigRatio => isHindi ? 'त्रिकोणमिति' : 'Trigonometry',
+    PuzzleType.mensurationAdvanced => isHindi ? 'क्षेत्रमिति' : 'Mensuration',
+    PuzzleType.coordinateGeometry =>
+      isHindi ? 'निर्देशांक ज्यामिति' : 'Coordinate Geometry',
+    PuzzleType.logarithm => isHindi ? 'लघुगणक' : 'Logarithm',
+    PuzzleType.permutationCombination =>
+      isHindi ? 'क्रमचय और संचय' : 'Permutation & Combination',
+    PuzzleType.statistics => isHindi ? 'सांख्यिकी' : 'Statistics',
+    PuzzleType.unitConversion => isHindi ? 'इकाई रूपांतरण' : 'Unit Conversion',
+    PuzzleType.workTime => isHindi ? 'कार्य और समय' : 'Work & Time',
+    PuzzleType.mixtureAlligation =>
+      isHindi ? 'मिश्रण और मिश्रण-नियम' : 'Mixture & Alligation',
+    // Reasoning labels stay English in both modes (see doc comment above).
+    PuzzleType.familyTree => 'Family Tree',
+    PuzzleType.shapeIdentification => 'Shape Identification',
+    PuzzleType.mirrorImage => 'Mirror & Water Image',
+    PuzzleType.paperFolding => 'Paper Folding',
+    PuzzleType.figureSeries => 'Figure Series',
+    PuzzleType.seatingArrangement => 'Seating Arrangement',
+    PuzzleType.coding => 'Coding-Decoding',
+    PuzzleType.directionSense => 'Direction Sense',
+    PuzzleType.wordPuzzle => 'Word Puzzle',
+    PuzzleType.analogy => 'Analogy',
+    PuzzleType.ranking => 'Ranking',
+    PuzzleType.statementConclusion => 'Statement & Conclusion',
+  };
+}
 
 /// A single question. Generic enough to represent both a math-test question
 /// (e.g. "7 × 8 = ?") and a reasoning-test question (e.g. a family-tree

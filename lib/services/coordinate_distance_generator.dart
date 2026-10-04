@@ -1,3 +1,4 @@
+import '../models/app_language.dart';
 import '../models/diagram_data.dart';
 import '../models/puzzle.dart';
 import 'difficulty_curve.dart';
@@ -11,7 +12,11 @@ import 'rng_utils.dart';
 /// table itself is the self-validation: `a² + b² = c²` holds by
 /// construction for every entry, never computed and hoped-for.
 abstract final class CoordinateDistanceGenerator {
-  static Puzzle generate({required int tier, required RngService rng}) {
+  static Puzzle generate({
+    required int tier,
+    required RngService rng,
+    required AppLanguage language,
+  }) {
     final params = DifficultyCurve.paramsForTier(tier);
     final triples = _triplesForTier(tier);
     final triple = triples[rng.nextInt(0, triples.length - 1)];
@@ -26,8 +31,10 @@ abstract final class CoordinateDistanceGenerator {
       id: deterministicId(rng),
       category: PuzzleCategory.mathTest,
       type: PuzzleType.coordinateDistance,
-      questionText:
-          'A point is plotted at ($x, $y). Find its distance from the origin.',
+      questionText: language == AppLanguage.english
+          ? 'A point is plotted at ($x, $y). Find its distance from the '
+              'origin.'
+          : 'एक बिंदु ($x, $y) पर अंकित है। मूल बिंदु से इसकी दूरी ज्ञात करें।',
       options: buildNumericMcOptions(triple.c, rng, spread: 6),
       correctAnswer: triple.c,
       difficultyTier: tier,
@@ -37,7 +44,9 @@ abstract final class CoordinateDistanceGenerator {
         x: x.toDouble(),
         y: y.toDouble(),
       ),
-      hint: 'Pythagorean Theorem: a² + b² = c²',
+      hint: language == AppLanguage.english
+          ? 'Pythagorean Theorem: a² + b² = c²'
+          : 'पाइथागोरस प्रमेय: a² + b² = c²',
     );
   }
 

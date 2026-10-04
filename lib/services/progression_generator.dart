@@ -1,3 +1,4 @@
+import '../models/app_language.dart';
 import '../models/puzzle.dart';
 import 'difficulty_curve.dart';
 import 'rng_service.dart';
@@ -6,16 +7,25 @@ import 'rng_utils.dart';
 /// Progressions — AP & GP (Phase 11B, topic 6): nth term and sum for an
 /// arithmetic progression, nth term for a geometric one.
 abstract final class ProgressionGenerator {
-  static Puzzle generate({required int tier, required RngService rng}) {
+  static Puzzle generate({
+    required int tier,
+    required RngService rng,
+    required AppLanguage language,
+  }) {
     final params = DifficultyCurve.paramsForTier(tier);
     return switch (rng.nextInt(0, 2)) {
-      0 => _apNthTerm(tier, params.timeLimitSeconds, rng),
-      1 => _apSum(tier, params.timeLimitSeconds, rng),
-      _ => _gpNthTerm(tier, params.timeLimitSeconds, rng),
+      0 => _apNthTerm(tier, params.timeLimitSeconds, rng, language),
+      1 => _apSum(tier, params.timeLimitSeconds, rng, language),
+      _ => _gpNthTerm(tier, params.timeLimitSeconds, rng, language),
     };
   }
 
-  static Puzzle _apNthTerm(int tier, int timeLimitSeconds, RngService rng) {
+  static Puzzle _apNthTerm(
+    int tier,
+    int timeLimitSeconds,
+    RngService rng,
+    AppLanguage language,
+  ) {
     final range = _rangeForTier(tier);
     final a = rng.nextInt(1, range.maxStart);
     final d = rng.nextInt(1, range.maxStep);
@@ -25,8 +35,11 @@ abstract final class ProgressionGenerator {
       id: deterministicId(rng),
       category: PuzzleCategory.mathTest,
       type: PuzzleType.progression,
-      questionText: 'An AP starts at $a with common difference $d. '
-          'Find its ${n}th term.',
+      questionText: language == AppLanguage.english
+          ? 'An AP starts at $a with common difference $d. '
+              'Find its ${n}th term.'
+          : 'एक समान्तर श्रेणी (AP) $a से शुरू होती है जिसका सार्व अंतर '
+              '$d है। इसका $nवां पद ज्ञात करें।',
       options: buildNumericMcOptions(answer, rng, spread: _spreadFor(answer)),
       correctAnswer: answer,
       difficultyTier: tier,
@@ -35,7 +48,12 @@ abstract final class ProgressionGenerator {
     );
   }
 
-  static Puzzle _apSum(int tier, int timeLimitSeconds, RngService rng) {
+  static Puzzle _apSum(
+    int tier,
+    int timeLimitSeconds,
+    RngService rng,
+    AppLanguage language,
+  ) {
     final range = _rangeForTier(tier);
     final a = rng.nextInt(1, range.maxStart);
     final d = rng.nextInt(1, range.maxStep);
@@ -47,8 +65,11 @@ abstract final class ProgressionGenerator {
       id: deterministicId(rng),
       category: PuzzleCategory.mathTest,
       type: PuzzleType.progression,
-      questionText: 'An AP starts at $a with common difference $d. '
-          'Find the sum of its first $n terms.',
+      questionText: language == AppLanguage.english
+          ? 'An AP starts at $a with common difference $d. '
+              'Find the sum of its first $n terms.'
+          : 'एक समान्तर श्रेणी (AP) $a से शुरू होती है जिसका सार्व अंतर '
+              '$d है। इसके पहले $n पदों का योग ज्ञात करें।',
       options: buildNumericMcOptions(answer, rng, spread: _spreadFor(answer)),
       correctAnswer: answer,
       difficultyTier: tier,
@@ -57,7 +78,12 @@ abstract final class ProgressionGenerator {
     );
   }
 
-  static Puzzle _gpNthTerm(int tier, int timeLimitSeconds, RngService rng) {
+  static Puzzle _gpNthTerm(
+    int tier,
+    int timeLimitSeconds,
+    RngService rng,
+    AppLanguage language,
+  ) {
     final a = rng.nextInt(1, tier <= 2 ? 5 : 8);
     final r = rng.nextInt(2, tier <= 2 ? 3 : 4);
     final n = rng.nextInt(3, tier <= 2 ? 4 : 5); // kept small: rⁿ⁻¹ grows fast
@@ -69,8 +95,11 @@ abstract final class ProgressionGenerator {
       id: deterministicId(rng),
       category: PuzzleCategory.mathTest,
       type: PuzzleType.progression,
-      questionText: 'A GP starts at $a with common ratio $r. '
-          'Find its ${n}th term.',
+      questionText: language == AppLanguage.english
+          ? 'A GP starts at $a with common ratio $r. '
+              'Find its ${n}th term.'
+          : 'एक गुणोत्तर श्रेणी (GP) $a से शुरू होती है जिसका सार्व अनुपात '
+              '$r है। इसका $nवां पद ज्ञात करें।',
       options: buildNumericMcOptions(answer, rng, spread: _spreadFor(answer)),
       correctAnswer: answer,
       difficultyTier: tier,

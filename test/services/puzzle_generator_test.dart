@@ -1,6 +1,7 @@
 import 'dart:math' show pow, sqrt;
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:brain_mantra/models/app_language.dart';
 import 'package:brain_mantra/models/diagram_data.dart';
 import 'package:brain_mantra/models/puzzle.dart';
 import 'package:brain_mantra/services/expression_evaluator.dart';
@@ -1250,6 +1251,7 @@ void main() {
             tier: tier,
             type: type,
             rng: RngService.free(),
+            language: AppLanguage.english,
           );
 
           expect(puzzle.difficultyTier, equals(tier));
@@ -1333,11 +1335,13 @@ void main() {
           tier: 2,
           type: type,
           rng: RngService.seeded('puzzle-determinism-$type'),
+          language: AppLanguage.english,
         );
         final b = PuzzleGenerator.generate(
           tier: 2,
           type: type,
           rng: RngService.seeded('puzzle-determinism-$type'),
+          language: AppLanguage.english,
         );
         expect(a, equals(b));
       });
@@ -1413,6 +1417,7 @@ void main() {
             tier: 3,
             type: type,
             rng: rng,
+            language: AppLanguage.english,
           ).questionText,
         );
         expect(texts.toSet().length, equals(texts.length));

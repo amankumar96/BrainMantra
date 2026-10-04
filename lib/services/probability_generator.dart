@@ -1,3 +1,4 @@
+import '../models/app_language.dart';
 import '../models/puzzle.dart';
 import 'difficulty_curve.dart';
 import 'rng_service.dart';
@@ -11,32 +12,50 @@ import 'rng_utils.dart';
 /// taught at this level, and reducing via [gcd] keeps a single answer
 /// exact instead of rounded.
 abstract final class ProbabilityGenerator {
-  static Puzzle generate({required int tier, required RngService rng}) {
+  static Puzzle generate({
+    required int tier,
+    required RngService rng,
+    required AppLanguage language,
+  }) {
     final params = DifficultyCurve.paramsForTier(tier);
 
     return switch (rng.nextInt(0, 2)) {
-      0 => _die(tier, params.timeLimitSeconds, rng),
-      1 => _bagOfBalls(tier, params.timeLimitSeconds, rng),
-      _ => _deckOfCards(tier, params.timeLimitSeconds, rng),
+      0 => _die(tier, params.timeLimitSeconds, rng, language),
+      1 => _bagOfBalls(tier, params.timeLimitSeconds, rng, language),
+      _ => _deckOfCards(tier, params.timeLimitSeconds, rng, language),
     };
   }
 
-  static Puzzle _die(int tier, int timeLimitSeconds, RngService rng) {
+  static Puzzle _die(
+    int tier,
+    int timeLimitSeconds,
+    RngService rng,
+    AppLanguage language,
+  ) {
     // "greater than N" for N in 1-5, out of the 6 faces of a fair die.
     final threshold = rng.nextInt(1, 5);
     final favourable = 6 - threshold; // faces strictly greater than threshold
     return _build(
       tier: tier,
       timeLimitSeconds: timeLimitSeconds,
-      questionText: 'You roll a fair six-sided die once. What is the '
-          'probability of rolling a number greater than $threshold?',
+      questionText: language == AppLanguage.english
+          ? 'You roll a fair six-sided die once. What is the '
+              'probability of rolling a number greater than $threshold?'
+          : 'आप एक सही (fair) छह-फलकों वाला पासा एक बार फेंकते हैं। '
+              '$threshold से बड़ी संख्या आने की प्रायिकता क्या है?',
       favourable: favourable,
       total: 6,
       rng: rng,
+      language: language,
     );
   }
 
-  static Puzzle _bagOfBalls(int tier, int timeLimitSeconds, RngService rng) {
+  static Puzzle _bagOfBalls(
+    int tier,
+    int timeLimitSeconds,
+    RngService rng,
+    AppLanguage language,
+  ) {
     final red = rng.nextInt(1, 6);
     final blue = rng.nextInt(1, 6);
     final green = rng.nextInt(1, 6);
@@ -44,29 +63,47 @@ abstract final class ProbabilityGenerator {
     return _build(
       tier: tier,
       timeLimitSeconds: timeLimitSeconds,
-      questionText: 'A bag contains $red red, $blue blue and $green green '
-          'balls. If you pick one ball at random, what is the probability '
-          "it's red?",
+      questionText: language == AppLanguage.english
+          ? 'A bag contains $red red, $blue blue and $green green '
+              'balls. If you pick one ball at random, what is the probability '
+              "it's red?"
+          : 'एक बैग में $red लाल, $blue नीली और $green हरी गेंदें हैं। '
+              'यदि आप बेतरतीब ढंग से एक गेंद निकालते हैं, तो उसके लाल होने '
+              'की प्रायिकता क्या है?',
       favourable: red,
       total: total,
       rng: rng,
+      language: language,
     );
   }
 
-  static Puzzle _deckOfCards(int tier, int timeLimitSeconds, RngService rng) {
+  static Puzzle _deckOfCards(
+    int tier,
+    int timeLimitSeconds,
+    RngService rng,
+    AppLanguage language,
+  ) {
     // A standard 52-card deck: 4 suits of 13, or 12 face cards (jack,
     // queen, king x4 suits) — both real, commonly-taught scenarios.
     final wantsSuit = rng.nextBool();
     final favourable = wantsSuit ? 13 : 12;
-    final label = wantsSuit ? 'a heart' : 'a face card (jack, queen, or king)';
+    final labelEnglish =
+        wantsSuit ? 'a heart' : 'a face card (jack, queen, or king)';
+    final labelHindi = wantsSuit
+        ? 'हार्ट (heart)'
+        : 'फेस कार्ड (जैक, क्वीन, या किंग)';
     return _build(
       tier: tier,
       timeLimitSeconds: timeLimitSeconds,
-      questionText: 'A standard deck of 52 playing cards is shuffled. What '
-          'is the probability of drawing $label?',
+      questionText: language == AppLanguage.english
+          ? 'A standard deck of 52 playing cards is shuffled. What '
+              'is the probability of drawing $labelEnglish?'
+          : '52 खेल कार्डों (playing cards) के एक डेक को फेंटा (shuffle) '
+              'गया है। $labelHindi निकलने की प्रायिकता क्या है?',
       favourable: favourable,
       total: 52,
       rng: rng,
+      language: language,
     );
   }
 
@@ -77,6 +114,7 @@ abstract final class ProbabilityGenerator {
     required int favourable,
     required int total,
     required RngService rng,
+    required AppLanguage language,
   }) {
     final correct = _reduce(favourable, total);
     return Puzzle(
@@ -88,7 +126,9 @@ abstract final class ProbabilityGenerator {
       correctAnswer: correct,
       difficultyTier: tier,
       timeLimitSeconds: timeLimitSeconds,
-      hint: 'Probability = favourable outcomes ÷ total outcomes',
+      hint: language == AppLanguage.english
+          ? 'Probability = favourable outcomes ÷ total outcomes'
+          : 'प्रायिकता = अनुकूल परिणाम ÷ कुल परिणाम',
     );
   }
 

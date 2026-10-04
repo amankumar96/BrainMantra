@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 import 'package:brain_mantra/models/age_group.dart';
+import 'package:brain_mantra/models/app_language.dart';
 import 'package:brain_mantra/models/game_session.dart';
 import 'package:brain_mantra/models/puzzle.dart';
 import 'package:brain_mantra/models/test_session.dart';
 import 'package:brain_mantra/screens/results_screen.dart';
+import 'package:brain_mantra/services/language_controller.dart';
 
 Puzzle _puzzle(int seed) => Puzzle(
       category: PuzzleCategory.mathTest,
@@ -41,7 +44,10 @@ TestSession _buildSession(
   return TestSession(session: session, outcomes: outcomes, marksAwarded: marks);
 }
 
-Widget _wrap(Widget child) => MaterialApp(home: child);
+Widget _wrap(Widget child) => ChangeNotifierProvider<LanguageController>(
+      create: (_) => LanguageController(AppLanguage.english),
+      child: MaterialApp(home: child),
+    );
 
 void main() {
   testWidgets(

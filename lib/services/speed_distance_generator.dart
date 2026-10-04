@@ -1,3 +1,4 @@
+import '../models/app_language.dart';
 import '../models/puzzle.dart';
 import 'difficulty_curve.dart';
 import 'rng_service.dart';
@@ -8,7 +9,11 @@ import 'rng_utils.dart';
 /// direction subtracts, opposite adds — the answer is always derived from
 /// that rule, never a separately-typed value.
 abstract final class SpeedDistanceGenerator {
-  static Puzzle generate({required int tier, required RngService rng}) {
+  static Puzzle generate({
+    required int tier,
+    required RngService rng,
+    required AppLanguage language,
+  }) {
     final params = DifficultyCurve.paramsForTier(tier);
     final range = _speedRangeForTier(tier);
 
@@ -31,14 +36,21 @@ abstract final class SpeedDistanceGenerator {
       id: deterministicId(rng),
       category: PuzzleCategory.mathTest,
       type: PuzzleType.speedDistance,
-      questionText: 'Train A runs at $speedA km/h, Train B at $speedB km/h, '
-          '${sameDirection ? 'in the same direction' : 'in opposite directions'}. '
-          "Find their relative speed.",
+      questionText: language == AppLanguage.english
+          ? 'Train A runs at $speedA km/h, Train B at $speedB km/h, '
+              '${sameDirection ? 'in the same direction' : 'in opposite directions'}. '
+              'Find their relative speed.'
+          : 'ट्रेन A की गति $speedA किमी/घंटा है, ट्रेन B की गति $speedB '
+              'किमी/घंटा है, और वे '
+              '${sameDirection ? 'एक ही दिशा में' : 'विपरीत दिशाओं में'} '
+              'चल रही हैं। उनकी सापेक्ष गति ज्ञात करें।',
       options: buildNumericMcOptions(relativeSpeed, rng, spread: 15),
       correctAnswer: relativeSpeed,
       difficultyTier: tier,
       timeLimitSeconds: params.timeLimitSeconds,
-      hint: 'Same direction: subtract speeds. Opposite: add speeds.',
+      hint: language == AppLanguage.english
+          ? 'Same direction: subtract speeds. Opposite: add speeds.'
+          : 'एक ही दिशा: गति घटाएं। विपरीत दिशा: गति जोड़ें।',
     );
   }
 

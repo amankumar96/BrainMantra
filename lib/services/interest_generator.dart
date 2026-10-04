@@ -1,5 +1,6 @@
 import 'dart:math' show pow;
 
+import '../models/app_language.dart';
 import '../models/puzzle.dart';
 import 'difficulty_curve.dart';
 import 'rng_service.dart';
@@ -12,7 +13,11 @@ import 'rng_utils.dart';
 /// numeric answers (`Puzzle.correctAnswer` is always `int`, matching every
 /// other math generator).
 abstract final class InterestGenerator {
-  static Puzzle generate({required int tier, required RngService rng}) {
+  static Puzzle generate({
+    required int tier,
+    required RngService rng,
+    required AppLanguage language,
+  }) {
     final params = DifficultyCurve.paramsForTier(tier);
     final ranges = _rangesForTier(tier);
 
@@ -27,14 +32,25 @@ abstract final class InterestGenerator {
     if (wantsCompound) {
       final amount = principal * pow(1 + rate / 100, years);
       correctAnswer = (amount - principal).round();
-      questionText = 'Find the compound interest on ₹$principal at $rate% '
-          'for $years year${years == 1 ? '' : 's'}, compounded annually.';
-      hintText = 'CI = P(1 + r/100)ᵗ − P';
+      questionText = language == AppLanguage.english
+          ? 'Find the compound interest on ₹$principal at $rate% '
+              'for $years year${years == 1 ? '' : 's'}, compounded annually.'
+          : '₹$principal पर $rate% की दर से $years '
+              '${years == 1 ? 'साल' : 'साल'} के लिए चक्रवृद्धि ब्याज '
+              '(वार्षिक रूप से संयोजित) ज्ञात करें।';
+      hintText = language == AppLanguage.english
+          ? 'CI = P(1 + r/100)ᵗ − P'
+          : 'चक्रवृद्धि ब्याज = P(1 + r/100)ᵗ − P';
     } else {
       correctAnswer = (principal ~/ 100) * rate * years;
-      questionText = 'Find the simple interest on ₹$principal at $rate% '
-          'for $years year${years == 1 ? '' : 's'}.';
-      hintText = 'SI = PRT/100';
+      questionText = language == AppLanguage.english
+          ? 'Find the simple interest on ₹$principal at $rate% '
+              'for $years year${years == 1 ? '' : 's'}.'
+          : '₹$principal पर $rate% की दर से $years '
+              '${years == 1 ? 'साल' : 'साल'} के लिए साधारण ब्याज ज्ञात करें।';
+      hintText = language == AppLanguage.english
+          ? 'SI = PRT/100'
+          : 'साधारण ब्याज = PRT/100';
     }
 
     return Puzzle(

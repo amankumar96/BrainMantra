@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:brain_mantra/models/app_language.dart';
 import 'package:brain_mantra/services/coordinate_distance_generator.dart';
 import 'package:brain_mantra/services/rng_service.dart';
 
@@ -14,7 +15,7 @@ void main() {
       final rng = RngService.seeded('coordinate-distance-variety');
       final texts = {
         for (var i = 0; i < 30; i++)
-          CoordinateDistanceGenerator.generate(tier: 3, rng: rng).questionText,
+          CoordinateDistanceGenerator.generate(tier: 3, rng: rng, language: AppLanguage.english).questionText,
       };
       expect(texts.length, greaterThan(1));
     });
@@ -25,7 +26,7 @@ void main() {
       final rng = RngService.seeded('coordinate-distance-low-tier');
       const allowedAnswers = {5, 10, 13};
       for (var i = 0; i < 100; i++) {
-        final puzzle = CoordinateDistanceGenerator.generate(tier: 1, rng: rng);
+        final puzzle = CoordinateDistanceGenerator.generate(tier: 1, rng: rng, language: AppLanguage.english);
         expect(allowedAnswers, contains(puzzle.correctAnswer));
       }
     });
@@ -34,7 +35,7 @@ void main() {
       final rng = RngService.seeded('coordinate-distance-high-tier');
       const allowedAnswers = {17, 25, 15, 29, 20};
       for (var i = 0; i < 100; i++) {
-        final puzzle = CoordinateDistanceGenerator.generate(tier: 4, rng: rng);
+        final puzzle = CoordinateDistanceGenerator.generate(tier: 4, rng: rng, language: AppLanguage.english);
         expect(allowedAnswers, contains(puzzle.correctAnswer));
       }
     });

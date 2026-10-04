@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../models/age_group.dart';
+import '../models/app_language.dart';
 import '../models/game_session.dart';
 import '../models/puzzle.dart';
 import '../models/test_session.dart';
@@ -26,6 +27,7 @@ class GameController extends ChangeNotifier {
     required this.isDailyChallenge,
     int startingScore = 0, // Play resumes from the player's last-saved score; Daily Challenge always starts at 0
     this.ageGroupTest,
+    this.language = AppLanguage.english,
     RngService? rng,
   })  : // An Age-Group Test always overrides to the fixed 30-question,
         // from-zero shape regardless of what the caller passed — matches
@@ -56,6 +58,12 @@ class GameController extends ChangeNotifier {
   /// from a maths-only pool scoped by [AgeGroup.mathPool]. Null for
   /// ordinary Play/Daily Challenge.
   final AgeGroup? ageGroupTest;
+
+  /// Fixed for this session's whole lifetime (like [ageGroupTest]) —
+  /// changing language mid-session via Settings only affects the next
+  /// session started, not an in-progress one. Defaults to English for
+  /// `debugController`-based tests that don't care about language.
+  final AppLanguage language;
   final RngService _rng;
 
   /// Only set for a Daily Challenge — recorded so [TestSession] can carry
@@ -270,7 +278,12 @@ class GameController extends ChangeNotifier {
         ? DifficultyCurve.randomHighTier(_rng)
         : DifficultyCurve.randomTierForScore(totalMarks, _rng);
     final type = _pickNextType();
-    _currentPuzzle = PuzzleGenerator.generate(tier: tier, type: type, rng: _rng);
+    _currentPuzzle = PuzzleGenerator.generate(
+      tier: tier,
+      type: type,
+      rng: _rng,
+      language: language,
+    );
     notifyListeners();
   }
 

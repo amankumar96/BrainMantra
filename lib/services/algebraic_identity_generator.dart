@@ -1,3 +1,4 @@
+import '../models/app_language.dart';
 import '../models/puzzle.dart';
 import 'difficulty_curve.dart';
 import 'rng_service.dart';
@@ -8,7 +9,11 @@ import 'rng_utils.dart';
 /// spec's own suggested approach, and the simplest way to keep every
 /// answer an exact, self-validating integer without symbolic algebra.
 abstract final class AlgebraicIdentityGenerator {
-  static Puzzle generate({required int tier, required RngService rng}) {
+  static Puzzle generate({
+    required int tier,
+    required RngService rng,
+    required AppLanguage language,
+  }) {
     final params = DifficultyCurve.paramsForTier(tier);
     final range = _rangeForTier(tier);
     final x = rng.nextInt(range.min, range.max);
@@ -16,25 +21,38 @@ abstract final class AlgebraicIdentityGenerator {
 
     final (questionText, hint, answer) = switch (rng.nextInt(0, 3)) {
       0 => (
-          'Using (x+a)² = x² + 2ax + a², find (x+a)² for x=$x, a=$a.',
+          language == AppLanguage.english
+              ? 'Using (x+a)² = x² + 2ax + a², find (x+a)² for x=$x, a=$a.'
+              : '(x+a)² = x² + 2ax + a² का उपयोग करते हुए, x=$x, a=$a के '
+                  'लिए (x+a)² ज्ञात करें।',
           '(x+a)² = x² + 2ax + a²',
           x * x + 2 * x * a + a * a,
         ),
       1 => (
-          'Using (x-a)² = x² - 2ax + a², find (x-a)² for x=$x, a=$a.',
+          language == AppLanguage.english
+              ? 'Using (x-a)² = x² - 2ax + a², find (x-a)² for x=$x, a=$a.'
+              : '(x-a)² = x² - 2ax + a² का उपयोग करते हुए, x=$x, a=$a के '
+                  'लिए (x-a)² ज्ञात करें।',
           '(x-a)² = x² - 2ax + a²',
           x * x - 2 * x * a + a * a,
         ),
       // x kept >= a here so x²-a² never goes negative (this app never
       // shows a negative multiple-choice option).
       2 => (
-          'Using (x+a)(x-a) = x² - a², find (x+a)(x-a) for x=${x + a}, a=$a.',
+          language == AppLanguage.english
+              ? 'Using (x+a)(x-a) = x² - a², find (x+a)(x-a) for '
+                  'x=${x + a}, a=$a.'
+              : '(x+a)(x-a) = x² - a² का उपयोग करते हुए, x=${x + a}, a=$a '
+                  'के लिए (x+a)(x-a) ज्ञात करें।',
           '(x+a)(x-a) = x² - a²',
           (x + a) * (x + a) - a * a,
         ),
       _ => (
-          'Using (x+a)(x+b) = x² + (a+b)x + ab, find (x+a)(x+a) for '
-              'x=$x, a=$a (i.e. b=a).',
+          language == AppLanguage.english
+              ? 'Using (x+a)(x+b) = x² + (a+b)x + ab, find (x+a)(x+a) for '
+                  'x=$x, a=$a (i.e. b=a).'
+              : '(x+a)(x+b) = x² + (a+b)x + ab का उपयोग करते हुए, x=$x, '
+                  'a=$a (यानी b=a) के लिए (x+a)(x+a) ज्ञात करें।',
           '(x+a)(x+b) = x² + (a+b)x + ab',
           x * x + 2 * a * x + a * a,
         ),

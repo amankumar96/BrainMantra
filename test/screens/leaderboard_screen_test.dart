@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
+import 'package:brain_mantra/models/app_language.dart';
 import 'package:brain_mantra/screens/leaderboard_screen.dart';
+import 'package:brain_mantra/services/language_controller.dart';
 import 'package:brain_mantra/services/leaderboard_service.dart';
 
-Widget _wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
+Widget _wrap(Widget child) => ChangeNotifierProvider<LanguageController>(
+      create: (_) => LanguageController(AppLanguage.english),
+      child: MaterialApp(home: Scaffold(body: child)),
+    );
 
 const _alice = LeaderboardEntry(
   userId: 'u-alice',
@@ -41,7 +47,7 @@ void main() {
     testWidgets('shows a loading skeleton while the leaderboard loads', (
       tester,
     ) async {
-      await tester.pumpWidget(const MaterialApp(home: LeaderboardScreen()));
+      await tester.pumpWidget(_wrap(const LeaderboardScreen()));
 
       // Deliberately not settling — the fetch never resolves successfully
       // in this environment (no Supabase), so the skeleton is what the
@@ -56,7 +62,7 @@ void main() {
       'surfaces a retry-able error rather than crashing when the fetch '
       'fails (Supabase is not initialized in this test)',
       (tester) async {
-        await tester.pumpWidget(const MaterialApp(home: LeaderboardScreen()));
+        await tester.pumpWidget(_wrap(const LeaderboardScreen()));
         await tester.pump(); // let the failed Future resolve
 
         expect(
@@ -81,7 +87,7 @@ void main() {
     testWidgets('shows the "Leaderboard" title and "Last 30 Days" period', (
       tester,
     ) async {
-      await tester.pumpWidget(const MaterialApp(home: LeaderboardScreen()));
+      await tester.pumpWidget(_wrap(const LeaderboardScreen()));
 
       expect(find.text('Leaderboard'), findsOneWidget);
       expect(find.text('Last 30 Days'), findsOneWidget);

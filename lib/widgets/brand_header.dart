@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../models/app_language.dart';
+import '../services/language_controller.dart';
 import '../utils/constants.dart';
 import 'header_wave_painter.dart';
 
@@ -13,15 +16,23 @@ import 'header_wave_painter.dart';
 class BrandHeader extends StatelessWidget {
   const BrandHeader({
     super.key,
-    this.tagline = 'Boost Your Brainpower Daily',
+    this.tagline,
     this.actions = const [],
   });
 
-  final String tagline;
+  /// Defaults per-language (see `build()`) when left null — only
+  /// `sign_up_screen.dart` (currently unreachable; email/password sign-in
+  /// is disabled) overrides this with its own fixed English copy.
+  final String? tagline;
   final List<Widget> actions;
 
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<LanguageController>().language;
+    final resolvedTagline = tagline ??
+        (language == AppLanguage.english
+            ? 'Boost Your Brainpower Daily'
+            : 'हर दिन अपने दिमाग को तेज़ करें');
     return Container(
       width: double.infinity,
       decoration: const BoxDecoration(
@@ -76,7 +87,7 @@ class BrandHeader extends StatelessWidget {
                       // smaller font + maxLines/overflow guard rather than
                       // a wrapped second line.
                       Text(
-                        tagline,
+                        resolvedTagline,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(

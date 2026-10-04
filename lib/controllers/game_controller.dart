@@ -332,11 +332,18 @@ class GameController extends ChangeNotifier {
   PuzzleType _pickNextType() {
     // Age-Group Tests never draw reasoning questions, regardless of age
     // group — reasoning stays exclusive to Play/Daily Challenge (see the
-    // feature plan). Otherwise ~30% reasoning / ~70% math (product spec:
-    // a 7:3 ratio), replacing the earlier 50/50 split now that the
-    // topic-gating below can also shrink the math pool for a low-scoring
-    // player.
-    final wantsReasoning = ageGroupTest == null && _rng.nextInt(0, 9) < 3;
+    // feature plan). Neither does a Hindi-language session — reasoning
+    // generators are English-only in both languages (see the Hindi
+    // feature's "Known limitations"), and a player who picked Hindi
+    // getting an English reasoning question mid-session read as a bug
+    // report, not an accepted limitation — so Hindi mode draws 100% from
+    // the (fully-translated) math pool instead of the usual 70/30 split.
+    // Otherwise ~30% reasoning / ~70% math (product spec: a 7:3 ratio),
+    // replacing the earlier 50/50 split now that the topic-gating below
+    // can also shrink the math pool for a low-scoring player.
+    final wantsReasoning = ageGroupTest == null &&
+        language == AppLanguage.english &&
+        _rng.nextInt(0, 9) < 3;
     final basePool = wantsReasoning ? _reasoningTypes : _mathTypes;
 
     // 13+/16+ restrict outright to their curriculum-scoped pool; 18+

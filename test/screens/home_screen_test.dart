@@ -155,4 +155,71 @@ void main() {
 
     expect(find.byIcon(Icons.logout), findsOneWidget);
   });
+
+  group('Daily Challenge 24-hour lock', () {
+    testWidgets(
+        'played recently (within 24h): card shows "Unlocks in..." and '
+        'tapping it does not navigate to GameScreen', (tester) async {
+      final recentlyPlayed = DateTime.now().subtract(const Duration(hours: 2));
+      SharedPreferences.setMockInitialValues({
+        'has_seen_rules': true,
+        'player_stats':
+            '{"highScore":0,"currentStreakDays":1,"lastPlayedDate":null,'
+            '"totalCoins":0,"bestScoreByTier":{},'
+            '"lastDailyChallengeDate":"${recentlyPlayed.toIso8601String()}"}',
+      });
+      await tester.pumpWidget(_wrap(const HomeScreen()));
+      await _settle(tester);
+
+      expect(find.textContaining('Unlocks in'), findsOneWidget);
+      expect(find.text('Daily Challenge'), findsOneWidget);
+
+      await tester.tap(find.text('Daily Challenge'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // Still on Home — a locked card must not start a session.
+      expect(find.byType(GameScreen), findsNothing);
+    });
+
+    testWidgets(
+        'played over 24h ago: card is unlocked, normal subtitle shown, '
+        'tapping it navigates to GameScreen', (tester) async {
+      final longAgo = DateTime.now().subtract(const Duration(hours: 30));
+      SharedPreferences.setMockInitialValues({
+        'has_seen_rules': true,
+        'player_stats':
+            '{"highScore":0,"currentStreakDays":1,"lastPlayedDate":null,'
+            '"totalCoins":0,"bestScoreByTier":{},'
+            '"lastDailyChallengeDate":"${longAgo.toIso8601String()}"}',
+      });
+      await tester.pumpWidget(_wrap(const HomeScreen()));
+      await _settle(tester);
+
+      expect(find.textContaining('Unlocks in'), findsNothing);
+      expect(
+        find.text('Earn extra Marks solving these Questions'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('Daily Challenge'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(find.byType(GameScreen), findsOneWidget);
+    });
+
+    testWidgets('never played: card is unlocked from the start',
+        (tester) async {
+      SharedPreferences.setMockInitialValues({'has_seen_rules': true});
+      await tester.pumpWidget(_wrap(const HomeScreen()));
+      await _settle(tester);
+
+      expect(find.textContaining('Unlocks in'), findsNothing);
+      expect(
+        find.text('Earn extra Marks solving these Questions'),
+        findsOneWidget,
+      );
+    });
+  });
 }

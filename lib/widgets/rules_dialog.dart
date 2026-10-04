@@ -61,10 +61,20 @@ class RulesDialog extends StatelessWidget {
             _RuleItem(
               icon: Icons.hourglass_bottom_outlined,
               text: isHindi
-                  ? 'हर सवाल की कठिनाई के अनुसार 2 से 30 मिनट के बीच समय '
-                      'सीमा होती है।'
-                  : 'Each question has a time limit between 2 and 30 '
-                      'minutes, depending on its difficulty.',
+                  ? 'हर सवाल की कठिनाई के अनुसार आपको 1, 2, 5 या 7 मिनट '
+                      'मिलते हैं — कठिन सवालों के लिए ज़्यादा समय मिलता है।'
+                  : 'Each question gives you 1, 2, 5, or 7 minutes, '
+                      'depending on its difficulty — harder questions get '
+                      'more time.',
+            ),
+            _RuleItem(
+              icon: Icons.ondemand_video_outlined,
+              text: isHindi
+                  ? 'फंस गए? हिंट के लिए एक छोटा विज्ञापन देखें — यह आपका '
+                      'टाइमर रोक देता है और देखने के बाद 60 सेकंड जोड़ देता '
+                      'है।'
+                  : "Stuck? Watch a short ad for a hint — it pauses your "
+                      'timer and adds 60 seconds once you finish watching.',
             ),
             _RuleItem(
               icon: Icons.calendar_month_outlined,
@@ -72,11 +82,13 @@ class RulesDialog extends StatelessWidget {
                   ? 'दैनिक चुनौती: केवल कठिन सवाल (टियर 3+), सही उत्तर के '
                       'लिए +10 मार्क्स, गलत के लिए 0 — कोई कटौती नहीं। '
                       'आपकी कमाई सीधे आपके सामान्य प्ले स्कोर में जोड़ी '
-                      'जाती है।'
+                      'जाती है, और इसे हर 24 घंटे में केवल एक बार खेला जा '
+                      'सकता है।'
                   : 'Daily Challenge: tougher questions only (tier 3+), '
                       '+10 marks for a correct answer, 0 for a wrong one — no '
                       'deduction. What you earn is added straight onto your '
-                      'regular Play score.',
+                      'regular Play score, and it can only be played once '
+                      'every 24 hours.',
             ),
             _RuleItem(
               icon: Icons.leaderboard_outlined,
@@ -87,6 +99,16 @@ class RulesDialog extends StatelessWidget {
                   : 'Daily Challenge results also count toward the '
                       'leaderboard, ranked among players active in the last '
                       '30 days.',
+            ),
+            _RuleItem(
+              icon: Icons.school_outlined,
+              text: isHindi
+                  ? 'होम पर 13+ / 16+ / 18+ टेस्ट 30 सवालों के पास/फेल '
+                      'चेक-इन हैं — कोई मार्क्स नहीं, कोई लीडरबोर्ड प्रभाव '
+                      'नहीं, सिर्फ अपने स्तर को मापने का एक तरीका।'
+                  : 'The 13+ / 16+ / 18+ Tests on Home are 30-question '
+                      'pass/fail check-ins — no marks, no leaderboard '
+                      'effect, just a quick way to measure your level.',
             ),
           ],
         ),

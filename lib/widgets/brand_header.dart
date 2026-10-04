@@ -75,6 +75,16 @@ class BrandHeader extends StatelessWidget {
                     children: [
                       const Text(
                         'Brain Mantra',
+                        // Explicit single-line guard — without this, a
+                        // real bug: adding the 3rd action icon
+                        // (Settings) narrowed this Expanded column
+                        // enough that "Brain Mantra" sometimes wrapped
+                        // onto 2 lines ("Brain" / "Mantra") instead of
+                        // shrinking via ellipsis like the tagline below
+                        // it already does.
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        softWrap: false,
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,

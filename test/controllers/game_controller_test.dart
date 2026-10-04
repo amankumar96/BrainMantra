@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:brain_mantra/controllers/game_controller.dart';
 import 'package:brain_mantra/models/age_group.dart';
+import 'package:brain_mantra/models/app_language.dart';
 import 'package:brain_mantra/models/puzzle.dart';
 import 'package:brain_mantra/models/test_session.dart';
 import 'package:brain_mantra/services/rng_service.dart';
@@ -546,6 +547,25 @@ void main() {
       }
       expect(mathCount, inInclusiveRange(120, 160));
       expect(reasoningCount, inInclusiveRange(40, 80));
+    });
+
+    test(
+        'draws 100% math (never reasoning) when language is Hindi, since '
+        'reasoning generators are English-only in both languages', () {
+      final controller = GameController(
+        totalQuestions: 100,
+        isDailyChallenge: false,
+        language: AppLanguage.hindi,
+        rng: RngService.seeded('hindi-no-reasoning'),
+      );
+      for (var i = 0; i < 100; i++) {
+        expect(
+          controller.currentPuzzle!.category,
+          equals(PuzzleCategory.mathTest),
+        );
+        controller.skipDueToTimeout();
+        controller.onFeedbackAnimationComplete();
+      }
     });
 
     test('never repeats a puzzle type within its last 5 questions', () {

@@ -9,6 +9,7 @@ import '../models/app_language.dart';
 import '../models/player_stats.dart';
 import '../services/ads_service.dart';
 import '../services/auth_service.dart';
+import '../services/daily_challenge_lock.dart';
 import '../services/language_controller.dart';
 import '../services/leaderboard_service.dart';
 import '../services/notification_service.dart';
@@ -65,6 +66,14 @@ class _HomeScreenState extends State<HomeScreen> {
   /// never shows a stale, possibly-wrong number even briefly.
   int _currentMarks = 0;
 
+  /// Keeps the Daily Challenge card's "Unlocks in Xh Ym" subtitle counting
+  /// down live while Home is open, instead of only updating on the next
+  /// full stats reload (e.g. after leaving and returning) — the same
+  /// "don't let a timed card look frozen" fix the Age-Group cards needed
+  /// earlier, now actually load-bearing since Daily Challenge has a real
+  /// lock again.
+  Timer? _lockTicker;
+
   @override
   void initState() {
     super.initState();
@@ -72,6 +81,15 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadCurrentMarks();
     _loadDisplayName();
     _maybeShowRulesForTheFirstTime();
+    _lockTicker = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) setState(() {}); // just re-reads DateTime.now()
+    });
+  }
+
+  @override
+  void dispose() {
+    _lockTicker?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadStats() async {
@@ -125,6 +143,15 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _navigateToGame({required bool isDailyChallenge}) async {
+    // Defensive — the card itself is already disabled while locked, so
+    // this should never actually trigger in normal use.
+    if (isDailyChallenge &&
+        DailyChallengeLock.isLocked(
+          lastPlayedDate: (_stats ?? PlayerStats()).lastDailyChallengeDate,
+          now: DateTime.now(),
+        )) {
+      return;
+    }
     // Play resumes from the player's persisted score; Daily Challenge
     // always starts fresh at 0, per its fairness rules.
     final startingScore = isDailyChallenge
@@ -331,6 +358,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               const SizedBox(height: AppSpacing.md),
                               _DailyChallengeBox(
+                                lastPlayedDate: stats.lastDailyChallengeDate,
                                 onTap: () =>
                                     _navigateToGame(isDailyChallenge: true),
                               ),
@@ -652,22 +680,30 @@ class _MenuRow extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.subtitle,
+    this.locked = false,
   });
 
-  final VoidCallback onTap;
+  /// Null (or [locked] true) renders this row visibly disabled and
+  /// ignores taps — used by Daily Challenge while its 24-hour lock is
+  /// active.
+  final VoidCallback? onTap;
   final Color backgroundColor;
   final Color accent;
   final IconData icon;
   final String title;
   final String subtitle;
+  final bool locked;
 
   @override
   Widget build(BuildContext context) {
+    final effectiveAccent = locked ? AppColors.neutral : accent;
     return Material(
-      color: backgroundColor,
+      color: locked
+          ? AppColors.silver.withValues(alpha: 0.25)
+          : backgroundColor,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
-        onTap: onTap,
+        onTap: locked ? null : onTap,
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.sm),
@@ -675,8 +711,11 @@ class _MenuRow extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 22,
-                backgroundColor: accent.withValues(alpha: 0.15),
-                child: Icon(icon, color: accent),
+                backgroundColor: effectiveAccent.withValues(alpha: 0.15),
+                child: Icon(
+                  locked ? Icons.lock_outline : icon,
+                  color: effectiveAccent,
+                ),
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
@@ -686,9 +725,10 @@ class _MenuRow extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
+                        color: locked ? AppColors.neutral : Colors.black87,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -696,7 +736,9 @@ class _MenuRow extends StatelessWidget {
                       subtitle,
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.black.withValues(alpha: 0.6),
+                        color: locked
+                            ? AppColors.neutral
+                            : Colors.black.withValues(alpha: 0.6),
                       ),
                     ),
                   ],
@@ -704,8 +746,12 @@ class _MenuRow extends StatelessWidget {
               ),
               CircleAvatar(
                 radius: 14,
-                backgroundColor: accent.withValues(alpha: 0.2),
-                child: Icon(Icons.chevron_right, color: accent, size: 18),
+                backgroundColor: effectiveAccent.withValues(alpha: 0.2),
+                child: Icon(
+                  locked ? Icons.schedule : Icons.chevron_right,
+                  color: effectiveAccent,
+                  size: 18,
+                ),
               ),
             ],
           ),
@@ -816,26 +862,66 @@ class _AgeGroupCard extends StatelessWidget {
 }
 
 class _DailyChallengeBox extends StatelessWidget {
-  const _DailyChallengeBox({required this.onTap});
+  const _DailyChallengeBox({required this.onTap, required this.lastPlayedDate});
 
   final VoidCallback onTap;
+
+  /// `PlayerStats.lastDailyChallengeDate` — null means never played
+  /// (never locked).
+  final DateTime? lastPlayedDate;
 
   @override
   Widget build(BuildContext context) {
     final language = context.watch<LanguageController>().language;
+    final now = DateTime.now();
+    final locked = DailyChallengeLock.isLocked(
+      lastPlayedDate: lastPlayedDate,
+      now: now,
+    );
+    final subtitle = locked
+        ? _t(
+            language,
+            'Unlocks in ${_formatRemaining(DailyChallengeLock.remaining(
+              lastPlayedDate: lastPlayedDate,
+              now: now,
+            ))}',
+            '${_formatRemainingHindi(DailyChallengeLock.remaining(
+              lastPlayedDate: lastPlayedDate,
+              now: now,
+            ))} में अनलॉक होगा',
+          )
+        : _t(
+            language,
+            'Earn extra Marks solving these Questions',
+            'इन सवालों को हल करके अतिरिक्त मार्क्स पाएं',
+          );
     return _MenuRow(
       onTap: onTap,
       backgroundColor: AppColors.dailyChallengeCard,
       accent: AppColors.dailyChallengeAccent,
       icon: Icons.event_available_rounded,
       title: _t(language, 'Daily Challenge', 'दैनिक चुनौती'),
-      subtitle: _t(
-        language,
-        'Earn extra Marks solving these Questions',
-        'इन सवालों को हल करके अतिरिक्त मार्क्स पाएं',
-      ),
+      subtitle: subtitle,
+      locked: locked,
     );
   }
+}
+
+/// "1h 24m left" / "24m left" — never shows seconds, since the lock is
+/// hours-scale and second-level precision would just be visual noise.
+String _formatRemaining(Duration remaining) {
+  final hours = remaining.inHours;
+  final minutes = remaining.inMinutes % 60;
+  if (hours > 0) return '${hours}h ${minutes}m left';
+  return '${minutes}m left';
+}
+
+/// Same shape as [_formatRemaining], in basic Hindi — e.g. "1घं 24मि".
+String _formatRemainingHindi(Duration remaining) {
+  final hours = remaining.inHours;
+  final minutes = remaining.inMinutes % 60;
+  if (hours > 0) return '$hoursघं $minutesमि';
+  return '$minutesमि';
 }
 
 /// Replaces the old plain `TextButton.icon` link with a styled row

@@ -110,15 +110,21 @@ void main() {
     expect(find.byType(GameScreen), findsOneWidget);
   });
 
-  testWidgets('tapping the rules icon reopens the rules dialog on demand', (
-    tester,
-  ) async {
+  testWidgets(
+      'tapping the overflow menu then Rules reopens the rules dialog on '
+      'demand', (tester) async {
+    // Rules + Settings now live behind the header's overflow (⋮) menu —
+    // consolidated from 2 separate always-visible icons to free up room
+    // for the "Brain Mantra" title (a real bug: 3 icons previously
+    // squeezed it enough to clip/wrap).
     SharedPreferences.setMockInitialValues({'has_seen_rules': true});
     await tester.pumpWidget(_wrap(const HomeScreen()));
     await _settle(tester);
     expect(find.text('How Brain Mantra Works'), findsNothing);
 
-    await tester.tap(find.byIcon(Icons.info_outline));
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await _settle(tester);
+    await tester.tap(find.text('Rules'));
     await _settle(tester);
 
     expect(find.text('How Brain Mantra Works'), findsOneWidget);

@@ -24,6 +24,10 @@ import 'game_screen.dart';
 import 'leaderboard_screen.dart';
 import 'settings_screen.dart';
 
+/// The two actions tucked into the header's overflow menu — see the
+/// `PopupMenuButton` in `_HomeScreenState.build`.
+enum _HeaderMenuAction { rules, settings }
+
 /// The title screen: high score, streak, an on-demand rules icon (item 6
 /// of the product requirements), and the two ways to start a test.
 class HomeScreen extends StatefulWidget {
@@ -286,17 +290,52 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           BrandHeader(
             actions: [
-              IconButton(
-                icon: const Icon(Icons.info_outline, color: Colors.white),
-                tooltip: _t(language, 'Rules', 'नियम'),
-                onPressed: () => RulesDialog.show(context),
-              ),
-              IconButton(
-                icon: const Icon(Icons.settings_outlined, color: Colors.white),
-                tooltip: _t(language, 'Settings', 'सेटिंग्स'),
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
-                ),
+              // Rules + Settings consolidated into one overflow menu —
+              // a real bug fix: 3 separate icons squeezed "Brain Mantra"
+              // enough to clip/hide behind them. Sign out deliberately
+              // stays its own direct, always-visible icon (see its own
+              // test's doc comment for why — it's a one-tap action by
+              // design, not something to bury in a menu).
+              PopupMenuButton<_HeaderMenuAction>(
+                icon: const Icon(Icons.more_vert, color: Colors.white),
+                tooltip: _t(language, 'More', 'अधिक'),
+                onSelected: (action) {
+                  switch (action) {
+                    case _HeaderMenuAction.rules:
+                      RulesDialog.show(context);
+                    case _HeaderMenuAction.settings:
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const SettingsScreen(),
+                        ),
+                      );
+                  }
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: _HeaderMenuAction.rules,
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline, color: AppColors.primary),
+                        const SizedBox(width: AppSpacing.sm),
+                        Text(_t(language, 'Rules', 'नियम')),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: _HeaderMenuAction.settings,
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.settings_outlined,
+                          color: AppColors.primary,
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Text(_t(language, 'Settings', 'सेटिंग्स')),
+                      ],
+                    ),
+                  ),
+                ],
               ),
               IconButton(
                 icon: const Icon(Icons.logout, color: Colors.white),

@@ -1,7 +1,10 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../models/app_language.dart';
+import '../services/language_controller.dart';
 import '../utils/constants.dart';
 
 /// Which of the three possible outcomes a just-answered (or just-skipped)
@@ -122,15 +125,16 @@ class _FeedbackOverlayState extends State<FeedbackOverlay>
   /// balloons and settling for the remainder of the short duration.
   Widget _correct(double t) {
     final textOpacity = (t / 0.4).clamp(0.0, 1.0);
+    final language = context.watch<LanguageController>().language;
     return Stack(
       alignment: Alignment.center,
       children: [
         _balloonBurst(t),
         Opacity(
           opacity: textOpacity,
-          child: const Text(
-            'Correct!',
-            style: TextStyle(
+          child: Text(
+            language == AppLanguage.english ? 'Correct!' : 'सही!',
+            style: const TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,
               color: AppColors.correct,
@@ -194,6 +198,8 @@ class _FeedbackOverlayState extends State<FeedbackOverlay>
     final fadeInOpacity = (revealProgress / 0.2).clamp(0.0, 1.0);
     final totalSeconds = AppDurations.wrongFeedbackDuration.inSeconds;
     final remainingSeconds = (totalSeconds * (1 - t)).ceil().clamp(0, totalSeconds);
+    final language = context.watch<LanguageController>().language;
+    final isHindi = language == AppLanguage.hindi;
 
     return Opacity(
       opacity: fadeInOpacity,
@@ -224,8 +230,11 @@ class _FeedbackOverlayState extends State<FeedbackOverlay>
                 const Icon(Icons.close, size: 40, color: AppColors.wrong),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  'Correct Answer ${widget.correctAnswerLetter ?? ''}: '
-                  '${widget.correctAnswerText ?? '—'}',
+                  isHindi
+                      ? 'सही उत्तर ${widget.correctAnswerLetter ?? ''}: '
+                          '${widget.correctAnswerText ?? '—'}'
+                      : 'Correct Answer ${widget.correctAnswerLetter ?? ''}: '
+                          '${widget.correctAnswerText ?? '—'}',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 18,
@@ -236,7 +245,11 @@ class _FeedbackOverlayState extends State<FeedbackOverlay>
                 ElevatedButton(
                   key: const Key('feedback-next-button'),
                   onPressed: _complete,
-                  child: Text('Next ($remainingSeconds s)'),
+                  child: Text(
+                    isHindi
+                        ? 'आगे ($remainingSeconds s)'
+                        : 'Next ($remainingSeconds s)',
+                  ),
                 ),
               ],
             ),

@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
+import 'package:brain_mantra/models/app_language.dart';
+import 'package:brain_mantra/services/language_controller.dart';
 import 'package:brain_mantra/widgets/submit_button.dart';
 
-Widget _wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
+Widget _wrap(Widget child) => ChangeNotifierProvider<LanguageController>(
+      create: (_) => LanguageController(AppLanguage.english),
+      child: MaterialApp(home: Scaffold(body: child)),
+    );
 
 void main() {
   testWidgets('disabled (no selection) ignores taps', (tester) async {

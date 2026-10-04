@@ -2,11 +2,14 @@ import 'dart:async';
 import 'dart:math' show cos, pi, sin;
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../models/age_group.dart';
+import '../models/app_language.dart';
 import '../models/player_stats.dart';
 import '../services/ads_service.dart';
 import '../services/auth_service.dart';
+import '../services/language_controller.dart';
 import '../services/leaderboard_service.dart';
 import '../services/notification_service.dart';
 import '../services/storage_service.dart';
@@ -18,6 +21,7 @@ import '../widgets/rules_dialog.dart';
 import 'delete_account_screen.dart';
 import 'game_screen.dart';
 import 'leaderboard_screen.dart';
+import 'settings_screen.dart';
 
 /// The title screen: high score, streak, an on-demand rules icon (item 6
 /// of the product requirements), and the two ways to start a test.
@@ -186,24 +190,34 @@ class _HomeScreenState extends State<HomeScreen> {
       await AuthService.signOut();
       return;
     }
+    final language = context.read<LanguageController>().language;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Sign out of Guest account?'),
-        content: const Text(
-          'Signing out deletes this guest account immediately — score, '
-          "streak and history included. There's no email or password to "
-          'sign back into it afterwards, so this cannot be undone.',
+        title: Text(
+          _t(language, 'Sign out of Guest account?', 'गेस्ट खाते से साइन आउट करें?'),
+        ),
+        content: Text(
+          _t(
+            language,
+            'Signing out deletes this guest account immediately — score, '
+                "streak and history included. There's no email or password "
+                'to sign back into it afterwards, so this cannot be undone.',
+            'साइन आउट करने से यह गेस्ट खाता तुरंत डिलीट हो जाएगा — स्कोर, '
+                'स्ट्रीक और इतिहास सहित। इसमें दोबारा साइन इन करने के लिए '
+                'कोई ईमेल या पासवर्ड नहीं है, इसलिए इसे वापस नहीं लिया जा '
+                'सकता।',
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(_t(language, 'Cancel', 'रद्द करें')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: AppColors.wrong),
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Sign Out & Delete'),
+            child: Text(_t(language, 'Sign Out & Delete', 'साइन आउट और डिलीट करें')),
           ),
         ],
       ),
@@ -230,6 +244,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final stats = _stats ?? PlayerStats();
+    final language = context.watch<LanguageController>().language;
     return Scaffold(
       backgroundColor: AppColors.background,
       // No standard AppBar — the header below is a custom gradient block
@@ -246,12 +261,19 @@ class _HomeScreenState extends State<HomeScreen> {
             actions: [
               IconButton(
                 icon: const Icon(Icons.info_outline, color: Colors.white),
-                tooltip: 'Rules',
+                tooltip: _t(language, 'Rules', 'नियम'),
                 onPressed: () => RulesDialog.show(context),
               ),
               IconButton(
+                icon: const Icon(Icons.settings_outlined, color: Colors.white),
+                tooltip: _t(language, 'Settings', 'सेटिंग्स'),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                ),
+              ),
+              IconButton(
                 icon: const Icon(Icons.logout, color: Colors.white),
-                tooltip: 'Sign out',
+                tooltip: _t(language, 'Sign out', 'साइन आउट'),
                 onPressed: _handleSignOutTap,
               ),
             ],
@@ -366,6 +388,7 @@ class _GreetingAndMarksRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<LanguageController>().language;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -378,7 +401,7 @@ class _GreetingAndMarksRow extends StatelessWidget {
                 TextSpan(
                   style: const TextStyle(fontSize: 17, color: Colors.black87),
                   children: [
-                    const TextSpan(text: 'Hey '),
+                    TextSpan(text: _t(language, 'Hey ', 'नमस्ते ')),
                     TextSpan(
                       text: displayName,
                       style: const TextStyle(
@@ -398,7 +421,13 @@ class _GreetingAndMarksRow extends StatelessWidget {
                     color: Colors.black.withValues(alpha: 0.6),
                   ),
                   children: [
-                    const TextSpan(text: 'Welcome back! Your day streak is '),
+                    TextSpan(
+                      text: _t(
+                        language,
+                        'Welcome back! Your day streak is ',
+                        'वापसी पर स्वागत है! आपकी दिन की स्ट्रीक है ',
+                      ),
+                    ),
                     TextSpan(
                       text: '$streakDays',
                       style: const TextStyle(
@@ -465,6 +494,7 @@ class _HeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<LanguageController>().language;
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
@@ -493,9 +523,13 @@ class _HeroCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text(
-                            'Challenge\nyour skills',
-                            style: TextStyle(
+                          Text(
+                            _t(
+                              language,
+                              'Challenge\nyour skills',
+                              'अपने कौशल को\nचुनौती दें',
+                            ),
+                            style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
                               fontSize: 24,
@@ -504,7 +538,11 @@ class _HeroCard extends StatelessWidget {
                           ),
                           const SizedBox(height: AppSpacing.xs),
                           Text(
-                            'Sharpen your mind with fun questions every day!',
+                            _t(
+                              language,
+                              'Sharpen your mind with fun questions every day!',
+                              'हर दिन मज़ेदार सवालों से अपने दिमाग को तेज़ करें!',
+                            ),
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.9),
                               fontSize: 12,
@@ -542,7 +580,7 @@ class _HeroCard extends StatelessWidget {
                     ),
                   ),
                   icon: const Icon(Icons.play_arrow, size: 24),
-                  label: const Text('PLAY', softWrap: false),
+                  label: Text(_t(language, 'PLAY', 'खेलें'), softWrap: false),
                 ),
               ],
             ),
@@ -734,6 +772,7 @@ class _AgeGroupCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<LanguageController>().language;
     final (card, accent) = _colors;
     return Material(
       color: card,
@@ -759,7 +798,7 @@ class _AgeGroupCard extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                'Take Test',
+                _t(language, 'Take Test', 'टेस्ट लें'),
                 textAlign: TextAlign.center,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -783,13 +822,18 @@ class _DailyChallengeBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<LanguageController>().language;
     return _MenuRow(
       onTap: onTap,
       backgroundColor: AppColors.dailyChallengeCard,
       accent: AppColors.dailyChallengeAccent,
       icon: Icons.event_available_rounded,
-      title: 'Daily Challenge',
-      subtitle: 'Earn extra Marks solving these Questions',
+      title: _t(language, 'Daily Challenge', 'दैनिक चुनौती'),
+      subtitle: _t(
+        language,
+        'Earn extra Marks solving these Questions',
+        'इन सवालों को हल करके अतिरिक्त मार्क्स पाएं',
+      ),
     );
   }
 }
@@ -803,13 +847,18 @@ class _LeaderboardBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<LanguageController>().language;
     return _MenuRow(
       onTap: onTap,
       backgroundColor: AppColors.leaderboardCard,
       accent: AppColors.leaderboardAccent,
       icon: Icons.bar_chart_rounded,
-      title: 'Leaderboard',
-      subtitle: 'See how you rank among sharp minds!',
+      title: _t(language, 'Leaderboard', 'लीडरबोर्ड'),
+      subtitle: _t(
+        language,
+        'See how you rank among sharp minds!',
+        'देखें तेज़ दिमागों के बीच आपकी रैंक क्या है!',
+      ),
     );
   }
 }
@@ -823,6 +872,7 @@ class _DeleteAccountBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<LanguageController>().language;
     return ElevatedButton.icon(
       onPressed: onTap,
       style: ElevatedButton.styleFrom(
@@ -832,9 +882,9 @@ class _DeleteAccountBox extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       icon: const Icon(Icons.delete_outline),
-      label: const Text(
-        'Delete Account',
-        style: TextStyle(fontWeight: FontWeight.bold),
+      label: Text(
+        _t(language, 'Delete Account', 'खाता हटाएं'),
+        style: const TextStyle(fontWeight: FontWeight.bold),
       ),
     );
   }
@@ -847,6 +897,7 @@ class _Footer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<LanguageController>().language;
     return Column(
       children: [
         Row(
@@ -855,7 +906,11 @@ class _Footer extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
               child: Text(
-                'A Sharper You, A Brighter Tomorrow',
+                _t(
+                  language,
+                  'A Sharper You, A Brighter Tomorrow',
+                  'एक तेज़ आप, एक उज्जवल कल',
+                ),
                 style: TextStyle(
                   fontSize: 11,
                   color: Colors.black.withValues(alpha: 0.45),
@@ -871,3 +926,9 @@ class _Footer extends StatelessWidget {
     );
   }
 }
+
+/// Picks [en] or [hi] depending on [language] — this screen's share of
+/// UI chrome is small enough that a shared `AppStrings` dictionary class
+/// wasn't worth it here; a one-line helper keeps every call site terse.
+String _t(AppLanguage language, String en, String hi) =>
+    language == AppLanguage.english ? en : hi;

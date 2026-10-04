@@ -1,5 +1,6 @@
 import '../models/puzzle.dart';
 import 'difficulty_curve.dart';
+import 'name_pool.dart';
 import 'rng_service.dart';
 import 'rng_utils.dart';
 
@@ -57,20 +58,26 @@ abstract final class RatioGenerator {
     RngService rng,
   ) {
     final shareRange = _shareRangeForTier(tier);
-    final ravi = rng.nextInt(1, shareRange.max);
-    final sita = rng.nextInt(1, shareRange.max);
+    final share1 = rng.nextInt(1, shareRange.max);
+    final share2 = rng.nextInt(1, shareRange.max);
     final unit = rng.nextInt(shareRange.min, shareRange.max) * 10;
-    final total = (ravi + sita) * unit;
-    final raviAmount = ravi * unit;
+    final total = (share1 + share2) * unit;
+    final amount1 = share1 * unit;
+    // Random distinct names every question — previously hardcoded
+    // "Ravi"/"Sita" always, which is a repetition bug: see NamePool's doc
+    // comment.
+    final names = NamePool.pickDistinct(2, rng);
+    final name1 = names[0];
+    final name2 = names[1];
     return Puzzle(
       id: deterministicId(rng),
       category: PuzzleCategory.mathTest,
       type: PuzzleType.ratio,
-      questionText: '₹$total is shared between Ravi and Sita in the ratio '
-          '$ravi:$sita. How much money does Ravi get?',
+      questionText: '₹$total is shared between $name1 and $name2 in the '
+          'ratio $share1:$share2. How much money does $name1 get?',
       options:
-          buildNumericMcOptions(raviAmount, rng, spread: _spreadFor(raviAmount)),
-      correctAnswer: raviAmount,
+          buildNumericMcOptions(amount1, rng, spread: _spreadFor(amount1)),
+      correctAnswer: amount1,
       difficultyTier: tier,
       timeLimitSeconds: timeLimitSeconds,
       hint: 'Split the total into (first share + second share) equal parts, '

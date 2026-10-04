@@ -355,8 +355,10 @@ void _independentlyVerify(Puzzle puzzle) {
         r'for (\d+) people needs (\d+) cups of flour.+'
         r'for (\d+) people',
       ).firstMatch(puzzle.questionText);
+      // Names are now randomized (NamePool), not always "Ravi"/"Sita" —
+      // match any two Latin-letter names rather than a fixed pair.
       final sharing = RegExp(
-        r'₹(\d+) is shared between Ravi and Sita in '
+        r'₹(\d+) is shared between [A-Za-z]+ and [A-Za-z]+ in '
         r'the ratio (\d+):(\d+)',
       ).firstMatch(puzzle.questionText);
       final map = RegExp(r'1 cm represents (\d+) km.+?(\d+) cm apart')
@@ -374,10 +376,10 @@ void _independentlyVerify(Puzzle puzzle) {
         expect(baseCups * factor, equals(puzzle.correctAnswer));
       } else if (sharing != null) {
         final total = int.parse(sharing.group(1)!);
-        final raviRatio = int.parse(sharing.group(2)!);
-        final sitaRatio = int.parse(sharing.group(3)!);
-        final unit = total ~/ (raviRatio + sitaRatio);
-        expect(raviRatio * unit, equals(puzzle.correctAnswer));
+        final share1 = int.parse(sharing.group(2)!);
+        final share2 = int.parse(sharing.group(3)!);
+        final unit = total ~/ (share1 + share2);
+        expect(share1 * unit, equals(puzzle.correctAnswer));
       } else {
         final m = map!;
         final kmPerCm = int.parse(m.group(1)!);

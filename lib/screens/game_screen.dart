@@ -218,10 +218,6 @@ class _GameScreenState extends State<GameScreen> {
       lastDailyChallengeDate: _controller.isDailyChallenge
           ? playedAt
           : currentStats.lastDailyChallengeDate,
-      // The Age-Group Test cooldown stamp itself is written up-front,
-      // at launch (see home_screen.dart's _navigateToAgeGroupTest) —
-      // currentStats already carries it, just pass it through unchanged.
-      lastAgeGroupTestAttempt: currentStats.lastAgeGroupTestAttempt,
     );
     await StorageService.saveStats(newStats);
     // Best-effort, same precedent as everything else here — state just

@@ -75,30 +75,9 @@ void main() {
     expect(decoded.lastDailyChallengeDate, equals(date));
   });
 
-  test('lastAgeGroupTestAttempt empty map round-trips to an empty map', () {
-    final original = PlayerStats(lastAgeGroupTestAttempt: const {});
-    final decoded = roundTrip(original);
-    expect(decoded.lastAgeGroupTestAttempt, isEmpty);
-  });
-
-  test('lastAgeGroupTestAttempt with multiple entries round-trips exactly',
-      () {
-    final a = DateTime.utc(2026, 9, 1, 10);
-    final b = DateTime.utc(2026, 9, 2, 14);
-    final original = PlayerStats(
-      lastAgeGroupTestAttempt: {'thirteenPlus': a, 'eighteenPlus': b},
-    );
-    final decoded = roundTrip(original);
-    expect(
-      decoded.lastAgeGroupTestAttempt,
-      equals({'thirteenPlus': a, 'eighteenPlus': b}),
-    );
-  });
-
-  test('loading stats saved before these fields existed defaults safely',
-      () {
+  test('loading stats saved before this field existed defaults safely', () {
     // Simulates an old persisted JSON blob (pre-feature) that has no
-    // lastDailyChallengeDate/lastAgeGroupTestAttempt keys at all.
+    // lastDailyChallengeDate key at all.
     final legacyJson = {
       'highScore': 50,
       'currentStreakDays': 2,
@@ -108,6 +87,5 @@ void main() {
     };
     final decoded = PlayerStats.fromJson(legacyJson);
     expect(decoded.lastDailyChallengeDate, isNull);
-    expect(decoded.lastAgeGroupTestAttempt, isEmpty);
   });
 }

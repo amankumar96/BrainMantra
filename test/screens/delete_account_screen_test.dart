@@ -1,9 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
+import 'package:brain_mantra/models/app_language.dart';
 import 'package:brain_mantra/screens/delete_account_screen.dart';
+import 'package:brain_mantra/services/language_controller.dart';
+
+Widget _wrap(Widget child) => ChangeNotifierProvider<LanguageController>(
+      create: (_) => LanguageController(AppLanguage.english),
+      child: MaterialApp(home: child),
+    );
 
 void main() {
-  Widget wrap() => const MaterialApp(home: DeleteAccountScreen());
+  Widget wrap() => _wrap(const DeleteAccountScreen());
 
   testWidgets('explains what will be deleted and offers Delete/Cancel',
       (tester) async {
@@ -39,8 +47,8 @@ void main() {
 
   testWidgets('Cancel returns to the previous screen without deleting '
       'anything', (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      home: Builder(
+    await tester.pumpWidget(_wrap(
+      Builder(
         builder: (context) => Scaffold(
           body: Center(
             child: ElevatedButton(

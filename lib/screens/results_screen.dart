@@ -153,13 +153,16 @@ class ResultsScreen extends StatelessWidget {
                 Text(_t(language, 'Best score: $bestScore', 'सर्वश्रेष्ठ स्कोर: $bestScore')),
                 const SizedBox(height: AppSpacing.lg),
               ],
-              // By explicit product decision there's no cooldown on an
-              // Age-Group Test anymore (see home_screen.dart) — only Home
-              // is offered here anyway, simply because this screen never
-              // had a "retry this exact Test" callback wired to it (unlike
-              // Play/Daily Challenge's onPlayAgain); a player who wants
-              // another attempt just taps the card again from Home.
-              if (isAgeGroupTest)
+              // Age-Group Tests have no cooldown (see home_screen.dart),
+              // but Daily Challenge now has a real 24-hour-ish lock
+              // (resets at 10 AM daily) — a direct "Play Again" would
+              // silently bypass it by starting a new Daily Challenge
+              // session without ever going through Home's lock check.
+              // Both modes only offer Home here; neither had (or now
+              // should have) a "retry immediately" callback — a player
+              // who's actually allowed another attempt just taps the
+              // card again from Home, where the lock state is checked.
+              if (isAgeGroupTest || isDailyChallenge)
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -173,11 +176,7 @@ class ResultsScreen extends StatelessWidget {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: onPlayAgain,
-                    child: Text(
-                      isDailyChallenge
-                          ? _t(language, 'Play Again', 'फिर से खेलें')
-                          : _t(language, 'Continue Playing', 'खेलना जारी रखें'),
-                    ),
+                    child: Text(_t(language, 'Continue Playing', 'खेलना जारी रखें')),
                   ),
                 ),
                 TextButton(

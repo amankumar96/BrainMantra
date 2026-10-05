@@ -326,12 +326,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     value: _HeaderMenuAction.settings,
                     child: Row(
                       children: [
-                        const Icon(
-                          Icons.settings_outlined,
-                          color: AppColors.primary,
-                        ),
+                        // Icon + label both renamed from "Settings" to
+                        // "Language" — this menu item only does one
+                        // thing (switch English/Hindi), so naming it for
+                        // what it actually does reads clearer than a
+                        // generic "Settings" a player might not think to
+                        // open.
+                        const Icon(Icons.language, color: AppColors.primary),
                         const SizedBox(width: AppSpacing.sm),
-                        Text(_t(language, 'Settings', 'सेटिंग्स')),
+                        Text(_t(language, 'Language', 'भाषा')),
                       ],
                     ),
                   ),

@@ -18,7 +18,7 @@ class SettingsScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text(_t(language, 'Settings', 'सेटिंग्स')),
+        title: Text(_t(language, 'Language', 'भाषा')),
       ),
       body: SafeArea(
         child: Padding(

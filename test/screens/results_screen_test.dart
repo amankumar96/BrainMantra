@@ -102,22 +102,21 @@ void main() {
     expect(find.text('Best score: 50'), findsOneWidget);
   });
 
-  testWidgets('Daily Challenge: tapping "Play Again" calls onPlayAgain',
-      (tester) async {
-    var tapCount = 0;
+  testWidgets(
+      'Daily Challenge: only offers "Back to Home" (no direct replay, '
+      'which would bypass the 10 AM lock)', (tester) async {
     final testSession = _buildSession([AnswerOutcome.correct], [4]);
     await tester.pumpWidget(_wrap(ResultsScreen(
       testSession: testSession,
       currentScore: testSession.session.score,
       previousHighScore: 0,
-      onPlayAgain: () => tapCount++,
+      onPlayAgain: () {},
     )));
 
     expect(find.text('Test Complete'), findsOneWidget);
-    await tester.tap(find.text('Play Again'));
-    await tester.pump();
-
-    expect(tapCount, equals(1));
+    expect(find.text('Back to Home'), findsOneWidget);
+    expect(find.text('Play Again'), findsNothing);
+    expect(find.text('Continue Playing'), findsNothing);
   });
 
   group('Play mode (currentScore is the cumulative total, not the '

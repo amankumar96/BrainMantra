@@ -400,7 +400,9 @@ void main() {
     );
   });
 
-  testWidgets('Daily Challenge does not show an End button', (tester) async {
+  testWidgets('Daily Challenge shows an End button too, so marks are '
+      "saved even if the player ends it after just one question",
+      (tester) async {
     final controller = GameController(
       totalQuestions: 3,
       isDailyChallenge: true,
@@ -409,6 +411,6 @@ void main() {
     await tester.pumpWidget(_wrap(GameScreen(debugController: controller)));
     await tester.pump();
 
-    expect(find.text('End'), findsNothing);
+    expect(find.text('End'), findsOneWidget);
   });
 }

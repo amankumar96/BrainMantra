@@ -160,6 +160,14 @@ class GameController extends ChangeNotifier {
   TestSession? get finalTestSession =>
       isSessionOver ? _buildTestSession() : null;
 
+  /// A snapshot of whatever's been scored *so far*, available at any
+  /// point — unlike [finalTestSession], never null, and doesn't require
+  /// [isSessionOver]. Used by `game_screen.dart` as a safety net to save
+  /// partial progress if the player exits mid-session (back button) or
+  /// the app itself gets backgrounded/killed before a question count or
+  /// manual End would otherwise have triggered the normal persist flow.
+  TestSession get currentProgressSnapshot => _buildTestSession();
+
   /// Manually stops an in-progress (never-ending, Play-mode) session — the
   /// End button's action. Whatever question is currently on screen and
   /// unanswered is simply discarded, uncounted; no penalty either way.

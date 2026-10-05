@@ -162,17 +162,21 @@ void main() {
     expect(find.byIcon(Icons.logout), findsOneWidget);
   });
 
-  group('Daily Challenge 24-hour lock', () {
+  group('Daily Challenge 10 AM daily-reset lock', () {
     testWidgets(
-        'played recently (within 24h): card shows "Unlocks in..." and '
+        'played moments ago: card shows "Unlocks in..." and '
         'tapping it does not navigate to GameScreen', (tester) async {
-      final recentlyPlayed = DateTime.now().subtract(const Duration(hours: 2));
+      // Played right now is always on-or-after the most recent 10 AM
+      // reset boundary, so this is deterministically locked regardless
+      // of what time the test happens to run (unlike e.g. "2 hours ago",
+      // which could land on either side of today's reset).
+      final justPlayed = DateTime.now();
       SharedPreferences.setMockInitialValues({
         'has_seen_rules': true,
         'player_stats':
             '{"highScore":0,"currentStreakDays":1,"lastPlayedDate":null,'
             '"totalCoins":0,"bestScoreByTier":{},'
-            '"lastDailyChallengeDate":"${recentlyPlayed.toIso8601String()}"}',
+            '"lastDailyChallengeDate":"${justPlayed.toIso8601String()}"}',
       });
       await tester.pumpWidget(_wrap(const HomeScreen()));
       await _settle(tester);

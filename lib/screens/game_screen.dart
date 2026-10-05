@@ -67,7 +67,7 @@ class GameScreen extends StatefulWidget {
   State<GameScreen> createState() => _GameScreenState();
 }
 
-class _GameScreenState extends State<GameScreen> {
+class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   late final GameController _controller;
   bool _hasNavigatedToResults = false;
 
@@ -98,6 +98,24 @@ class _GameScreenState extends State<GameScreen> {
         );
     _lastSeenQuestionNumber = _controller.questionNumber;
     _controller.addListener(_handleControllerChange);
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  /// Safety net for "the app got backgrounded/killed mid-session" (no
+  /// clean shutdown hook exists for that — `paused` is the closest
+  /// Flutter/Android gives us, firing when the app is sent to the
+  /// background, which is also the step before a swipe-kill). Persists
+  /// whatever's been scored so far; never navigates (the app is leaving
+  /// regardless) and never fires if nothing's actually been answered yet
+  /// (opening a session and immediately backgrounding shouldn't count as
+  /// "played" for streak/Daily-Challenge-lock purposes).
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.paused) return;
+    if (_hasNavigatedToResults || _controller.isSessionOver) return;
+    final snapshot = _controller.currentProgressSnapshot;
+    if (snapshot.outcomes.isEmpty) return;
+    _persistScoreAndStats(snapshot);
   }
 
   void _handleControllerChange() {
@@ -133,10 +151,15 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  Future<void> _persistAndShowResults() async {
-    final testSession = _controller.finalTestSession!;
-    await StorageService.saveSession(testSession.session);
-
+  /// The shared "sync score/stats" core of ending a session — split out
+  /// of `_persistAndShowResults` so it can also run, on its own, as a
+  /// safety net when the player exits mid-session (back button) or the
+  /// app gets backgrounded/killed before a normal end would otherwise
+  /// have fired it: either way, whatever's been scored *so far* is never
+  /// silently lost. Never navigates — callers that need to (the normal
+  /// end-of-session path) do that themselves with the returned values.
+  Future<({int updatedScore, PlayerStats stats, int previousHighScore})>
+  _persistScoreAndStats(TestSession testSession) async {
     // Only Daily Challenge results are ranked — a "Play" session uses
     // freely-random questions, so it isn't a fair, comparable test across
     // players the way a shared-seed Daily Challenge is (see the plan's
@@ -156,11 +179,11 @@ class _GameScreenState extends State<GameScreen> {
     // this is a Daily Challenge and the fetch+add succeeds.
     var updatedScore = testSession.session.score;
 
-    // Wrapped in try/catch: local persistence and navigation must succeed
-    // regardless of Supabase reachability (offline, a dropped connection,
-    // or — in widget tests — Supabase never being initialized at all).
-    // Losing one score-sync isn't nearly as bad as getting stuck on this
-    // screen because a network call failed.
+    // Wrapped in try/catch: local persistence must succeed regardless of
+    // Supabase reachability (offline, a dropped connection, or — in
+    // widget tests — Supabase never being initialized at all). Losing
+    // one score-sync isn't nearly as bad as getting stuck over a failed
+    // network call.
     // An Age-Group Test never touches score/leaderboard at all, per the
     // feature plan — not even the internal marks this session racked up
     // (which exist only so the pass/fail % can be computed on
@@ -240,6 +263,18 @@ class _GameScreenState extends State<GameScreen> {
       // Never let a notification-scheduling failure strand the player.
     }
 
+    return (
+      updatedScore: updatedScore,
+      stats: newStats,
+      previousHighScore: currentStats.highScore,
+    );
+  }
+
+  Future<void> _persistAndShowResults() async {
+    final testSession = _controller.finalTestSession!;
+    await StorageService.saveSession(testSession.session);
+    final result = await _persistScoreAndStats(testSession);
+
     if (!mounted) return;
     // Captured before pushReplacement disposes _controller (see dispose()
     // below) — Continue Playing needs these to resume from the right spot.
@@ -249,8 +284,8 @@ class _GameScreenState extends State<GameScreen> {
       MaterialPageRoute(
         builder: (_) => ResultsScreen(
           testSession: testSession,
-          currentScore: updatedScore,
-          previousHighScore: currentStats.highScore,
+          currentScore: result.updatedScore,
+          previousHighScore: result.previousHighScore,
           ageGroupTest: ageGroupTest,
           onPlayAgain: () => Navigator.of(context).pushReplacement(
             MaterialPageRoute(
@@ -258,7 +293,7 @@ class _GameScreenState extends State<GameScreen> {
                 isDailyChallenge: isDailyChallenge,
                 // Resume from the just-updated cumulative score, not the
                 // score this session originally started from.
-                startingScore: isDailyChallenge ? 0 : updatedScore,
+                startingScore: isDailyChallenge ? 0 : result.updatedScore,
               ),
             ),
           ),
@@ -269,29 +304,54 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _controller.removeListener(_handleControllerChange);
     _controller.dispose();
     super.dispose();
   }
 
+  /// Back button/gesture mid-session: the same safety net as
+  /// [didChangeAppLifecycleState], for the other common way to leave
+  /// without going through End/question-completion. Fires-and-forgets
+  /// the persist (the pop itself isn't delayed waiting on it — see this
+  /// method's own doc on why that's safe) rather than blocking on it, so
+  /// back stays instantly responsive.
+  void _persistProgressOnPop() {
+    if (_hasNavigatedToResults || _controller.isSessionOver) return;
+    final snapshot = _controller.currentProgressSnapshot;
+    if (snapshot.outcomes.isEmpty) return;
+    // Deliberately not awaited: this fires right as the route is
+    // popping, and the async Supabase/storage calls inside happily run
+    // to completion in the background regardless of whether this widget
+    // is still mounted by the time they resolve — none of them touch
+    // `context`/`setState`.
+    _persistScoreAndStats(snapshot);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<GameController>.value(
-      value: _controller,
-      child: Consumer<GameController>(
-        builder: (context, controller, _) {
-          final puzzle = controller.currentPuzzle;
-          // Between the session ending (question cap reached, or the
-          // player pressed End) and the post-frame navigation above
-          // actually firing, there's nothing sensible to render yet — a
-          // brief loading state covers that gap.
-          if (puzzle == null || controller.isSessionOver) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          }
-          return _GameScreenBody(controller: controller, puzzle: puzzle);
-        },
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) _persistProgressOnPop();
+      },
+      child: ChangeNotifierProvider<GameController>.value(
+        value: _controller,
+        child: Consumer<GameController>(
+          builder: (context, controller, _) {
+            final puzzle = controller.currentPuzzle;
+            // Between the session ending (question cap reached, or the
+            // player pressed End) and the post-frame navigation above
+            // actually firing, there's nothing sensible to render yet — a
+            // brief loading state covers that gap.
+            if (puzzle == null || controller.isSessionOver) {
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
+            }
+            return _GameScreenBody(controller: controller, puzzle: puzzle);
+          },
+        ),
       ),
     );
   }
@@ -320,18 +380,20 @@ class _GameScreenBody extends StatelessWidget {
               : _t(controller.language, 'Play', 'खेलें'),
         ),
         actions: [
-          // Play only — it's the never-ending mode, so it needs an
-          // explicit way to stop. Daily Challenge already has a natural
-          // end (its fixed question count) and isn't offered an early
-          // exit here.
-          if (!controller.isDailyChallenge)
-            TextButton(
-              onPressed: controller.endSession,
-              child: Text(
-                _t(controller.language, 'End', 'समाप्त करें'),
-                style: const TextStyle(color: Colors.white),
-              ),
+          // Now shown in every mode, including Daily Challenge — by
+          // explicit product decision, exiting early must still update
+          // the player's marks (not discard them), and that only happens
+          // if there's an actual in-app way to end deliberately. For
+          // Daily Challenge specifically, ending early also locks it for
+          // the rest of the day the same as finishing it normally — see
+          // `_persistAndShowResults`'s `lastDailyChallengeDate` write.
+          TextButton(
+            onPressed: controller.endSession,
+            child: Text(
+              _t(controller.language, 'End', 'समाप्त करें'),
+              style: const TextStyle(color: Colors.white),
             ),
+          ),
         ],
       ),
       body: Stack(

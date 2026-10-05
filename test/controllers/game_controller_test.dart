@@ -258,15 +258,15 @@ void main() {
       expect(controller.lastOutcome, equals(AnswerOutcome.skipped));
     });
 
-    test('every question is tier 3 or above, unlike a low/mid Play score '
-        'which would mostly land in tiers 1-2', () {
+    test('every question is tier 5 or above, unlike a low/mid Play score '
+        'which would mostly land in tiers 1-4', () {
       final controller = GameController(
         totalQuestions: 40,
         isDailyChallenge: true,
         rng: RngService.seeded('daily-tier-1'),
       );
       for (var i = 0; i < 40; i++) {
-        expect(controller.currentPuzzle!.difficultyTier, anyOf(3, 4));
+        expect(controller.currentPuzzle!.difficultyTier, anyOf(5, 6));
         controller.skipDueToTimeout();
         controller.onFeedbackAnimationComplete();
       }
@@ -649,6 +649,157 @@ void main() {
           controller.onFeedbackAnimationComplete();
         }
         expect(sawGated, isTrue);
+      });
+    });
+
+    group('score-banded topic pools (Play mode only)', () {
+      const band1MathTypes = {
+        PuzzleType.arithmetic,
+        PuzzleType.trueFalse,
+        PuzzleType.missingNumber,
+        PuzzleType.oddOneOut,
+        PuzzleType.sequence,
+        PuzzleType.targetNumber,
+        PuzzleType.bodmas,
+      };
+      const band1ReasoningTypes = {
+        PuzzleType.familyTree,
+        PuzzleType.directionSense,
+        PuzzleType.wordPuzzle,
+        PuzzleType.statementConclusion,
+      };
+      const band1Pool = {...band1MathTypes, ...band1ReasoningTypes};
+      const band2MathTypes = {
+        ...band1MathTypes,
+        PuzzleType.speedDistance,
+        PuzzleType.profitLoss,
+        PuzzleType.interest,
+        PuzzleType.angleFinding,
+        PuzzleType.graphReading,
+        PuzzleType.numberClassification,
+        PuzzleType.statistics,
+      };
+
+      test('below 50 marks: every type stays within the band-1 pool (11 '
+          'types)', () {
+        final controller = GameController(
+          totalQuestions: 300,
+          isDailyChallenge: false,
+          rng: RngService.seeded('band1-pool'),
+        );
+        for (var i = 0; i < 300; i++) {
+          // skipDueToTimeout always scores 0 — totalMarks stays at 0 for
+          // the whole drive, well under the band-1 50-mark unlock.
+          expect(band1Pool.contains(controller.currentPuzzle!.type), isTrue);
+          controller.skipDueToTimeout();
+          controller.onFeedbackAnimationComplete();
+        }
+      });
+
+      test('50-99 marks: every type stays within the band-2 pool (14 math '
+          '+ all 12 reasoning), and a reasoning type outside band 1 is '
+          'actually seen', () {
+        final controller = GameController(
+          totalQuestions: 300,
+          isDailyChallenge: false,
+          startingScore: 60,
+          rng: RngService.seeded('band2-pool'),
+        );
+        var sawReasoningOutsideBand1 = false;
+        for (var i = 0; i < 300; i++) {
+          final type = controller.currentPuzzle!.type;
+          final inBand2 = band2MathTypes.contains(type) ||
+              controller.currentPuzzle!.category ==
+                  PuzzleCategory.reasoningTest;
+          expect(inBand2, isTrue);
+          if (!band1ReasoningTypes.contains(type) &&
+              controller.currentPuzzle!.category ==
+                  PuzzleCategory.reasoningTest) {
+            sawReasoningOutsideBand1 = true;
+          }
+          // skipDueToTimeout scores 0 — totalMarks stays pinned at the
+          // startingScore (60) for the whole drive, safely inside band 2.
+          controller.skipDueToTimeout();
+          controller.onFeedbackAnimationComplete();
+        }
+        expect(sawReasoningOutsideBand1, isTrue);
+      });
+
+      test('100+ marks: full pool, same as today\'s un-gated behavior '
+          '(sees types outside band 1/2, still respects the independent '
+          '_gatedTypes >200 rule)', () {
+        final controller = GameController(
+          totalQuestions: 300,
+          isDailyChallenge: false,
+          startingScore: 150,
+          rng: RngService.seeded('band3-pool'),
+        );
+        const gatedTypes = {
+          PuzzleType.logarithm,
+          PuzzleType.coordinateGeometry,
+          PuzzleType.progression,
+          PuzzleType.unitConversion,
+        };
+        var sawTypeOutsideBand2 = false;
+        for (var i = 0; i < 300; i++) {
+          final type = controller.currentPuzzle!.type;
+          expect(gatedTypes.contains(type), isFalse);
+          if (controller.currentPuzzle!.category == PuzzleCategory.mathTest &&
+              !band2MathTypes.contains(type)) {
+            sawTypeOutsideBand2 = true;
+          }
+          controller.skipDueToTimeout();
+          controller.onFeedbackAnimationComplete();
+        }
+        expect(sawTypeOutsideBand2, isTrue);
+      });
+
+      test('Daily Challenge is not restricted to the band-1 pool even at '
+          'score 0', () {
+        final controller = GameController(
+          totalQuestions: 300,
+          isDailyChallenge: true,
+          rng: RngService.seeded('band-daily-unaffected'),
+        );
+        var sawTypeOutsideBand1 = false;
+        for (var i = 0; i < 300; i++) {
+          if (!band1Pool.contains(controller.currentPuzzle!.type)) {
+            sawTypeOutsideBand1 = true;
+          }
+          controller.skipDueToTimeout();
+          controller.onFeedbackAnimationComplete();
+        }
+        expect(sawTypeOutsideBand1, isTrue);
+      });
+
+      test('difficultyTier matches the expected sub-tier set for each '
+          'score', () {
+        final cases = <int, Set<int>>{
+          10: {1},
+          40: {1, 2},
+          60: {3, 4},
+          90: {3, 4},
+          150: {5, 6},
+        };
+        cases.forEach((score, expectedTiers) {
+          final controller = GameController(
+            totalQuestions: 40,
+            isDailyChallenge: false,
+            startingScore: score,
+            rng: RngService.seeded('band-tier-$score'),
+          );
+          for (var i = 0; i < 40; i++) {
+            expect(
+              expectedTiers.contains(controller.currentPuzzle!.difficultyTier),
+              isTrue,
+              reason: 'score $score produced tier '
+                  '${controller.currentPuzzle!.difficultyTier}, expected '
+                  'one of $expectedTiers',
+            );
+            controller.skipDueToTimeout();
+            controller.onFeedbackAnimationComplete();
+          }
+        });
       });
     });
   });

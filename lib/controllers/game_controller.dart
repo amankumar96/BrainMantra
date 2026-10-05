@@ -271,11 +271,13 @@ class GameController extends ChangeNotifier {
   /// within a score-dependent band (see `DifficultyCurve.randomTierForScore`)
   /// — negative/low scores never crash, they just land in the easiest
   /// band. Daily Challenge ignores score entirely and always draws from
-  /// tier 3+ (`DifficultyCurve.randomHighTier`) — it's meant to be
+  /// tier 5+ (`DifficultyCurve.randomHighTier`) — it's meant to be
   /// consistently hard, not ramped. The question category is picked ~70%
   /// math / ~30% reasoning (see `_pickNextType`), then a type uniformly
-  /// within that category, excluding any type shown in the last 5
-  /// questions so the same topic doesn't come back too soon.
+  /// within that category (further restricted by score band in ordinary
+  /// Play mode — see `_pickNextType`'s `bandPool`), excluding any type
+  /// shown in the last 5 questions so the same topic doesn't come back
+  /// too soon.
   void _loadNextPuzzle() {
     // 13+/16+ Tests draw from the same "consistently hard" tier source as
     // Daily Challenge; 18+ (and ordinary Play) ramp by score instead.
@@ -320,6 +322,45 @@ class GameController extends ChangeNotifier {
   ];
   static const int _gatedTypesUnlockScore = 200;
 
+  /// Score-banded starter pools for ordinary Play mode (not Daily
+  /// Challenge, not an Age-Group Test — see `_pickNextType`'s
+  /// `isOrdinaryPlay` check) — a brand-new player sees a small curated
+  /// topic set first, which widens twice before reaching the full
+  /// library at the same score (100) where [_gatedTypes] starts counting
+  /// down toward its own 200 unlock.
+  static const List<PuzzleType> _band1MathTypes = [
+    PuzzleType.arithmetic,
+    PuzzleType.trueFalse,
+    PuzzleType.missingNumber,
+    PuzzleType.oddOneOut,
+    PuzzleType.sequence,
+    PuzzleType.targetNumber,
+    PuzzleType.bodmas,
+  ];
+  static const List<PuzzleType> _band1ReasoningTypes = [
+    PuzzleType.familyTree,
+    PuzzleType.directionSense,
+    PuzzleType.wordPuzzle,
+    PuzzleType.statementConclusion,
+  ];
+  static const int _band1UnlockScore = 50;
+
+  /// Band 2 expands math to 14 topics (the 7 above plus these 7); reasoning
+  /// fully unlocks to all 12 types at this band, so no separate band-2
+  /// reasoning list is needed — `_pickNextType` falls through to
+  /// `_reasoningTypes` directly once `totalMarks >= _band1UnlockScore`.
+  static const List<PuzzleType> _band2MathTypes = [
+    ..._band1MathTypes,
+    PuzzleType.speedDistance,
+    PuzzleType.profitLoss,
+    PuzzleType.interest,
+    PuzzleType.angleFinding,
+    PuzzleType.graphReading,
+    PuzzleType.numberClassification,
+    PuzzleType.statistics,
+  ];
+  static const int _band2UnlockScore = 100;
+
   static PuzzleCategory _categoryOf(PuzzleType type) => switch (type) {
         PuzzleType.familyTree ||
         PuzzleType.shapeIdentification ||
@@ -354,21 +395,38 @@ class GameController extends ChangeNotifier {
         _rng.nextInt(0, 9) < 3;
     final basePool = wantsReasoning ? _reasoningTypes : _mathTypes;
 
+    // Ordinary Play mode (not Daily Challenge, not an Age-Group Test)
+    // additionally restricts the topic pool by score band — see the
+    // band-1/band-2 constants above. Daily Challenge keeps its existing
+    // "always full pool" behavior; Age-Group Tests keep their own
+    // separate `ageGroupTest.mathPool` logic (short-circuits below
+    // regardless of this).
+    final isOrdinaryPlay = ageGroupTest == null && !isDailyChallenge;
+    final bandPool = !isOrdinaryPlay
+        ? basePool
+        : (totalMarks < _band1UnlockScore
+            ? (wantsReasoning ? _band1ReasoningTypes : _band1MathTypes)
+            : (totalMarks < _band2UnlockScore
+                ? (wantsReasoning ? _reasoningTypes : _band2MathTypes)
+                : basePool));
+
     // 13+/16+ restrict outright to their curriculum-scoped pool; 18+
     // (mathPool null) and ordinary Play/Daily Challenge fall through to
-    // the existing score-gating logic below, unchanged.
+    // the existing score-gating logic below, unchanged, now operating on
+    // `bandPool` instead of `basePool` directly.
     final eligiblePool = ageGroupTest?.mathPool ??
         (wantsReasoning
-            ? basePool
+            ? bandPool
             : (totalMarks > _gatedTypesUnlockScore || isDailyChallenge
-                ? basePool
-                : basePool.where((t) => !_gatedTypes.contains(t)).toList()));
+                ? bandPool
+                : bandPool.where((t) => !_gatedTypes.contains(t)).toList()));
 
     // Exclude anything shown in the last 5 questions so a topic doesn't
     // repeat too soon. Defensive fallback to the ungated pool if that
-    // would leave nothing to pick from — should never trigger given pool
-    // sizes (12 reasoning / 32 math, only 4 ever gated) vs. a 5-deep
-    // window, but a crash here would end the whole session.
+    // would leave nothing to pick from — band 1's reasoning pool is only
+    // 4 types against this 5-deep window, so this can genuinely trigger
+    // there (not just a theoretical safety net), and degrades gracefully
+    // to allowing one repeat rather than crashing.
     var candidates =
         eligiblePool.where((t) => !_recentTypes.contains(t)).toList();
     if (candidates.isEmpty) candidates = eligiblePool;

@@ -279,7 +279,7 @@ void main() {
         ),
       ),
     );
-    navigatorKey.currentState!.push(
+    final pushFuture = navigatorKey.currentState!.push(
       MaterialPageRoute(builder: (_) => GameScreen(debugController: controller)),
     );
     await tester.pump();
@@ -309,15 +309,25 @@ void main() {
     // button" test above only reaches for pumpAndSettle after the
     // session has actually ended).
     await tester.binding.handlePopRoute();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
-    await tester.pump(const Duration(milliseconds: 50));
+
+    // This is the precise real bug, reproduced: home_screen.dart's
+    // _navigateToGame does `await Navigator.push(...)` for this exact
+    // route, then immediately re-fetches the score — so chaining
+    // directly off pushFuture (not off a fixed number of test pumps)
+    // asks the same question the real Home screen effectively asks. If
+    // the route could pop before the persist actually finished (the old,
+    // fire-and-forget bug), this would see stale/null data; it can't
+    // happen anymore because the pop itself is now held open
+    // (PopScope(canPop: false) in game_screen.dart) until the persist
+    // completes.
+    final statsRightAfterPop =
+        pushFuture.then((_) => StorageService.loadStats());
+
+    await _pumpMillis(tester, 2000, step: 20);
 
     expect(find.text('home'), findsOneWidget);
     expect(find.byType(ResultsScreen), findsNothing);
-
-    final stats = await StorageService.loadStats();
-    expect(stats.lastPlayedDate, isNotNull);
+    expect((await statsRightAfterPop).lastPlayedDate, isNotNull);
   });
 
   testWidgets(

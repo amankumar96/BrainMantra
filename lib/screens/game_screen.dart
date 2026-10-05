@@ -310,30 +310,54 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     super.dispose();
   }
 
+  // Guards _persistProgressOnPop against firing more than once if the
+  // player mashes back while the first pop is still waiting on the
+  // persist below.
+  bool _isPoppingBack = false;
+
   /// Back button/gesture mid-session: the same safety net as
   /// [didChangeAppLifecycleState], for the other common way to leave
-  /// without going through End/question-completion. Fires-and-forgets
-  /// the persist (the pop itself isn't delayed waiting on it — see this
-  /// method's own doc on why that's safe) rather than blocking on it, so
-  /// back stays instantly responsive.
-  void _persistProgressOnPop() {
-    if (_hasNavigatedToResults || _controller.isSessionOver) return;
-    final snapshot = _controller.currentProgressSnapshot;
-    if (snapshot.outcomes.isEmpty) return;
-    // Deliberately not awaited: this fires right as the route is
-    // popping, and the async Supabase/storage calls inside happily run
-    // to completion in the background regardless of whether this widget
-    // is still mounted by the time they resolve — none of them touch
-    // `context`/`setState`.
-    _persistScoreAndStats(snapshot);
+  /// without going through End/question-completion.
+  ///
+  /// Real bug caught on-device: this used to fire-and-forget the persist
+  /// so the pop itself stayed instantly responsive — but `home_screen.dart`'s
+  /// `_navigateToGame` awaits the very same `Navigator.push` this pop
+  /// completes, and re-fetches the score the instant that await resolves.
+  /// With an un-awaited persist, the pop (and thus Home's re-fetch) could
+  /// — and on-device, did — complete before `AuthService.updateCurrentScore`
+  /// had actually finished, showing a stale/zero score on Home and the
+  /// Leaderboard right after backing out of a scored session. Now the pop
+  /// is held (`PopScope(canPop: false)` below) until the persist genuinely
+  /// finishes, then performed manually — same "wait, then leave" pattern
+  /// the normal End-of-session flow already uses via `pushReplacement`.
+  Future<void> _persistProgressOnPop() async {
+    if (_isPoppingBack) return;
+    _isPoppingBack = true;
+    if (!_hasNavigatedToResults && !_controller.isSessionOver) {
+      final snapshot = _controller.currentProgressSnapshot;
+      if (snapshot.outcomes.isNotEmpty) {
+        await _persistScoreAndStats(snapshot);
+      }
+    }
+    // _hasNavigatedToResults may have flipped true while the above was
+    // awaiting (e.g. the session happened to end on its own right as back
+    // was pressed) — in that case pushReplacement is already handling
+    // navigation itself, so popping here too would remove an extra route.
+    if (!mounted || _hasNavigatedToResults) return;
+    Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: true,
+      // false, not true: the pop must wait for _persistProgressOnPop's
+      // save to actually finish (see its doc comment) before the route
+      // is really removed — canPop: true would let the system pop
+      // through immediately, racing the persist exactly like the bug
+      // this replaced.
+      canPop: false,
       onPopInvokedWithResult: (didPop, result) {
-        if (didPop) _persistProgressOnPop();
+        if (!didPop) _persistProgressOnPop();
       },
       child: ChangeNotifierProvider<GameController>.value(
         value: _controller,

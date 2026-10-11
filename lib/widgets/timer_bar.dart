@@ -18,6 +18,7 @@ class TimerBar extends StatefulWidget {
     required this.isRunning,
     required this.onExpired,
     this.extraSeconds = 0,
+    this.trailing,
   });
 
   final int durationSeconds;
@@ -34,6 +35,11 @@ class TimerBar extends StatefulWidget {
   /// this across widget updates extends the live countdown by the delta,
   /// in place, without resetting elapsed progress.
   final int extraSeconds;
+
+  /// An optional widget shown on the same row as the MM:SS text, right
+  /// -aligned (e.g. game_screen.dart's notepad icon) — keeps it from
+  /// costing a whole extra line of its own above the timer.
+  final Widget? trailing;
 
   @override
   State<TimerBar> createState() => _TimerBarState();
@@ -123,12 +129,18 @@ class _TimerBarState extends State<TimerBar>
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              _formatMmSs(remainingSeconds),
-              style: const TextStyle(
-                fontSize: AppText.timer,
-                fontWeight: FontWeight.bold,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _formatMmSs(remainingSeconds),
+                  style: const TextStyle(
+                    fontSize: AppText.timer,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (widget.trailing != null) widget.trailing!,
+              ],
             ),
             const SizedBox(height: AppSpacing.xs),
             ClipRRect(

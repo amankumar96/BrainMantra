@@ -135,4 +135,79 @@ void main() {
       expect(target, equals(now.add(const Duration(days: 3))));
     });
   });
+
+  group('nextRecurringOccurrence', () {
+    test('target time still ahead today: returns today at that time', () {
+      final now = DateTime(2026, 1, 1, 8, 0);
+      final target = NotificationService.nextRecurringOccurrence(
+        now,
+        hour: 9,
+        minute: 0,
+      );
+      expect(target, equals(DateTime(2026, 1, 1, 9, 0)));
+    });
+
+    test('target time already passed today: rolls to tomorrow', () {
+      final now = DateTime(2026, 1, 1, 22, 0);
+      final target = NotificationService.nextRecurringOccurrence(
+        now,
+        hour: 9,
+        minute: 0,
+      );
+      expect(target, equals(DateTime(2026, 1, 2, 9, 0)));
+    });
+
+    test('exactly at the target instant: treated as already passed '
+        '(schedules tomorrow, not an immediate duplicate fire)', () {
+      final now = DateTime(2026, 1, 1, 9, 0);
+      final target = NotificationService.nextRecurringOccurrence(
+        now,
+        hour: 9,
+        minute: 0,
+      );
+      expect(target, equals(DateTime(2026, 1, 2, 9, 0)));
+    });
+
+    test('minute component is respected, not just the hour', () {
+      final now = DateTime(2026, 1, 1, 10, 0);
+      final target = NotificationService.nextRecurringOccurrence(
+        now,
+        hour: 10,
+        minute: 30,
+      );
+      expect(target, equals(DateTime(2026, 1, 1, 10, 30)));
+    });
+  });
+
+  group('mathFactForDay', () {
+    test('is deterministic: same date always returns the same fact', () {
+      final now = DateTime(2026, 3, 15, 14, 22);
+      final a = NotificationService.mathFactForDay(now);
+      final b = NotificationService.mathFactForDay(DateTime(2026, 3, 15, 6));
+      expect(a, equals(b));
+    });
+
+    test('different days of year produce more than one distinct fact', () {
+      final facts = {
+        for (var day = 1; day <= 20; day++)
+          NotificationService.mathFactForDay(DateTime(2026, 1, day)),
+      };
+      expect(facts.length, greaterThan(1));
+    });
+
+    test('never throws for any day of a leap year, including day 366', () {
+      for (var day = 1; day <= 366; day++) {
+        final date = DateTime(2024).add(Duration(days: day - 1));
+        expect(
+          () => NotificationService.mathFactForDay(date),
+          returnsNormally,
+        );
+      }
+    });
+
+    test('always returns a non-empty fact', () {
+      final fact = NotificationService.mathFactForDay(DateTime(2026, 7, 4));
+      expect(fact, isNotEmpty);
+    });
+  });
 }

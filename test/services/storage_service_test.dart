@@ -89,8 +89,10 @@ void main() {
   });
 
   group('clearAll', () {
-    test('removes both saved stats and the last session', () async {
+    test('removes saved stats, the last session, and the tutorial flag',
+        () async {
       await StorageService.saveStats(PlayerStats(highScore: 42));
+      await StorageService.markPlayTutorialSeen();
       final session = GameSession(
         startedAt: DateTime.utc(2026, 1, 1),
         score: 0,
@@ -107,6 +109,7 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('player_stats'), isNull);
       expect(prefs.getString('last_session'), isNull);
+      expect(await StorageService.hasSeenPlayTutorial(), isFalse);
       // loadStats still behaves correctly (defaults) after clearing.
       expect(await StorageService.loadStats(), equals(PlayerStats()));
     });
@@ -129,6 +132,27 @@ void main() {
       await StorageService.clearAll();
 
       expect(await StorageService.hasSeenRules(), isFalse);
+    });
+  });
+
+  group('hasSeenPlayTutorial', () {
+    test('defaults to false when nothing has been recorded yet', () async {
+      expect(await StorageService.hasSeenPlayTutorial(), isFalse);
+    });
+
+    test('markPlayTutorialSeen flips it to true and it stays true',
+        () async {
+      await StorageService.markPlayTutorialSeen();
+      expect(await StorageService.hasSeenPlayTutorial(), isTrue);
+    });
+
+    test('clearAll resets hasSeenPlayTutorial back to false', () async {
+      await StorageService.markPlayTutorialSeen();
+      expect(await StorageService.hasSeenPlayTutorial(), isTrue);
+
+      await StorageService.clearAll();
+
+      expect(await StorageService.hasSeenPlayTutorial(), isFalse);
     });
   });
 }

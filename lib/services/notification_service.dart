@@ -4,6 +4,30 @@ import 'package:timezone/timezone.dart' as tz;
 
 import '../models/player_stats.dart';
 
+/// One slot in the unconditional "≥5/day" recurring baseline (see
+/// [NotificationService.rescheduleAll]'s doc comment) — a fixed id,
+/// time-of-day, and copy. Scheduled with `matchDateTimeComponents:
+/// DateTimeComponents.time`, so the OS itself re-fires it every day at
+/// that time, with no app code involved after the first successful
+/// schedule call — unlike the three condition-aware reminders below,
+/// these can't check live player state at delivery time, so they're
+/// deliberately generic/unconditional by design.
+class _RecurringSlot {
+  const _RecurringSlot({
+    required this.id,
+    required this.hour,
+    required this.minute,
+    required this.title,
+    required this.body,
+  });
+
+  final int id;
+  final int hour;
+  final int minute;
+  final String title;
+  final String body;
+}
+
 /// Local-only (no Firebase/push, v1 scope) reminders meant to bring a
 /// player back: a Daily Challenge nudge, a streak-about-to-expire
 /// warning, and an inactivity win-back. Static, matching the
@@ -26,6 +50,85 @@ abstract final class NotificationService {
   static const int _dailyChallengeId = 101;
   static const int _streakWarningId = 102;
   static const int _inactivityId = 103;
+
+  // The unconditional, OS-recurring "≥5/day" baseline — guarantees a
+  // delivery floor regardless of whether the player ever reopens the app
+  // (see rescheduleAll's doc comment for why this exists alongside, not
+  // instead of, the three conditional reminders above).
+  static const int _morningId = 201;
+  static const int _challengeUnlockId = 202;
+  static const int _mathFactId = 203;
+  static const int _streakReminderId = 204;
+  static const int _eveningId = 205;
+
+  // The 4 fixed-copy recurring slots — the math-fact slot (203) isn't
+  // here since its body changes per day (see mathFactForDay); it's
+  // scheduled separately in _scheduleRecurringBaseline.
+  static const List<_RecurringSlot> _recurringSlots = [
+    _RecurringSlot(
+      id: _morningId,
+      hour: 9,
+      minute: 0,
+      title: 'Good morning! 🌅',
+      body: 'Start your day with a quick brain warm-up.',
+    ),
+    _RecurringSlot(
+      id: _challengeUnlockId,
+      hour: 10,
+      minute: 30,
+      title: "Today's Daily Challenge is live",
+      body: 'Fresh puzzle just unlocked for today — go claim it.',
+    ),
+    _RecurringSlot(
+      id: _streakReminderId,
+      hour: 16,
+      minute: 30,
+      title: 'Keep your streak alive 🔥',
+      body: "Just one quick round keeps today's habit going.",
+    ),
+    _RecurringSlot(
+      id: _eveningId,
+      hour: 21,
+      minute: 30,
+      title: 'One more round before bed? 🌙',
+      body: 'A quick game before you wrap up the day.',
+    ),
+  ];
+
+  // Short, self-contained math-history facts for the recurring "Math
+  // Fact of the Day" slot — kept as a small inline list (no asset file,
+  // no network fetch, no extra stored state) rather than a bigger
+  // content system, since this is meant to stay a light touch, not a
+  // standalone feature.
+  static const List<String> _mathFacts = [
+    'Pythagoras led a secret society that banned eating beans.',
+    'Euler kept producing major math work after going completely blind.',
+    "Zero as a number wasn't widely used in Europe until the 1200s.",
+    'The "=" sign was invented because its creator was tired of writing '
+        '"is equal to" by hand.',
+    'Ramanujan taught himself advanced mathematics from a single old '
+        'textbook.',
+    "Fibonacci's famous sequence first appeared in a problem about "
+        'rabbit breeding.',
+    'Archimedes reportedly ran through the streets shouting "Eureka!" '
+        'after a bathtub discovery.',
+    'As a schoolboy, Gauss summed 1 to 100 in seconds by pairing up '
+        'numbers.',
+    'The word "algebra" comes from Arabic "al-jabr", meaning "reunion of '
+        'broken parts".',
+    'Newton and Leibniz each invented calculus independently, sparking a '
+        'bitter rivalry.',
+    'Ada Lovelace wrote the first published computer algorithm — in the '
+        '1840s.',
+    "Pi has trillions of calculated digits, but about 39 are enough for "
+        "any real-world measurement.",
+    'The Babylonians used a base-60 number system — why an hour has 60 '
+        'minutes.',
+    'Alan Turing helped crack wartime codes and laid the groundwork for '
+        'computer science.',
+    'A "googol" (1 followed by 100 zeros) got its name from a '
+        "mathematician's 9-year-old nephew.",
+  ];
 
   static const String _channelId = 'reminders';
   static const String _channelName = 'Reminders';
@@ -120,6 +223,31 @@ abstract final class NotificationService {
     return target.isAfter(now) ? target : now.add(const Duration(days: 3));
   }
 
+  /// A deterministic "fact of the day" pick — same calendar date always
+  /// picks the same entry, with no stored index/state needed. Two
+  /// different years landing on the same fact (day-of-year wraps past
+  /// [_mathFacts]'s length) is an acceptable, harmless coincidence given
+  /// how small this feature is meant to stay.
+  static String mathFactForDay(DateTime now) {
+    final startOfYear = DateTime(now.year);
+    final dayOfYear = now.difference(startOfYear).inDays;
+    return _mathFacts[dayOfYear % _mathFacts.length];
+  }
+
+  /// The next moment [hour]:[minute] (device-local) occurs at or after
+  /// [now] — today if that time hasn't passed yet, otherwise tomorrow.
+  /// This only decides the *first* fire time handed to `zonedSchedule`
+  /// for a recurring slot; every fire after that is the OS repeating via
+  /// `matchDateTimeComponents`, not this function being called again.
+  static DateTime nextRecurringOccurrence(
+    DateTime now, {
+    required int hour,
+    required int minute,
+  }) {
+    final today = DateTime(now.year, now.month, now.day, hour, minute);
+    return today.isAfter(now) ? today : today.add(const Duration(days: 1));
+  }
+
   /// The single entry point for (re)computing every reminder from current
   /// player state — called from `home_screen.dart` (after stats load) and
   /// `game_screen.dart` (after every session ends). Always cancels each
@@ -131,6 +259,16 @@ abstract final class NotificationService {
   /// for deterministic target-time assertions (though the three
   /// `*Target` methods above are what tests actually exercise directly —
   /// this method itself touches the real plugin and isn't unit-tested).
+  ///
+  /// Two layers, kept deliberately separate:
+  /// - The 3 reminders below (_refreshConditionalReminders) are
+  ///   condition-aware one-shots-for-today, only ever (re-)armed while
+  ///   the app is actually running — fine as a *bonus* layer, but on
+  ///   their own they go silent for a player who stops opening the app,
+  ///   exactly the player re-engagement notifications matter most for.
+  /// - _scheduleRecurringBaseline guarantees a real, OS-level "≥5/day"
+  ///   delivery floor that keeps firing daily forever once scheduled,
+  ///   independent of whether the app is ever reopened again.
   static Future<void> rescheduleAll({
     required PlayerStats stats,
     required bool dailyChallengeDoneToday,
@@ -139,6 +277,20 @@ abstract final class NotificationService {
     if (!_initialized) return; // never throws if initialize() didn't run
     now ??= DateTime.now();
 
+    await _refreshConditionalReminders(
+      stats: stats,
+      dailyChallengeDoneToday: dailyChallengeDoneToday,
+      now: now,
+    );
+    await _scheduleRecurringBaseline(now: now);
+  }
+
+  /// The existing 3 condition-aware, one-shot-per-day reminders.
+  static Future<void> _refreshConditionalReminders({
+    required PlayerStats stats,
+    required bool dailyChallengeDoneToday,
+    required DateTime now,
+  }) async {
     await _cancelAndMaybeSchedule(
       id: _dailyChallengeId,
       target: dailyChallengeReminderTarget(
@@ -168,6 +320,75 @@ abstract final class NotificationService {
       ),
       title: 'Your brain misses a workout 🧠',
       body: 'It\'s been a few days — come back for a quick round!',
+    );
+  }
+
+  /// Ensures all 5 recurring baseline slots are scheduled. The 4
+  /// fixed-copy slots in [_recurringSlots] are only (re-)scheduled if
+  /// not already pending — idempotent, so a player who opens the app
+  /// daily doesn't pay a redundant reschedule for all 5 ids on every
+  /// single launch. The math-fact slot is the one exception: it's always
+  /// re-scheduled with today's fact, since a recurring notification's
+  /// content is fixed at schedule time (the OS can't re-run
+  /// [mathFactForDay] when it actually fires) — this means a player who
+  /// never reopens the app keeps getting *a* fact reliably, just not
+  /// necessarily that exact day's fact, which is an acceptable trade for
+  /// keeping this feature this small.
+  static Future<void> _scheduleRecurringBaseline({required DateTime now}) async {
+    try {
+      final pending = await _plugin.pendingNotificationRequests();
+      final pendingIds = pending.map((r) => r.id).toSet();
+
+      for (final slot in _recurringSlots) {
+        if (pendingIds.contains(slot.id)) continue;
+        await _scheduleRecurring(
+          id: slot.id,
+          hour: slot.hour,
+          minute: slot.minute,
+          title: slot.title,
+          body: slot.body,
+          now: now,
+        );
+      }
+
+      await _scheduleRecurring(
+        id: _mathFactId,
+        hour: 13,
+        minute: 0,
+        title: 'Math Fact of the Day 📐',
+        body: mathFactForDay(now),
+        now: now,
+      );
+    } catch (_) {
+      // Best-effort — same precedent as every other plugin touch here.
+    }
+  }
+
+  /// Schedules one id to recur daily at [hour]:[minute] (device-local),
+  /// via `matchDateTimeComponents: DateTimeComponents.time` — the OS
+  /// itself re-fires it every day after this one call, with no further
+  /// app involvement needed.
+  static Future<void> _scheduleRecurring({
+    required int id,
+    required int hour,
+    required int minute,
+    required String title,
+    required String body,
+    required DateTime now,
+  }) async {
+    await _plugin.cancel(id: id);
+    final first = nextRecurringOccurrence(now, hour: hour, minute: minute);
+    await _plugin.zonedSchedule(
+      id: id,
+      title: title,
+      body: body,
+      scheduledDate: tz.TZDateTime.from(first.toUtc(), tz.UTC),
+      notificationDetails: const NotificationDetails(
+        android: AndroidNotificationDetails(_channelId, _channelName),
+        iOS: DarwinNotificationDetails(),
+      ),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      matchDateTimeComponents: DateTimeComponents.time,
     );
   }
 

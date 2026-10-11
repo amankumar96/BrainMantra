@@ -60,6 +60,22 @@ dev_dependencies:
   # Run `dart run flutter_launcher_icons` after changing anything below.
   flutter_launcher_icons: ^0.14.4
 
+  # Build-time only — generates the native Android/iOS launch screen (the
+  # placeholder shown while the engine starts, before the first Flutter
+  # frame). Replaces the bare, unbranded default Flutter ships with one
+  # showing the app's own icon on its brand background, and correctly
+  # configures both the legacy windowBackground approach (pre-Android 12)
+  # and the newer Android 12+ SplashScreen API in one step. Run
+  # `dart run flutter_native_splash:create` after changing anything below.
+  flutter_native_splash: ^2.4.6
+
+flutter_native_splash:
+  color: "#D9ECFB" # AppColors.background — same soft light blue Home uses
+  image: assets/icons/icon.png
+  android_12:
+    color: "#D9ECFB"
+    image: assets/icons/icon.png
+
 flutter_launcher_icons:
   android: true
   ios: true

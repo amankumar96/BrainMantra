@@ -15,19 +15,31 @@ import 'utils/constants.dart';
 
 /// Entry point. Connects to Supabase before anything else runs — every
 /// screen assumes `Supabase.instance.client` is already initialized.
+///
+/// Only [Supabase.initialize] and [LanguageController.load] actually block
+/// the first frame — `_AuthGate` reads `Supabase.instance.client`
+/// synchronously, and the loaded [LanguageController] is a required
+/// constructor argument to [BrainMantraApp]. They run in parallel (not
+/// sequentially) to shave startup time. AdsService/NotificationService
+/// don't gate anything the first screen needs, so they're kicked off
+/// without being awaited — both are already individually best-effort and
+/// wrapped in their own try/catch (AdsService's consent flow is bounded to
+/// a 10s timeout; see each class's own doc comment), so firing them after
+/// `runApp` is safe and measurably faster to a visible first screen.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Supabase.initialize(
-    url: SupabaseConfig.url,
-    // Legacy JWT-format anon keys (like this project's) remain valid —
-    // they're just passed under the SDK's newer parameter name now.
-    publishableKey: SupabaseConfig.anonKey,
-  );
-  // Best-effort: AdsService.initialize() never throws (see its own doc
-  // comment) — an ad SDK issue must never block the app from starting.
-  await AdsService.instance.initialize();
-  await NotificationService.initialize();
-  final languageController = await LanguageController.load();
+  final results = await Future.wait([
+    Supabase.initialize(
+      url: SupabaseConfig.url,
+      // Legacy JWT-format anon keys (like this project's) remain valid —
+      // they're just passed under the SDK's newer parameter name now.
+      publishableKey: SupabaseConfig.anonKey,
+    ),
+    LanguageController.load(),
+  ]);
+  final languageController = results[1] as LanguageController;
+  unawaited(AdsService.instance.initialize());
+  unawaited(NotificationService.initialize());
   runApp(BrainMantraApp(languageController: languageController));
 }
 

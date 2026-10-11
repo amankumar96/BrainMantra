@@ -90,6 +90,19 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   final GlobalKey _skipButtonKey = GlobalKey();
   final GlobalKey _notepadShowcaseKey = GlobalKey();
 
+  // ShowcaseView's own registry is a single Map keyed by scope name, with
+  // no per-caller identity check on register()/unregister() — if every
+  // GameScreen shared the package's default scope, "Continue Playing"
+  // (pushReplacement, which keeps the old GameScreen mounted/disposing
+  // *after* the new one's initState already ran) would let the new
+  // screen's register() get silently clobbered by the old screen's
+  // later unregister(), then throw inside dispose() the next time any
+  // GameScreen in that chain tries to unregister an already-emptied
+  // scope. A unique scope per instance makes every GameScreen's
+  // register/unregister pair fully independent, regardless of how many
+  // "Continue Playing" taps are chained together in one sitting.
+  late final String _showcaseScope = 'game-screen-${_endButtonKey.hashCode}';
+
   // Starts true so the very first frame's timer stays frozen before the
   // async "has seen tutorial" check below even resolves — see
   // _maybeStartTutorial. Flips false either immediately (already seen)
@@ -116,10 +129,10 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     _lastSeenQuestionNumber = _controller.questionNumber;
     _controller.addListener(_handleControllerChange);
     WidgetsBinding.instance.addObserver(this);
-    // Registers this session's ShowcaseView — required for any Showcase
-    // widget below to work at all (see showcaseview's own precedent for
-    // this exact register-in-initState/unregister-in-dispose pattern).
-    ShowcaseView.register(onFinish: _onTutorialFinished);
+    // Registers this session's ShowcaseView under its own unique scope
+    // (see _showcaseScope's doc comment for why that's required, not
+    // optional) — required for any Showcase widget below to work at all.
+    ShowcaseView.register(scope: _showcaseScope, onFinish: _onTutorialFinished);
     _maybeStartTutorial();
   }
 
@@ -138,7 +151,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     if (!mounted) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ShowcaseView.get().startShowCase([
+      ShowcaseView.getNamed(_showcaseScope).startShowCase([
         _endButtonKey,
         _submitButtonKey,
         _skipButtonKey,
@@ -358,7 +371,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _controller.removeListener(_handleControllerChange);
     _controller.dispose();
-    ShowcaseView.get().unregister();
+    ShowcaseView.getNamed(_showcaseScope).unregister();
     super.dispose();
   }
 
@@ -429,6 +442,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
               controller: controller,
               puzzle: puzzle,
               isShowingTutorial: _isShowingTutorial,
+              showcaseScope: _showcaseScope,
               endButtonKey: _endButtonKey,
               submitButtonKey: _submitButtonKey,
               skipButtonKey: _skipButtonKey,
@@ -446,6 +460,7 @@ class _GameScreenBody extends StatelessWidget {
     required this.controller,
     required this.puzzle,
     required this.isShowingTutorial,
+    required this.showcaseScope,
     required this.endButtonKey,
     required this.submitButtonKey,
     required this.skipButtonKey,
@@ -459,6 +474,12 @@ class _GameScreenBody extends StatelessWidget {
   /// already known to have been seen before) — holds TimerBar paused
   /// below, same precedent as controller.isHintAdPlaying.
   final bool isShowingTutorial;
+
+  /// This GameScreen instance's own private ShowcaseView scope — every
+  /// Showcase below must be tagged with it (see _GameScreenState's
+  /// _showcaseScope doc comment for why a shared/default scope would be
+  /// a bug across "Continue Playing").
+  final String showcaseScope;
   final GlobalKey endButtonKey;
   final GlobalKey submitButtonKey;
   final GlobalKey skipButtonKey;
@@ -490,6 +511,7 @@ class _GameScreenBody extends StatelessWidget {
           // `_persistAndShowResults`'s `lastDailyChallengeDate` write.
           Showcase(
             key: endButtonKey,
+            scope: showcaseScope,
             description: _t(
               controller.language,
               'Ends the game now — your marks are saved even mid-session.',
@@ -563,6 +585,7 @@ class _GameScreenBody extends StatelessWidget {
                     // vertical space on an already tightly-packed screen.
                     trailing: Showcase(
                       key: notepadShowcaseKey,
+                      scope: showcaseScope,
                       description: _t(
                         controller.language,
                         'Opens a scratch pad for rough work.',
@@ -610,6 +633,7 @@ class _GameScreenBody extends StatelessWidget {
                       Expanded(
                         child: Showcase(
                           key: skipButtonKey,
+                          scope: showcaseScope,
                           description: _t(
                             controller.language,
                             'Skips this question — no penalty.',
@@ -634,6 +658,7 @@ class _GameScreenBody extends StatelessWidget {
                         flex: 2,
                         child: Showcase(
                           key: submitButtonKey,
+                          scope: showcaseScope,
                           description: _t(
                             controller.language,
                             'Locks in your selected answer.',

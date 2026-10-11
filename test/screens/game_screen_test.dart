@@ -633,4 +633,58 @@ void main() {
       expect(controller.lastOutcome, equals(AnswerOutcome.skipped));
     });
   });
+
+  group('chained GameScreen instances (e.g. "Continue Playing")', () {
+    testWidgets(
+        'registering/unregistering the tutorial walkthrough across two '
+        'back-to-back GameScreen instances never throws — regression '
+        'test for a real crash: ShowcaseView used to key its registry '
+        'by a single shared scope, so pushReplacement-ing to a second '
+        'GameScreen while the first was still disposing let the first '
+        "screen's cleanup unregister the SECOND screen's registration "
+        "instead of its own, crashing the next screen's dispose()",
+        (tester) async {
+      final controllerA = _textOptionController(seedPrefix: 'gs-chain-a');
+      final controllerB = _textOptionController(seedPrefix: 'gs-chain-b');
+      final navigatorKey = GlobalKey<NavigatorState>();
+      await tester.pumpWidget(
+        ChangeNotifierProvider<LanguageController>(
+          create: (_) => LanguageController(AppLanguage.english),
+          child: MaterialApp(
+            navigatorKey: navigatorKey,
+            home: const Scaffold(body: Text('home')),
+          ),
+        ),
+      );
+
+      // GameScreen A, like a player's first session.
+      navigatorKey.currentState!.push(
+        MaterialPageRoute(builder: (_) => GameScreen(debugController: controllerA)),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      // "Continue Playing" -> pushReplacement to GameScreen B, the same
+      // navigation results_screen.dart actually performs.
+      navigatorKey.currentState!.pushReplacement(
+        MaterialPageRoute(builder: (_) => GameScreen(debugController: controllerB)),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(); // lets A's transition/dispose fully settle
+
+      expect(tester.takeException(), isNull);
+
+      // Leave GameScreen B too (its own dispose() is what used to throw).
+      navigatorKey.currentState!.pushReplacement(
+        MaterialPageRoute(builder: (_) => const Scaffold(body: Text('home again'))),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('home again'), findsOneWidget);
+    });
+  });
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:showcaseview/showcaseview.dart';
 
 import '../controllers/game_controller.dart';
 import '../models/age_group.dart';
@@ -21,6 +22,7 @@ import '../widgets/diagram_painter.dart';
 import '../widgets/feedback_overlay.dart';
 import '../widgets/floating_numbers_background.dart';
 import '../widgets/marks_indicator.dart';
+import '../widgets/notepad_button.dart';
 import '../widgets/submit_button.dart';
 import '../widgets/timer_bar.dart';
 import 'results_screen.dart';
@@ -79,6 +81,21 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   final AdFrequencyCap _adFrequencyCap = AdFrequencyCap();
   late int _lastSeenQuestionNumber;
 
+  // One-time first-use walkthrough: End -> Submit -> Skip -> Notepad.
+  // GlobalKeys created once here (not inside _GameScreenBody, which
+  // rebuilds every question) so the showcase targets keep a stable
+  // identity for the whole session.
+  final GlobalKey _endButtonKey = GlobalKey();
+  final GlobalKey _submitButtonKey = GlobalKey();
+  final GlobalKey _skipButtonKey = GlobalKey();
+  final GlobalKey _notepadShowcaseKey = GlobalKey();
+
+  // Starts true so the very first frame's timer stays frozen before the
+  // async "has seen tutorial" check below even resolves — see
+  // _maybeStartTutorial. Flips false either immediately (already seen)
+  // or once the walkthrough finishes.
+  bool _isShowingTutorial = true;
+
   @override
   void initState() {
     super.initState();
@@ -99,6 +116,40 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     _lastSeenQuestionNumber = _controller.questionNumber;
     _controller.addListener(_handleControllerChange);
     WidgetsBinding.instance.addObserver(this);
+    // Registers this session's ShowcaseView — required for any Showcase
+    // widget below to work at all (see showcaseview's own precedent for
+    // this exact register-in-initState/unregister-in-dispose pattern).
+    ShowcaseView.register(onFinish: _onTutorialFinished);
+    _maybeStartTutorial();
+  }
+
+  /// Shows the one-time walkthrough the very first time a player ever
+  /// opens GameScreen in any mode (see StorageService.hasSeenPlayTutorial's
+  /// doc comment) — matches home_screen.dart's
+  /// _maybeShowRulesForTheFirstTime precedent: check once, defer the
+  /// actual UI to after the first frame (ShowcaseView needs a mounted
+  /// Overlay to attach to).
+  Future<void> _maybeStartTutorial() async {
+    final alreadySeen = await StorageService.hasSeenPlayTutorial();
+    if (alreadySeen) {
+      if (mounted) setState(() => _isShowingTutorial = false);
+      return;
+    }
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ShowcaseView.get().startShowCase([
+        _endButtonKey,
+        _submitButtonKey,
+        _skipButtonKey,
+        _notepadShowcaseKey,
+      ]);
+    });
+  }
+
+  void _onTutorialFinished() {
+    if (mounted) setState(() => _isShowingTutorial = false);
+    StorageService.markPlayTutorialSeen();
   }
 
   /// Safety net for "the app got backgrounded/killed mid-session" (no
@@ -307,6 +358,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _controller.removeListener(_handleControllerChange);
     _controller.dispose();
+    ShowcaseView.get().unregister();
     super.dispose();
   }
 
@@ -373,7 +425,15 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                 body: Center(child: CircularProgressIndicator()),
               );
             }
-            return _GameScreenBody(controller: controller, puzzle: puzzle);
+            return _GameScreenBody(
+              controller: controller,
+              puzzle: puzzle,
+              isShowingTutorial: _isShowingTutorial,
+              endButtonKey: _endButtonKey,
+              submitButtonKey: _submitButtonKey,
+              skipButtonKey: _skipButtonKey,
+              notepadShowcaseKey: _notepadShowcaseKey,
+            );
           },
         ),
       ),
@@ -382,10 +442,27 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 }
 
 class _GameScreenBody extends StatelessWidget {
-  const _GameScreenBody({required this.controller, required this.puzzle});
+  const _GameScreenBody({
+    required this.controller,
+    required this.puzzle,
+    required this.isShowingTutorial,
+    required this.endButtonKey,
+    required this.submitButtonKey,
+    required this.skipButtonKey,
+    required this.notepadShowcaseKey,
+  });
 
   final GameController controller;
   final Puzzle puzzle;
+
+  /// True until the one-time first-use walkthrough finishes (or is
+  /// already known to have been seen before) — holds TimerBar paused
+  /// below, same precedent as controller.isHintAdPlaying.
+  final bool isShowingTutorial;
+  final GlobalKey endButtonKey;
+  final GlobalKey submitButtonKey;
+  final GlobalKey skipButtonKey;
+  final GlobalKey notepadShowcaseKey;
 
   @override
   Widget build(BuildContext context) {
@@ -411,11 +488,19 @@ class _GameScreenBody extends StatelessWidget {
           // Daily Challenge specifically, ending early also locks it for
           // the rest of the day the same as finishing it normally — see
           // `_persistAndShowResults`'s `lastDailyChallengeDate` write.
-          TextButton(
-            onPressed: controller.endSession,
-            child: Text(
-              _t(controller.language, 'End', 'समाप्त करें'),
-              style: const TextStyle(color: Colors.white),
+          Showcase(
+            key: endButtonKey,
+            description: _t(
+              controller.language,
+              'Ends the game now — your marks are saved even mid-session.',
+              'गेम अभी समाप्त करता है — बीच में भी आपके अंक सेव हो जाते हैं।',
+            ),
+            child: TextButton(
+              onPressed: controller.endSession,
+              child: Text(
+                _t(controller.language, 'End', 'समाप्त करें'),
+                style: const TextStyle(color: Colors.white),
+              ),
             ),
           ),
         ],
@@ -462,17 +547,29 @@ class _GameScreenBody extends StatelessWidget {
                     totalQuestions: controller.totalQuestions,
                     marksSoFar: controller.totalMarks,
                   ),
-                  const SizedBox(height: AppSpacing.md),
                   TimerBar(
                     // A new key per question gives each one a fresh,
                     // correctly-timed countdown automatically — see
                     // timer_bar.dart's own doc comment.
                     key: ValueKey(puzzle.id),
                     durationSeconds: puzzle.timeLimitSeconds,
-                    isRunning:
-                        !controller.isSubmitted && !controller.isHintAdPlaying,
+                    isRunning: !controller.isSubmitted &&
+                        !controller.isHintAdPlaying &&
+                        !isShowingTutorial,
                     onExpired: controller.skipDueToTimeout,
                     extraSeconds: controller.hintBonusSeconds,
+                    // Shares the timer's own row instead of a separate
+                    // line above it — keeps this from costing extra
+                    // vertical space on an already tightly-packed screen.
+                    trailing: Showcase(
+                      key: notepadShowcaseKey,
+                      description: _t(
+                        controller.language,
+                        'Opens a scratch pad for rough work.',
+                        'कच्चे काम के लिए एक स्क्रैच पैड खोलता है।',
+                      ),
+                      child: NotepadButton(language: controller.language),
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.md),
                   Expanded(
@@ -511,24 +608,41 @@ class _GameScreenBody extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: OutlinedButton(
-                          onPressed: controller.isSubmitted
-                              ? null
-                              : controller.skipManually,
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                              vertical: AppSpacing.md,
-                            ),
+                        child: Showcase(
+                          key: skipButtonKey,
+                          description: _t(
+                            controller.language,
+                            'Skips this question — no penalty.',
+                            'इस सवाल को छोड़ता है — कोई नुकसान नहीं।',
                           ),
-                          child: Text(_t(controller.language, 'Skip', 'छोड़ें')),
+                          child: OutlinedButton(
+                            onPressed: controller.isSubmitted
+                                ? null
+                                : controller.skipManually,
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: AppSpacing.md,
+                              ),
+                            ),
+                            child:
+                                Text(_t(controller.language, 'Skip', 'छोड़ें')),
+                          ),
                         ),
                       ),
                       const SizedBox(width: AppSpacing.md),
                       Expanded(
                         flex: 2,
-                        child: SubmitButton(
-                          hasSelection: controller.hasSelection,
-                          onSubmit: controller.submitSelected,
+                        child: Showcase(
+                          key: submitButtonKey,
+                          description: _t(
+                            controller.language,
+                            'Locks in your selected answer.',
+                            'आपके चुने गए उत्तर को पक्का करता है।',
+                          ),
+                          child: SubmitButton(
+                            hasSelection: controller.hasSelection,
+                            onSubmit: controller.submitSelected,
+                          ),
                         ),
                       ),
                     ],

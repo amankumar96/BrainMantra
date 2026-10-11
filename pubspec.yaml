@@ -43,6 +43,7 @@ dependencies:
   url_launcher: ^6.3.2
   flutter_local_notifications: ^22.3.1
   timezone: ^0.11.1
+  showcaseview: ^5.1.0
 
 dev_dependencies:
   flutter_test:

@@ -145,4 +145,29 @@ void main() {
     await _pumpSeconds(tester, 6);
     expect(expiredCount, equals(0));
   });
+
+  testWidgets('trailing widget renders on the same row as the MM:SS text '
+      "when provided, and doesn't appear at all when omitted",
+      (tester) async {
+    await tester.pumpWidget(
+      _wrap(TimerBar(
+        durationSeconds: 60,
+        isRunning: true,
+        onExpired: () {},
+      )),
+    );
+    await tester.pump();
+    expect(find.byIcon(Icons.edit_note), findsNothing);
+
+    await tester.pumpWidget(
+      _wrap(TimerBar(
+        durationSeconds: 60,
+        isRunning: true,
+        onExpired: () {},
+        trailing: const Icon(Icons.edit_note),
+      )),
+    );
+    await tester.pump();
+    expect(find.byIcon(Icons.edit_note), findsOneWidget);
+  });
 }

@@ -1,10 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
+import 'package:brain_mantra/models/app_language.dart';
 import 'package:brain_mantra/screens/delete_account_screen.dart';
 import 'package:brain_mantra/screens/game_screen.dart';
 import 'package:brain_mantra/screens/home_screen.dart';
+import 'package:brain_mantra/services/language_controller.dart';
 import 'package:brain_mantra/services/storage_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+/// HomeScreen itself doesn't need `LanguageController` yet, but
+/// `GameScreen` (which Play navigates to) does — the provider must sit
+/// above wherever it's pushed from, so it's added here at the root.
+Widget _wrap(Widget child) => ChangeNotifierProvider<LanguageController>(
+      create: (_) => LanguageController(AppLanguage.english),
+      child: MaterialApp(home: child),
+    );
 
 /// GameScreen's own `TimerBar` runs a genuinely long-running
 /// `AnimationController`, so `pumpAndSettle()` after navigating there
@@ -23,7 +34,7 @@ void main() {
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
-    await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
+    await tester.pumpWidget(_wrap(const HomeScreen()));
     await _settle(tester);
 
     expect(find.textContaining('Hey '), findsOneWidget);
@@ -47,7 +58,7 @@ void main() {
         // test below.
         'has_seen_rules': true,
       });
-      await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
+      await tester.pumpWidget(_wrap(const HomeScreen()));
       await _settle(tester);
 
       expect(find.textContaining('Your day streak is 3'), findsOneWidget);
@@ -63,7 +74,7 @@ void main() {
   testWidgets('the rules dialog opens automatically on a fresh install and is '
       'not shown again on the next launch', (tester) async {
     SharedPreferences.setMockInitialValues({});
-    await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
+    await tester.pumpWidget(_wrap(const HomeScreen()));
     await _settle(tester);
 
     expect(find.text('How Brain Mantra Works'), findsOneWidget);
@@ -86,7 +97,7 @@ void main() {
     // tap below, same as a real returning player who already dismissed
     // it once).
     SharedPreferences.setMockInitialValues({'has_seen_rules': true});
-    await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
+    await tester.pumpWidget(_wrap(const HomeScreen()));
     await _settle(tester);
 
     await tester.tap(find.text('PLAY'));
@@ -99,15 +110,21 @@ void main() {
     expect(find.byType(GameScreen), findsOneWidget);
   });
 
-  testWidgets('tapping the rules icon reopens the rules dialog on demand', (
-    tester,
-  ) async {
+  testWidgets(
+      'tapping the overflow menu then Rules reopens the rules dialog on '
+      'demand', (tester) async {
+    // Rules + Settings now live behind the header's overflow (⋮) menu —
+    // consolidated from 2 separate always-visible icons to free up room
+    // for the "Brain Mantra" title (a real bug: 3 icons previously
+    // squeezed it enough to clip/wrap).
     SharedPreferences.setMockInitialValues({'has_seen_rules': true});
-    await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
+    await tester.pumpWidget(_wrap(const HomeScreen()));
     await _settle(tester);
     expect(find.text('How Brain Mantra Works'), findsNothing);
 
-    await tester.tap(find.byIcon(Icons.info_outline));
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await _settle(tester);
+    await tester.tap(find.text('Rules'));
     await _settle(tester);
 
     expect(find.text('How Brain Mantra Works'), findsOneWidget);
@@ -117,7 +134,7 @@ void main() {
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({'has_seen_rules': true});
-    await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
+    await tester.pumpWidget(_wrap(const HomeScreen()));
     await _settle(tester);
 
     expect(find.text('Delete Account'), findsOneWidget);
@@ -139,9 +156,80 @@ void main() {
     // as elsewhere in this codebase) - just confirming it's still a
     // plain, always-visible icon rather than tucked behind a menu.
     SharedPreferences.setMockInitialValues({'has_seen_rules': true});
-    await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
+    await tester.pumpWidget(_wrap(const HomeScreen()));
     await _settle(tester);
 
     expect(find.byIcon(Icons.logout), findsOneWidget);
+  });
+
+  group('Daily Challenge 10 AM daily-reset lock', () {
+    testWidgets(
+        'played moments ago: card shows "Unlocks in..." and '
+        'tapping it does not navigate to GameScreen', (tester) async {
+      // Played right now is always on-or-after the most recent 10 AM
+      // reset boundary, so this is deterministically locked regardless
+      // of what time the test happens to run (unlike e.g. "2 hours ago",
+      // which could land on either side of today's reset).
+      final justPlayed = DateTime.now();
+      SharedPreferences.setMockInitialValues({
+        'has_seen_rules': true,
+        'player_stats':
+            '{"highScore":0,"currentStreakDays":1,"lastPlayedDate":null,'
+            '"totalCoins":0,"bestScoreByTier":{},'
+            '"lastDailyChallengeDate":"${justPlayed.toIso8601String()}"}',
+      });
+      await tester.pumpWidget(_wrap(const HomeScreen()));
+      await _settle(tester);
+
+      expect(find.textContaining('Unlocks in'), findsOneWidget);
+      expect(find.text('Daily Challenge'), findsOneWidget);
+
+      await tester.tap(find.text('Daily Challenge'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // Still on Home — a locked card must not start a session.
+      expect(find.byType(GameScreen), findsNothing);
+    });
+
+    testWidgets(
+        'played over 24h ago: card is unlocked, normal subtitle shown, '
+        'tapping it navigates to GameScreen', (tester) async {
+      final longAgo = DateTime.now().subtract(const Duration(hours: 30));
+      SharedPreferences.setMockInitialValues({
+        'has_seen_rules': true,
+        'player_stats':
+            '{"highScore":0,"currentStreakDays":1,"lastPlayedDate":null,'
+            '"totalCoins":0,"bestScoreByTier":{},'
+            '"lastDailyChallengeDate":"${longAgo.toIso8601String()}"}',
+      });
+      await tester.pumpWidget(_wrap(const HomeScreen()));
+      await _settle(tester);
+
+      expect(find.textContaining('Unlocks in'), findsNothing);
+      expect(
+        find.text('Earn extra Marks solving these Questions'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('Daily Challenge'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(find.byType(GameScreen), findsOneWidget);
+    });
+
+    testWidgets('never played: card is unlocked from the start',
+        (tester) async {
+      SharedPreferences.setMockInitialValues({'has_seen_rules': true});
+      await tester.pumpWidget(_wrap(const HomeScreen()));
+      await _settle(tester);
+
+      expect(find.textContaining('Unlocks in'), findsNothing);
+      expect(
+        find.text('Earn extra Marks solving these Questions'),
+        findsOneWidget,
+      );
+    });
   });
 }

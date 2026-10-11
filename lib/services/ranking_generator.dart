@@ -1,5 +1,6 @@
 import '../models/puzzle.dart';
 import 'difficulty_curve.dart';
+import 'name_pool.dart';
 import 'rng_service.dart';
 import 'rng_utils.dart';
 
@@ -7,8 +8,6 @@ import 'rng_utils.dart';
 /// conversion (rank from bottom = total − rank from top + 1), and a
 /// simple "who's between" comparative-ranking puzzle.
 abstract final class RankingGenerator {
-  static const _names = ['Aarav', 'Priya', 'Rohan', 'Isha', 'Kabir'];
-
   static Puzzle generate({required int tier, required RngService rng}) {
     final params = DifficultyCurve.paramsForTier(tier);
     return rng.nextBool()
@@ -55,8 +54,10 @@ abstract final class RankingGenerator {
   }
 
   static Puzzle _comparative(int tier, int timeLimitSeconds, RngService rng) {
-    final names = List.of(_names);
-    shuffleList(names, rng);
+    // A fresh random draw of 5 distinct names every call — see NamePool's
+    // own doc comment for why this matters more than just shuffling a
+    // fixed small list.
+    final names = NamePool.pickDistinct(5, rng);
     // names[0] scores highest, names[last] scores lowest.
     final tallest = names.first;
     final shortest = names.last;

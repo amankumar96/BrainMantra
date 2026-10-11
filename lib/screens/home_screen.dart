@@ -1,11 +1,18 @@
+import 'dart:async';
 import 'dart:math' show cos, pi, sin;
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../models/age_group.dart';
+import '../models/app_language.dart';
 import '../models/player_stats.dart';
 import '../services/ads_service.dart';
 import '../services/auth_service.dart';
+import '../services/daily_challenge_lock.dart';
+import '../services/language_controller.dart';
 import '../services/leaderboard_service.dart';
+import '../services/notification_service.dart';
 import '../services/storage_service.dart';
 import '../utils/constants.dart';
 import '../utils/legal_links.dart';
@@ -15,6 +22,11 @@ import '../widgets/rules_dialog.dart';
 import 'delete_account_screen.dart';
 import 'game_screen.dart';
 import 'leaderboard_screen.dart';
+import 'settings_screen.dart';
+
+/// The two actions tucked into the header's overflow menu — see the
+/// `PopupMenuButton` in `_HomeScreenState.build`.
+enum _HeaderMenuAction { rules, settings }
 
 /// The title screen: high score, streak, an on-demand rules icon (item 6
 /// of the product requirements), and the two ways to start a test.
@@ -58,6 +70,14 @@ class _HomeScreenState extends State<HomeScreen> {
   /// never shows a stale, possibly-wrong number even briefly.
   int _currentMarks = 0;
 
+  /// Keeps the Daily Challenge card's "Unlocks in Xh Ym" subtitle counting
+  /// down live while Home is open, instead of only updating on the next
+  /// full stats reload (e.g. after leaving and returning) — the same
+  /// "don't let a timed card look frozen" fix the Age-Group cards needed
+  /// earlier, now actually load-bearing since Daily Challenge has a real
+  /// lock again.
+  Timer? _lockTicker;
+
   @override
   void initState() {
     super.initState();
@@ -65,11 +85,33 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadCurrentMarks();
     _loadDisplayName();
     _maybeShowRulesForTheFirstTime();
+    _lockTicker = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) setState(() {}); // just re-reads DateTime.now()
+    });
+  }
+
+  @override
+  void dispose() {
+    _lockTicker?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadStats() async {
     final stats = await StorageService.loadStats();
     if (mounted) setState(() => _stats = stats);
+    // Best-effort — Home is the natural "player is actively using the
+    // app right now" signal for recomputing every reminder.
+    try {
+      final now = DateTime.now();
+      await NotificationService.rescheduleAll(
+        stats: stats,
+        dailyChallengeDoneToday:
+            NotificationService.isDailyChallengeDoneToday(stats, now),
+        now: now,
+      );
+    } catch (_) {
+      // Never let a notification-scheduling failure affect Home.
+    }
   }
 
   Future<void> _loadCurrentMarks() async {
@@ -105,6 +147,15 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _navigateToGame({required bool isDailyChallenge}) async {
+    // Defensive — the card itself is already disabled while locked, so
+    // this should never actually trigger in normal use.
+    if (isDailyChallenge &&
+        DailyChallengeLock.isLocked(
+          lastPlayedDate: (_stats ?? PlayerStats()).lastDailyChallengeDate,
+          now: DateTime.now(),
+        )) {
+      return;
+    }
     // Play resumes from the player's persisted score; Daily Challenge
     // always starts fresh at 0, per its fairness rules.
     final startingScore = isDailyChallenge
@@ -133,6 +184,21 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadCurrentMarks();
   }
 
+  /// No cooldown/lock of any kind — by explicit product decision, an
+  /// Age-Group Test card is always tappable, including immediately after
+  /// finishing one. (An earlier 2-hour-per-age-group cooldown was tried
+  /// and deliberately removed — see git history on `TestCooldownService`
+  /// if that's ever revisited.)
+  Future<void> _navigateToAgeGroupTest(AgeGroup ageGroup) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => GameScreen(ageGroupTest: ageGroup),
+      ),
+    );
+    _loadStats();
+    _loadCurrentMarks();
+  }
+
   void _navigateToLeaderboard() {
     Navigator.of(context)
         .push(MaterialPageRoute(builder: (_) => const LeaderboardScreen()));
@@ -155,24 +221,34 @@ class _HomeScreenState extends State<HomeScreen> {
       await AuthService.signOut();
       return;
     }
+    final language = context.read<LanguageController>().language;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Sign out of Guest account?'),
-        content: const Text(
-          'Signing out deletes this guest account immediately — score, '
-          "streak and history included. There's no email or password to "
-          'sign back into it afterwards, so this cannot be undone.',
+        title: Text(
+          _t(language, 'Sign out of Guest account?', 'गेस्ट खाते से साइन आउट करें?'),
+        ),
+        content: Text(
+          _t(
+            language,
+            'Signing out deletes this guest account immediately — score, '
+                "streak and history included. There's no email or password "
+                'to sign back into it afterwards, so this cannot be undone.',
+            'साइन आउट करने से यह गेस्ट खाता तुरंत डिलीट हो जाएगा — स्कोर, '
+                'स्ट्रीक और इतिहास सहित। इसमें दोबारा साइन इन करने के लिए '
+                'कोई ईमेल या पासवर्ड नहीं है, इसलिए इसे वापस नहीं लिया जा '
+                'सकता।',
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(_t(language, 'Cancel', 'रद्द करें')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: AppColors.wrong),
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Sign Out & Delete'),
+            child: Text(_t(language, 'Sign Out & Delete', 'साइन आउट और डिलीट करें')),
           ),
         ],
       ),
@@ -199,6 +275,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final stats = _stats ?? PlayerStats();
+    final language = context.watch<LanguageController>().language;
     return Scaffold(
       backgroundColor: AppColors.background,
       // No standard AppBar — the header below is a custom gradient block
@@ -213,14 +290,59 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           BrandHeader(
             actions: [
-              IconButton(
-                icon: const Icon(Icons.info_outline, color: Colors.white),
-                tooltip: 'Rules',
-                onPressed: () => RulesDialog.show(context),
+              // Rules + Settings consolidated into one overflow menu —
+              // a real bug fix: 3 separate icons squeezed "Brain Mantra"
+              // enough to clip/hide behind them. Sign out deliberately
+              // stays its own direct, always-visible icon (see its own
+              // test's doc comment for why — it's a one-tap action by
+              // design, not something to bury in a menu).
+              PopupMenuButton<_HeaderMenuAction>(
+                icon: const Icon(Icons.more_vert, color: Colors.white),
+                tooltip: _t(language, 'More', 'अधिक'),
+                onSelected: (action) {
+                  switch (action) {
+                    case _HeaderMenuAction.rules:
+                      RulesDialog.show(context);
+                    case _HeaderMenuAction.settings:
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const SettingsScreen(),
+                        ),
+                      );
+                  }
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: _HeaderMenuAction.rules,
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline, color: AppColors.primary),
+                        const SizedBox(width: AppSpacing.sm),
+                        Text(_t(language, 'Rules', 'नियम')),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: _HeaderMenuAction.settings,
+                    child: Row(
+                      children: [
+                        // Icon + label both renamed from "Settings" to
+                        // "Language" — this menu item only does one
+                        // thing (switch English/Hindi), so naming it for
+                        // what it actually does reads clearer than a
+                        // generic "Settings" a player might not think to
+                        // open.
+                        const Icon(Icons.language, color: AppColors.primary),
+                        const SizedBox(width: AppSpacing.sm),
+                        Text(_t(language, 'Language', 'भाषा')),
+                      ],
+                    ),
+                  ),
+                ],
               ),
               IconButton(
                 icon: const Icon(Icons.logout, color: Colors.white),
-                tooltip: 'Sign out',
+                tooltip: _t(language, 'Sign out', 'साइन आउट'),
                 onPressed: _handleSignOutTap,
               ),
             ],
@@ -278,8 +400,13 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               const SizedBox(height: AppSpacing.md),
                               _DailyChallengeBox(
+                                lastPlayedDate: stats.lastDailyChallengeDate,
                                 onTap: () =>
                                     _navigateToGame(isDailyChallenge: true),
+                              ),
+                              const SizedBox(height: AppSpacing.md),
+                              _AgeGroupTestSection(
+                                onTap: _navigateToAgeGroupTest,
                               ),
                               const SizedBox(height: AppSpacing.md),
                               _LeaderboardBox(onTap: _navigateToLeaderboard),
@@ -331,6 +458,7 @@ class _GreetingAndMarksRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<LanguageController>().language;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -343,7 +471,7 @@ class _GreetingAndMarksRow extends StatelessWidget {
                 TextSpan(
                   style: const TextStyle(fontSize: 17, color: Colors.black87),
                   children: [
-                    const TextSpan(text: 'Hey '),
+                    TextSpan(text: _t(language, 'Hey ', 'नमस्ते ')),
                     TextSpan(
                       text: displayName,
                       style: const TextStyle(
@@ -363,7 +491,13 @@ class _GreetingAndMarksRow extends StatelessWidget {
                     color: Colors.black.withValues(alpha: 0.6),
                   ),
                   children: [
-                    const TextSpan(text: 'Welcome back! Your day streak is '),
+                    TextSpan(
+                      text: _t(
+                        language,
+                        'Welcome back! Your day streak is ',
+                        'वापसी पर स्वागत है! आपकी दिन की स्ट्रीक है ',
+                      ),
+                    ),
                     TextSpan(
                       text: '$streakDays',
                       style: const TextStyle(
@@ -430,6 +564,7 @@ class _HeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<LanguageController>().language;
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
@@ -458,9 +593,13 @@ class _HeroCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text(
-                            'Challenge\nyour skills',
-                            style: TextStyle(
+                          Text(
+                            _t(
+                              language,
+                              'Challenge\nyour skills',
+                              'अपने कौशल को\nचुनौती दें',
+                            ),
+                            style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
                               fontSize: 24,
@@ -469,7 +608,11 @@ class _HeroCard extends StatelessWidget {
                           ),
                           const SizedBox(height: AppSpacing.xs),
                           Text(
-                            'Sharpen your mind with fun questions every day!',
+                            _t(
+                              language,
+                              'Sharpen your mind with fun questions every day!',
+                              'हर दिन मज़ेदार सवालों से अपने दिमाग को तेज़ करें!',
+                            ),
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.9),
                               fontSize: 12,
@@ -507,7 +650,7 @@ class _HeroCard extends StatelessWidget {
                     ),
                   ),
                   icon: const Icon(Icons.play_arrow, size: 24),
-                  label: const Text('PLAY', softWrap: false),
+                  label: Text(_t(language, 'PLAY', 'खेलें'), softWrap: false),
                 ),
               ],
             ),
@@ -579,22 +722,30 @@ class _MenuRow extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.subtitle,
+    this.locked = false,
   });
 
-  final VoidCallback onTap;
+  /// Null (or [locked] true) renders this row visibly disabled and
+  /// ignores taps — used by Daily Challenge while its 24-hour lock is
+  /// active.
+  final VoidCallback? onTap;
   final Color backgroundColor;
   final Color accent;
   final IconData icon;
   final String title;
   final String subtitle;
+  final bool locked;
 
   @override
   Widget build(BuildContext context) {
+    final effectiveAccent = locked ? AppColors.neutral : accent;
     return Material(
-      color: backgroundColor,
+      color: locked
+          ? AppColors.silver.withValues(alpha: 0.25)
+          : backgroundColor,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
-        onTap: onTap,
+        onTap: locked ? null : onTap,
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.sm),
@@ -602,8 +753,11 @@ class _MenuRow extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 22,
-                backgroundColor: accent.withValues(alpha: 0.15),
-                child: Icon(icon, color: accent),
+                backgroundColor: effectiveAccent.withValues(alpha: 0.15),
+                child: Icon(
+                  locked ? Icons.lock_outline : icon,
+                  color: effectiveAccent,
+                ),
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
@@ -613,9 +767,10 @@ class _MenuRow extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
+                        color: locked ? AppColors.neutral : Colors.black87,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -623,7 +778,9 @@ class _MenuRow extends StatelessWidget {
                       subtitle,
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.black.withValues(alpha: 0.6),
+                        color: locked
+                            ? AppColors.neutral
+                            : Colors.black.withValues(alpha: 0.6),
                       ),
                     ),
                   ],
@@ -631,8 +788,112 @@ class _MenuRow extends StatelessWidget {
               ),
               CircleAvatar(
                 radius: 14,
-                backgroundColor: accent.withValues(alpha: 0.2),
-                child: Icon(Icons.chevron_right, color: accent, size: 18),
+                backgroundColor: effectiveAccent.withValues(alpha: 0.2),
+                child: Icon(
+                  locked ? Icons.schedule : Icons.chevron_right,
+                  color: effectiveAccent,
+                  size: 18,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The 3 Age-Group Test cards (13+/16+/18+), horizontally arranged between
+/// Daily Challenge and Leaderboard — each a compact, vertical take on
+/// `_MenuRow`'s pastel-background + accent-color + icon-badge visual
+/// language (icon top, label below, rather than a full-width row) so all
+/// 3 fit across the screen at once.
+class _AgeGroupTestSection extends StatelessWidget {
+  const _AgeGroupTestSection({required this.onTap});
+
+  final void Function(AgeGroup) onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        for (final ageGroup in AgeGroup.values) ...[
+          if (ageGroup != AgeGroup.values.first)
+            const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            // Equal flex across all 3 slots — fills its slot's full
+            // width, which (given the card's compact, unchanged content
+            // height) naturally reads as a wide rectangle, a bit larger
+            // than it is tall, same width on all three regardless of
+            // their differing label/status text lengths.
+            child: _AgeGroupCard(
+              ageGroup: ageGroup,
+              onTap: () => onTap(ageGroup),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _AgeGroupCard extends StatelessWidget {
+  const _AgeGroupCard({required this.ageGroup, required this.onTap});
+
+  final AgeGroup ageGroup;
+  final VoidCallback onTap;
+
+  (Color card, Color accent) get _colors => switch (ageGroup) {
+        AgeGroup.thirteenPlus => (
+            AppColors.ageGroup13Card,
+            AppColors.ageGroup13Accent,
+          ),
+        AgeGroup.sixteenPlus => (
+            AppColors.ageGroup16Card,
+            AppColors.ageGroup16Accent,
+          ),
+        AgeGroup.eighteenPlus => (
+            AppColors.ageGroup18Card,
+            AppColors.ageGroup18Accent,
+          ),
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final language = context.watch<LanguageController>().language;
+    final (card, accent) = _colors;
+    return Material(
+      color: card,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            vertical: AppSpacing.sm,
+            horizontal: AppSpacing.xs,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                ageGroup.label,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: accent,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                _t(language, 'Take Test', 'टेस्ट लें'),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.black.withValues(alpha: 0.6),
+                ),
               ),
             ],
           ),
@@ -643,21 +904,66 @@ class _MenuRow extends StatelessWidget {
 }
 
 class _DailyChallengeBox extends StatelessWidget {
-  const _DailyChallengeBox({required this.onTap});
+  const _DailyChallengeBox({required this.onTap, required this.lastPlayedDate});
 
   final VoidCallback onTap;
 
+  /// `PlayerStats.lastDailyChallengeDate` — null means never played
+  /// (never locked).
+  final DateTime? lastPlayedDate;
+
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<LanguageController>().language;
+    final now = DateTime.now();
+    final locked = DailyChallengeLock.isLocked(
+      lastPlayedDate: lastPlayedDate,
+      now: now,
+    );
+    final subtitle = locked
+        ? _t(
+            language,
+            'Unlocks in ${_formatRemaining(DailyChallengeLock.remaining(
+              lastPlayedDate: lastPlayedDate,
+              now: now,
+            ))}',
+            '${_formatRemainingHindi(DailyChallengeLock.remaining(
+              lastPlayedDate: lastPlayedDate,
+              now: now,
+            ))} में अनलॉक होगा',
+          )
+        : _t(
+            language,
+            'Earn extra Marks solving these Questions',
+            'इन सवालों को हल करके अतिरिक्त मार्क्स पाएं',
+          );
     return _MenuRow(
       onTap: onTap,
       backgroundColor: AppColors.dailyChallengeCard,
       accent: AppColors.dailyChallengeAccent,
       icon: Icons.event_available_rounded,
-      title: 'Daily Challenge',
-      subtitle: 'Earn extra Marks solving these Questions',
+      title: _t(language, 'Daily Challenge', 'दैनिक चुनौती'),
+      subtitle: subtitle,
+      locked: locked,
     );
   }
+}
+
+/// "1h 24m left" / "24m left" — never shows seconds, since the lock is
+/// hours-scale and second-level precision would just be visual noise.
+String _formatRemaining(Duration remaining) {
+  final hours = remaining.inHours;
+  final minutes = remaining.inMinutes % 60;
+  if (hours > 0) return '${hours}h ${minutes}m left';
+  return '${minutes}m left';
+}
+
+/// Same shape as [_formatRemaining], in basic Hindi — e.g. "1घं 24मि".
+String _formatRemainingHindi(Duration remaining) {
+  final hours = remaining.inHours;
+  final minutes = remaining.inMinutes % 60;
+  if (hours > 0) return '$hoursघं $minutesमि';
+  return '$minutesमि';
 }
 
 /// Replaces the old plain `TextButton.icon` link with a styled row
@@ -669,13 +975,18 @@ class _LeaderboardBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<LanguageController>().language;
     return _MenuRow(
       onTap: onTap,
       backgroundColor: AppColors.leaderboardCard,
       accent: AppColors.leaderboardAccent,
       icon: Icons.bar_chart_rounded,
-      title: 'Leaderboard',
-      subtitle: 'See how you rank among sharp minds!',
+      title: _t(language, 'Leaderboard', 'लीडरबोर्ड'),
+      subtitle: _t(
+        language,
+        'See how you rank among sharp minds!',
+        'देखें तेज़ दिमागों के बीच आपकी रैंक क्या है!',
+      ),
     );
   }
 }
@@ -689,6 +1000,7 @@ class _DeleteAccountBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<LanguageController>().language;
     return ElevatedButton.icon(
       onPressed: onTap,
       style: ElevatedButton.styleFrom(
@@ -698,9 +1010,9 @@ class _DeleteAccountBox extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       icon: const Icon(Icons.delete_outline),
-      label: const Text(
-        'Delete Account',
-        style: TextStyle(fontWeight: FontWeight.bold),
+      label: Text(
+        _t(language, 'Delete Account', 'खाता हटाएं'),
+        style: const TextStyle(fontWeight: FontWeight.bold),
       ),
     );
   }
@@ -713,6 +1025,7 @@ class _Footer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<LanguageController>().language;
     return Column(
       children: [
         Row(
@@ -721,7 +1034,11 @@ class _Footer extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
               child: Text(
-                'A Sharper You, A Brighter Tomorrow',
+                _t(
+                  language,
+                  'A Sharper You, A Brighter Tomorrow',
+                  'एक तेज़ आप, एक उज्जवल कल',
+                ),
                 style: TextStyle(
                   fontSize: 11,
                   color: Colors.black.withValues(alpha: 0.45),
@@ -737,3 +1054,9 @@ class _Footer extends StatelessWidget {
     );
   }
 }
+
+/// Picks [en] or [hi] depending on [language] — this screen's share of
+/// UI chrome is small enough that a shared `AppStrings` dictionary class
+/// wasn't worth it here; a one-line helper keeps every call site terse.
+String _t(AppLanguage language, String en, String hi) =>
+    language == AppLanguage.english ? en : hi;

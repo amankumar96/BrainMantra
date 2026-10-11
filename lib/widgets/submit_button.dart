@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../models/app_language.dart';
+import '../services/language_controller.dart';
 import '../utils/constants.dart';
 
 /// The explicit "lock in my answer" button the two-step answer flow needs:
@@ -21,6 +24,7 @@ class SubmitButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<LanguageController>().language;
     // A light fill (not a solid-indigo one) so an explicitly *dark*
     // foreground is unambiguously legible against it, rather than relying
     // on Material's seed-derived `onPrimary` against a dark button (the
@@ -40,7 +44,7 @@ class SubmitButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
           textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
-        child: const Text('Submit'),
+        child: Text(language == AppLanguage.english ? 'Submit' : 'जमा करें'),
       ),
     );
   }

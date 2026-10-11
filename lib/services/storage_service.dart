@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/app_language.dart';
 import '../models/game_session.dart';
 import '../models/player_stats.dart';
 
@@ -13,6 +14,7 @@ abstract final class StorageService {
   static const String _statsKey = 'player_stats';
   static const String _lastSessionKey = 'last_session';
   static const String _hasSeenRulesKey = 'has_seen_rules';
+  static const String _languageKey = 'app_language';
 
   /// Persists [stats], overwriting whatever was saved before.
   static Future<void> saveStats(PlayerStats stats) async {
@@ -57,8 +59,27 @@ abstract final class StorageService {
     await prefs.setBool(_hasSeenRulesKey, true);
   }
 
+  /// The player's chosen UI/question language — a device setting, not
+  /// account data (unlike `PlayerStats`), so it's kept separate and
+  /// deliberately survives `clearAll()`/account deletion. Defaults to
+  /// English on a fresh install or if nothing was ever saved.
+  static Future<AppLanguage> getLanguage() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_languageKey);
+    return AppLanguage.values.firstWhere(
+      (l) => l.name == raw,
+      orElse: () => AppLanguage.english,
+    );
+  }
+
+  static Future<void> setLanguage(AppLanguage language) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_languageKey, language.name);
+  }
+
   /// Erases everything this service has saved (stats, last session, and
-  /// the "seen rules" flag).
+  /// the "seen rules" flag) — deliberately NOT the language preference,
+  /// which is a device setting that should survive a deleted account.
   static Future<void> clearAll() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_statsKey);

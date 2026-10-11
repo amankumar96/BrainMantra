@@ -1,5 +1,6 @@
 import '../models/puzzle.dart';
 import 'difficulty_curve.dart';
+import 'name_pool.dart';
 import 'rng_service.dart';
 import 'rng_utils.dart';
 
@@ -12,11 +13,6 @@ import 'rng_utils.dart';
 /// this still genuinely exercises reading a stated arrangement and
 /// reasoning about relative position, the actual skill this topic tests.
 abstract final class SeatingArrangementGenerator {
-  static const _namePool = [
-    'Aarav', 'Priya', 'Rohan', 'Isha', 'Kabir',
-    'Meera', 'Vikram', 'Sara',
-  ];
-
   static Puzzle generate({required int tier, required RngService rng}) {
     final params = DifficultyCurve.paramsForTier(tier);
     final count = switch (tier) {
@@ -25,8 +21,10 @@ abstract final class SeatingArrangementGenerator {
       3 => 6,
       _ => 7,
     };
-    final names = List.of(_namePool.take(count));
-    shuffleList(names, rng);
+    // A fresh random draw of `count` distinct names every call (not a
+    // fixed prefix of a small list) — see NamePool's own doc comment for
+    // why this matters.
+    final names = NamePool.pickDistinct(count, rng);
 
     return switch (rng.nextInt(0, 2)) {
       0 => _neighbor(tier, params.timeLimitSeconds, rng, names),

@@ -83,6 +83,17 @@ abstract final class AppColors {
   static const Color leaderboardAccent = Color(0xFF7C5CFC);
   static const Color adPlaceholderCard = Color(0xFFEAF3FE);
 
+  /// Age-Group Test cards (13+/16+/18+) — one pastel/accent pair per
+  /// card, following the existing xCard/xAccent convention above, so the
+  /// 3 cards read as visually distinct at a glance despite sharing one
+  /// compact layout.
+  static const Color ageGroup13Card = Color(0xFFE3F6E8);
+  static const Color ageGroup13Accent = Color(0xFF2E9E5B);
+  static const Color ageGroup16Card = Color(0xFFE6F0FD);
+  static const Color ageGroup16Accent = Color(0xFF2F72E0);
+  static const Color ageGroup18Card = Color(0xFFFCE8EE);
+  static const Color ageGroup18Accent = Color(0xFFD1467B);
+
   // --- Leaderboard screen redesign — podium medal colors (rank 1/2/3),
   // the current-user green accent, and a small palette of generated-
   // avatar background colors (picked to read distinctly from the medal

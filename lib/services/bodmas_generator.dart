@@ -1,3 +1,4 @@
+import '../models/app_language.dart';
 import '../models/puzzle.dart';
 import 'difficulty_curve.dart';
 import 'expression_evaluator.dart';
@@ -10,7 +11,11 @@ import 'rng_utils.dart';
 /// operator precedence, the same self-validation principle every other
 /// generator in this codebase follows.
 abstract final class BodmasGenerator {
-  static Puzzle generate({required int tier, required RngService rng}) {
+  static Puzzle generate({
+    required int tier,
+    required RngService rng,
+    required AppLanguage language,
+  }) {
     final params = DifficultyCurve.paramsForTier(tier);
     final complexity = _complexityForTier(tier);
 
@@ -34,8 +39,10 @@ abstract final class BodmasGenerator {
           correctAnswer: correctAnswer,
           difficultyTier: tier,
           timeLimitSeconds: params.timeLimitSeconds,
-          hint: 'Order of operations: Brackets, Orders, Division/'
-              'Multiplication, Addition/Subtraction',
+          hint: language == AppLanguage.english
+              ? 'Order of operations: Brackets, Orders, Division/'
+                  'Multiplication, Addition/Subtraction'
+              : 'संक्रियाओं का क्रम: कोष्ठक, घात, भाग/गुणा, जोड़/घटाव',
         );
       } on EvaluationException {
         continue;

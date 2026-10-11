@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../models/app_language.dart';
 import '../services/auth_service.dart';
+import '../services/language_controller.dart';
 import '../utils/constants.dart';
 import '../utils/legal_links.dart';
 import '../utils/network_error.dart';
@@ -48,44 +51,69 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
       // SocketException string — an OfflineNotice reads far better than
       // that for something as ordinary as "no signal right now".
       final offline = isOfflineError(e);
+      final isHindi =
+          context.read<LanguageController>().language == AppLanguage.hindi;
       setState(() {
         _isDeleting = false;
         _isOffline = offline;
-        _errorMessage = offline ? null : 'Could not delete your account: $e';
+        _errorMessage = offline
+            ? null
+            : (isHindi
+                ? 'खाता हटाया नहीं जा सका: $e'
+                : 'Could not delete your account: $e');
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<LanguageController>().language;
+    final isHindi = language == AppLanguage.hindi;
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Delete Account')),
+      appBar: AppBar(
+        title: Text(isHindi ? 'खाता हटाएं' : 'Delete Account'),
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(AppSpacing.lg),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Deleting your account is permanent and cannot be undone.',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+              Text(
+                isHindi
+                    ? 'खाता हटाना स्थायी है और इसे वापस नहीं लिया जा सकता।'
+                    : 'Deleting your account is permanent and cannot be '
+                        'undone.',
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
               ),
               const SizedBox(height: AppSpacing.md),
-              const Text('This removes:'),
+              Text(isHindi ? 'यह हटा देगा:' : 'This removes:'),
               const SizedBox(height: AppSpacing.sm),
-              const _DeletedItem(
-                'Your account and sign-in (email or linked Google account)',
+              _DeletedItem(
+                isHindi
+                    ? 'आपका खाता और साइन-इन (ईमेल या लिंक किया गया Google '
+                        'खाता)'
+                    : 'Your account and sign-in (email or linked Google '
+                        'account)',
               ),
-              const _DeletedItem('Your display name'),
-              const _DeletedItem('Your persistent score'),
-              const _DeletedItem('Your day streak'),
-              const _DeletedItem(
-                "Your Daily Challenge history and leaderboard placement",
+              _DeletedItem(isHindi ? 'आपका प्रदर्शित नाम' : 'Your display name'),
+              _DeletedItem(
+                isHindi ? 'आपका स्थायी स्कोर' : 'Your persistent score',
+              ),
+              _DeletedItem(isHindi ? 'आपकी दिन की स्ट्रीक' : 'Your day streak'),
+              _DeletedItem(
+                isHindi
+                    ? 'आपका दैनिक चुनौती इतिहास और लीडरबोर्ड स्थिति'
+                    : 'Your Daily Challenge history and leaderboard '
+                        'placement',
               ),
               const SizedBox(height: AppSpacing.lg),
               if (_isOffline) ...[
-                const OfflineNotice(actionDescription: 'delete your account'),
+                OfflineNotice(
+                  actionDescription: 'delete your account',
+                  actionDescriptionHindi: 'अपना खाता हटाने',
+                ),
                 const SizedBox(height: AppSpacing.md),
               ] else if (_errorMessage != null) ...[
                 Text(
@@ -111,7 +139,9 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
                             color: Colors.white,
                           ),
                         )
-                      : const Text('Delete My Account'),
+                      : Text(
+                          isHindi ? 'मेरा खाता हटाएं' : 'Delete My Account',
+                        ),
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
@@ -121,7 +151,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
                   onPressed: _isDeleting
                       ? null
                       : () => Navigator.of(context).pop(),
-                  child: const Text('Cancel'),
+                  child: Text(isHindi ? 'रद्द करें' : 'Cancel'),
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),

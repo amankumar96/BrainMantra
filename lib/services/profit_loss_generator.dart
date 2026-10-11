@@ -1,3 +1,4 @@
+import '../models/app_language.dart';
 import '../models/puzzle.dart';
 import 'difficulty_curve.dart';
 import 'rng_service.dart';
@@ -8,7 +9,11 @@ import 'rng_utils.dart';
 /// *derived* from them — never generated independently and then reverse-
 /// engineered — so the percentage is guaranteed exact, no rounding needed.
 abstract final class ProfitLossGenerator {
-  static Puzzle generate({required int tier, required RngService rng}) {
+  static Puzzle generate({
+    required int tier,
+    required RngService rng,
+    required AppLanguage language,
+  }) {
     final params = DifficultyCurve.paramsForTier(tier);
     final percentages = _percentagesForTier(tier);
 
@@ -26,14 +31,21 @@ abstract final class ProfitLossGenerator {
       id: deterministicId(rng),
       category: PuzzleCategory.mathTest,
       type: PuzzleType.profitLoss,
-      questionText: 'A shopkeeper buys an item for ₹$costPrice and sells it '
-          "for ₹$sellingPrice. Find the ${isProfit ? 'profit' : 'loss'} %.",
+      questionText: language == AppLanguage.english
+          ? 'A shopkeeper buys an item for ₹$costPrice and sells it '
+              "for ₹$sellingPrice. Find the ${isProfit ? 'profit' : 'loss'} %."
+          : 'एक दुकानदार एक सामान ₹$costPrice में खरीदता है और उसे '
+              '₹$sellingPrice में बेचता है। '
+              '${isProfit ? 'लाभ' : 'हानि'} % ज्ञात करें।',
       options: buildNumericMcOptions(percent, rng, spread: 10),
       correctAnswer: percent,
       difficultyTier: tier,
       timeLimitSeconds: params.timeLimitSeconds,
-      hint: '${isProfit ? 'Profit' : 'Loss'} % = '
-          '(${isProfit ? 'SP − CP' : 'CP − SP'}) / CP × 100',
+      hint: language == AppLanguage.english
+          ? '${isProfit ? 'Profit' : 'Loss'} % = '
+              '(${isProfit ? 'SP − CP' : 'CP − SP'}) / CP × 100'
+          : '${isProfit ? 'लाभ' : 'हानि'} % = '
+              '(${isProfit ? 'विक्रय मूल्य − लागत मूल्य' : 'लागत मूल्य − विक्रय मूल्य'}) / लागत मूल्य × 100',
     );
   }
 

@@ -1,3 +1,4 @@
+import '../models/app_language.dart';
 import '../models/puzzle.dart';
 import 'difficulty_curve.dart';
 import 'rng_service.dart';
@@ -22,17 +23,26 @@ abstract final class TrigRatioGenerator {
   // fraction, so sinθ/cosθ/sin2θ never need rounding.
   static const _triples = [(3, 4, 5), (5, 12, 13), (8, 15, 17), (7, 24, 25)];
 
-  static Puzzle generate({required int tier, required RngService rng}) {
+  static Puzzle generate({
+    required int tier,
+    required RngService rng,
+    required AppLanguage language,
+  }) {
     final params = DifficultyCurve.paramsForTier(tier);
     if (tier >= 3 && rng.nextBool()) {
-      return _doubleAngle(tier, params.timeLimitSeconds, rng);
+      return _doubleAngle(tier, params.timeLimitSeconds, rng, language);
     }
     return rng.nextBool()
-        ? _standardLookup(tier, params.timeLimitSeconds, rng)
-        : _pythagoreanIdentity(tier, params.timeLimitSeconds, rng);
+        ? _standardLookup(tier, params.timeLimitSeconds, rng, language)
+        : _pythagoreanIdentity(tier, params.timeLimitSeconds, rng, language);
   }
 
-  static Puzzle _standardLookup(int tier, int timeLimitSeconds, RngService rng) {
+  static Puzzle _standardLookup(
+    int tier,
+    int timeLimitSeconds,
+    RngService rng,
+    AppLanguage language,
+  ) {
     final angles = _standardTable.keys.toList();
     final angle = angles[rng.nextInt(0, angles.length - 1)];
     final ratios = _standardTable[angle]!.keys.toList();
@@ -46,12 +56,16 @@ abstract final class TrigRatioGenerator {
       id: deterministicId(rng),
       category: PuzzleCategory.mathTest,
       type: PuzzleType.trigRatio,
-      questionText: 'What is $ratio($angle°)?',
+      questionText: language == AppLanguage.english
+          ? 'What is $ratio($angle°)?'
+          : '$ratio($angle°) का मान क्या है?',
       options: buildMcOptionsFromCandidates(correct, allValues, rng),
       correctAnswer: correct,
       difficultyTier: tier,
       timeLimitSeconds: timeLimitSeconds,
-      hint: 'Standard angle table: sin30°=1/2, tan45°=1, cos60°=1/2, ...',
+      hint: language == AppLanguage.english
+          ? 'Standard angle table: sin30°=1/2, tan45°=1, cos60°=1/2, ...'
+          : 'मानक कोण सारणी: sin30°=1/2, tan45°=1, cos60°=1/2, ...',
     );
   }
 
@@ -59,6 +73,7 @@ abstract final class TrigRatioGenerator {
     int tier,
     int timeLimitSeconds,
     RngService rng,
+    AppLanguage language,
   ) {
     final (opp, adj, hyp) = _triples[rng.nextInt(0, _triples.length - 1)];
     final knowSin = rng.nextBool();
@@ -75,9 +90,15 @@ abstract final class TrigRatioGenerator {
       id: deterministicId(rng),
       category: PuzzleCategory.mathTest,
       type: PuzzleType.trigRatio,
-      questionText: knowSin
-          ? 'sinθ = $opp/$hyp. Using sin²θ + cos²θ = 1, find cosθ.'
-          : 'cosθ = $adj/$hyp. Using sin²θ + cos²θ = 1, find sinθ.',
+      questionText: language == AppLanguage.english
+          ? (knowSin
+              ? 'sinθ = $opp/$hyp. Using sin²θ + cos²θ = 1, find cosθ.'
+              : 'cosθ = $adj/$hyp. Using sin²θ + cos²θ = 1, find sinθ.')
+          : (knowSin
+              ? 'sinθ = $opp/$hyp है। sin²θ + cos²θ = 1 का उपयोग करके '
+                  'cosθ ज्ञात करें।'
+              : 'cosθ = $adj/$hyp है। sin²θ + cos²θ = 1 का उपयोग करके '
+                  'sinθ ज्ञात करें।'),
       options: buildMcOptionsFromCandidates(correct, candidates.toList(), rng),
       correctAnswer: correct,
       difficultyTier: tier,
@@ -86,7 +107,12 @@ abstract final class TrigRatioGenerator {
     );
   }
 
-  static Puzzle _doubleAngle(int tier, int timeLimitSeconds, RngService rng) {
+  static Puzzle _doubleAngle(
+    int tier,
+    int timeLimitSeconds,
+    RngService rng,
+    AppLanguage language,
+  ) {
     final (opp, adj, hyp) = _triples[rng.nextInt(0, _triples.length - 1)];
     // sin2θ = 2 sinθ cosθ = 2·opp·adj / hyp² — reduced to lowest terms.
     final num = 2 * opp * adj;
@@ -104,8 +130,11 @@ abstract final class TrigRatioGenerator {
       id: deterministicId(rng),
       category: PuzzleCategory.mathTest,
       type: PuzzleType.trigRatio,
-      questionText: 'sinθ = $opp/$hyp and cosθ = $adj/$hyp. '
-          'Using sin2θ = 2sinθcosθ, find sin2θ (lowest terms).',
+      questionText: language == AppLanguage.english
+          ? 'sinθ = $opp/$hyp and cosθ = $adj/$hyp. '
+              'Using sin2θ = 2sinθcosθ, find sin2θ (lowest terms).'
+          : 'sinθ = $opp/$hyp और cosθ = $adj/$hyp है। sin2θ = 2sinθcosθ '
+              'का उपयोग करके sin2θ ज्ञात करें (सरलतम रूप में)।',
       options: buildMcOptionsFromCandidates(correct, candidates.toList(), rng),
       correctAnswer: correct,
       difficultyTier: tier,

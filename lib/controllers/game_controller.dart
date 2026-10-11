@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import '../models/age_group.dart';
+import '../models/app_language.dart';
 import '../models/game_session.dart';
 import '../models/puzzle.dart';
 import '../models/test_session.dart';
@@ -21,11 +23,19 @@ import '../services/rng_service.dart';
 /// screen-wide rebuild on every change.
 class GameController extends ChangeNotifier {
   GameController({
-    this.totalQuestions, // null = no cap (Play); a number = fixed-length (Daily Challenge passes 10)
+    int? totalQuestions, // null = no cap (Play); a number = fixed-length (Daily Challenge passes 10)
     required this.isDailyChallenge,
-    this.startingScore = 0, // Play resumes from the player's last-saved score; Daily Challenge always starts at 0
+    int startingScore = 0, // Play resumes from the player's last-saved score; Daily Challenge always starts at 0
+    this.ageGroupTest,
+    this.language = AppLanguage.english,
     RngService? rng,
-  })  : _rng = rng ??
+  })  : // An Age-Group Test always overrides to the fixed 30-question,
+        // from-zero shape regardless of what the caller passed — matches
+        // Daily Challenge's own "ignore the caller's startingScore"
+        // fairness precedent.
+        totalQuestions = ageGroupTest != null ? 30 : totalQuestions,
+        startingScore = ageGroupTest != null ? 0 : startingScore,
+        _rng = rng ??
             (isDailyChallenge
                 ? RngService.seeded(_todaySeedString())
                 : RngService.free()),
@@ -38,10 +48,22 @@ class GameController extends ChangeNotifier {
 
   /// Null means this session never ends on its own (Play mode) — the only
   /// way out is [endSession]. A number means a fixed-length test (Daily
-  /// Challenge).
+  /// Challenge, or an Age-Group Test — always 30).
   final int? totalQuestions;
   final bool isDailyChallenge;
   final int startingScore;
+
+  /// Non-null for an Age-Group Test (13+/16+/18+ Home card) — a fixed
+  /// 30-question, pass/fail Test with no score/leaderboard effect, drawn
+  /// from a maths-only pool scoped by [AgeGroup.mathPool]. Null for
+  /// ordinary Play/Daily Challenge.
+  final AgeGroup? ageGroupTest;
+
+  /// Fixed for this session's whole lifetime (like [ageGroupTest]) —
+  /// changing language mid-session via Settings only affects the next
+  /// session started, not an in-progress one. Defaults to English for
+  /// `debugController`-based tests that don't care about language.
+  final AppLanguage language;
   final RngService _rng;
 
   /// Only set for a Daily Challenge — recorded so [TestSession] can carry
@@ -61,6 +83,16 @@ class GameController extends ChangeNotifier {
   final List<AnswerOutcome> _outcomes = [];
   final List<int> _marksAwarded = []; // parallel to _outcomes: +4/-2/0
 
+  // --- hint-ad timer state ---
+  // Both reset per question (see onFeedbackAnimationComplete) so a new
+  // puzzle's fresh TimerBar always starts unpaused with no carried-over
+  // bonus. Lives here rather than in game_screen's widget state because
+  // the rewarded-ad trigger (inside _QuestionAndOptions) and the TimerBar
+  // it needs to pause/extend (a sibling in _GameScreenBody) only share
+  // this controller as common state.
+  bool _isHintAdPlaying = false;
+  int _hintBonusSeconds = 0;
+
   /// The last 5 puzzle TYPES shown, oldest first — used by [_pickNextType]
   /// so the same topic doesn't come back too soon. Bounded to 5 entries
   /// (see [_pickNextType]'s trim step below).
@@ -75,6 +107,31 @@ class GameController extends ChangeNotifier {
   String? get selectedOption => _selectedOption;
   bool get hasSelection => _selectedOption != null;
   bool get isSubmitted => _isSubmitted;
+
+  /// True while a "Watch Ad for Hint" rewarded ad is on screen — the
+  /// question timer pauses for the duration (see `game_screen.dart`'s
+  /// `TimerBar.isRunning` wiring).
+  bool get isHintAdPlaying => _isHintAdPlaying;
+
+  /// Extra seconds granted this question from watching hint ads — passed
+  /// straight through as `TimerBar.extraSeconds`.
+  int get hintBonusSeconds => _hintBonusSeconds;
+
+  /// Called right before/after a hint's rewarded ad is shown, to pause/
+  /// resume the question timer for its duration.
+  void setHintAdPlaying(bool playing) {
+    if (_isHintAdPlaying == playing) return;
+    _isHintAdPlaying = playing;
+    notifyListeners();
+  }
+
+  /// Called when a hint ad's reward is earned — adds to, never replaces,
+  /// this question's bonus (in case a player could somehow watch more
+  /// than once, the time keeps stacking rather than resetting).
+  void addHintBonusSeconds(int seconds) {
+    _hintBonusSeconds += seconds;
+    notifyListeners();
+  }
 
   /// [startingScore] plus everything scored so far this session — this is
   /// what makes Play mode's score continue across sessions rather than
@@ -102,6 +159,14 @@ class GameController extends ChangeNotifier {
   /// [isSessionOver] is true.
   TestSession? get finalTestSession =>
       isSessionOver ? _buildTestSession() : null;
+
+  /// A snapshot of whatever's been scored *so far*, available at any
+  /// point — unlike [finalTestSession], never null, and doesn't require
+  /// [isSessionOver]. Used by `game_screen.dart` as a safety net to save
+  /// partial progress if the player exits mid-session (back button) or
+  /// the app itself gets backgrounded/killed before a question count or
+  /// manual End would otherwise have triggered the normal persist flow.
+  TestSession get currentProgressSnapshot => _buildTestSession();
 
   /// Manually stops an in-progress (never-ending, Play-mode) session — the
   /// End button's action. Whatever question is currently on screen and
@@ -190,6 +255,10 @@ class GameController extends ChangeNotifier {
     _questionIndex++;
     _selectedOption = null;
     _isSubmitted = false;
+    // Hint-ad state is strictly per-question — a bonus earned on one
+    // question must never carry over and extend the next one's timer.
+    _isHintAdPlaying = false;
+    _hintBonusSeconds = 0;
 
     if (isSessionOver) {
       notifyListeners(); // game_screen sees isSessionOver and navigates
@@ -202,17 +271,29 @@ class GameController extends ChangeNotifier {
   /// within a score-dependent band (see `DifficultyCurve.randomTierForScore`)
   /// — negative/low scores never crash, they just land in the easiest
   /// band. Daily Challenge ignores score entirely and always draws from
-  /// tier 3+ (`DifficultyCurve.randomHighTier`) — it's meant to be
+  /// tier 5+ (`DifficultyCurve.randomHighTier`) — it's meant to be
   /// consistently hard, not ramped. The question category is picked ~70%
   /// math / ~30% reasoning (see `_pickNextType`), then a type uniformly
-  /// within that category, excluding any type shown in the last 5
-  /// questions so the same topic doesn't come back too soon.
+  /// within that category (further restricted by score band in ordinary
+  /// Play mode — see `_pickNextType`'s `bandPool`), excluding any type
+  /// shown in the last 5 questions so the same topic doesn't come back
+  /// too soon.
   void _loadNextPuzzle() {
-    final tier = isDailyChallenge
+    // 13+/16+ Tests draw from the same "consistently hard" tier source as
+    // Daily Challenge; 18+ (and ordinary Play) ramp by score instead.
+    final usesHighTier = isDailyChallenge ||
+        ageGroupTest == AgeGroup.thirteenPlus ||
+        ageGroupTest == AgeGroup.sixteenPlus;
+    final tier = usesHighTier
         ? DifficultyCurve.randomHighTier(_rng)
         : DifficultyCurve.randomTierForScore(totalMarks, _rng);
     final type = _pickNextType();
-    _currentPuzzle = PuzzleGenerator.generate(tier: tier, type: type, rng: _rng);
+    _currentPuzzle = PuzzleGenerator.generate(
+      tier: tier,
+      type: type,
+      rng: _rng,
+      language: language,
+    );
     notifyListeners();
   }
 
@@ -241,6 +322,45 @@ class GameController extends ChangeNotifier {
   ];
   static const int _gatedTypesUnlockScore = 200;
 
+  /// Score-banded starter pools for ordinary Play mode (not Daily
+  /// Challenge, not an Age-Group Test — see `_pickNextType`'s
+  /// `isOrdinaryPlay` check) — a brand-new player sees a small curated
+  /// topic set first, which widens twice before reaching the full
+  /// library at the same score (100) where [_gatedTypes] starts counting
+  /// down toward its own 200 unlock.
+  static const List<PuzzleType> _band1MathTypes = [
+    PuzzleType.arithmetic,
+    PuzzleType.trueFalse,
+    PuzzleType.missingNumber,
+    PuzzleType.oddOneOut,
+    PuzzleType.sequence,
+    PuzzleType.targetNumber,
+    PuzzleType.bodmas,
+  ];
+  static const List<PuzzleType> _band1ReasoningTypes = [
+    PuzzleType.familyTree,
+    PuzzleType.directionSense,
+    PuzzleType.wordPuzzle,
+    PuzzleType.statementConclusion,
+  ];
+  static const int _band1UnlockScore = 50;
+
+  /// Band 2 expands math to 14 topics (the 7 above plus these 7); reasoning
+  /// fully unlocks to all 12 types at this band, so no separate band-2
+  /// reasoning list is needed — `_pickNextType` falls through to
+  /// `_reasoningTypes` directly once `totalMarks >= _band1UnlockScore`.
+  static const List<PuzzleType> _band2MathTypes = [
+    ..._band1MathTypes,
+    PuzzleType.speedDistance,
+    PuzzleType.profitLoss,
+    PuzzleType.interest,
+    PuzzleType.angleFinding,
+    PuzzleType.graphReading,
+    PuzzleType.numberClassification,
+    PuzzleType.statistics,
+  ];
+  static const int _band2UnlockScore = 100;
+
   static PuzzleCategory _categoryOf(PuzzleType type) => switch (type) {
         PuzzleType.familyTree ||
         PuzzleType.shapeIdentification ||
@@ -259,22 +379,54 @@ class GameController extends ChangeNotifier {
       };
 
   PuzzleType _pickNextType() {
-    // ~30% reasoning / ~70% math (product spec: a 7:3 ratio), replacing
-    // the earlier 50/50 split now that the topic-gating below can also
-    // shrink the math pool for a low-scoring player.
-    final wantsReasoning = _rng.nextInt(0, 9) < 3;
+    // Age-Group Tests never draw reasoning questions, regardless of age
+    // group — reasoning stays exclusive to Play/Daily Challenge (see the
+    // feature plan). Neither does a Hindi-language session — reasoning
+    // generators are English-only in both languages (see the Hindi
+    // feature's "Known limitations"), and a player who picked Hindi
+    // getting an English reasoning question mid-session read as a bug
+    // report, not an accepted limitation — so Hindi mode draws 100% from
+    // the (fully-translated) math pool instead of the usual 70/30 split.
+    // Otherwise ~30% reasoning / ~70% math (product spec: a 7:3 ratio),
+    // replacing the earlier 50/50 split now that the topic-gating below
+    // can also shrink the math pool for a low-scoring player.
+    final wantsReasoning = ageGroupTest == null &&
+        language == AppLanguage.english &&
+        _rng.nextInt(0, 9) < 3;
     final basePool = wantsReasoning ? _reasoningTypes : _mathTypes;
-    final eligiblePool = wantsReasoning
+
+    // Ordinary Play mode (not Daily Challenge, not an Age-Group Test)
+    // additionally restricts the topic pool by score band — see the
+    // band-1/band-2 constants above. Daily Challenge keeps its existing
+    // "always full pool" behavior; Age-Group Tests keep their own
+    // separate `ageGroupTest.mathPool` logic (short-circuits below
+    // regardless of this).
+    final isOrdinaryPlay = ageGroupTest == null && !isDailyChallenge;
+    final bandPool = !isOrdinaryPlay
         ? basePool
-        : (totalMarks > _gatedTypesUnlockScore || isDailyChallenge
-            ? basePool
-            : basePool.where((t) => !_gatedTypes.contains(t)).toList());
+        : (totalMarks < _band1UnlockScore
+            ? (wantsReasoning ? _band1ReasoningTypes : _band1MathTypes)
+            : (totalMarks < _band2UnlockScore
+                ? (wantsReasoning ? _reasoningTypes : _band2MathTypes)
+                : basePool));
+
+    // 13+/16+ restrict outright to their curriculum-scoped pool; 18+
+    // (mathPool null) and ordinary Play/Daily Challenge fall through to
+    // the existing score-gating logic below, unchanged, now operating on
+    // `bandPool` instead of `basePool` directly.
+    final eligiblePool = ageGroupTest?.mathPool ??
+        (wantsReasoning
+            ? bandPool
+            : (totalMarks > _gatedTypesUnlockScore || isDailyChallenge
+                ? bandPool
+                : bandPool.where((t) => !_gatedTypes.contains(t)).toList()));
 
     // Exclude anything shown in the last 5 questions so a topic doesn't
     // repeat too soon. Defensive fallback to the ungated pool if that
-    // would leave nothing to pick from — should never trigger given pool
-    // sizes (12 reasoning / 32 math, only 4 ever gated) vs. a 5-deep
-    // window, but a crash here would end the whole session.
+    // would leave nothing to pick from — band 1's reasoning pool is only
+    // 4 types against this 5-deep window, so this can genuinely trigger
+    // there (not just a theoretical safety net), and degrades gracefully
+    // to allowing one repeat rather than crashing.
     var candidates =
         eligiblePool.where((t) => !_recentTypes.contains(t)).toList();
     if (candidates.isEmpty) candidates = eligiblePool;

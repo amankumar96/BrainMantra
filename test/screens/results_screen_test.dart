@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
+import 'package:brain_mantra/models/age_group.dart';
+import 'package:brain_mantra/models/app_language.dart';
 import 'package:brain_mantra/models/game_session.dart';
 import 'package:brain_mantra/models/puzzle.dart';
 import 'package:brain_mantra/models/test_session.dart';
 import 'package:brain_mantra/screens/results_screen.dart';
+import 'package:brain_mantra/services/language_controller.dart';
 
 Puzzle _puzzle(int seed) => Puzzle(
       category: PuzzleCategory.mathTest,
@@ -40,7 +44,10 @@ TestSession _buildSession(
   return TestSession(session: session, outcomes: outcomes, marksAwarded: marks);
 }
 
-Widget _wrap(Widget child) => MaterialApp(home: child);
+Widget _wrap(Widget child) => ChangeNotifierProvider<LanguageController>(
+      create: (_) => LanguageController(AppLanguage.english),
+      child: MaterialApp(home: child),
+    );
 
 void main() {
   testWidgets(
@@ -95,22 +102,21 @@ void main() {
     expect(find.text('Best score: 50'), findsOneWidget);
   });
 
-  testWidgets('Daily Challenge: tapping "Play Again" calls onPlayAgain',
-      (tester) async {
-    var tapCount = 0;
+  testWidgets(
+      'Daily Challenge: only offers "Back to Home" (no direct replay, '
+      'which would bypass the 10 AM lock)', (tester) async {
     final testSession = _buildSession([AnswerOutcome.correct], [4]);
     await tester.pumpWidget(_wrap(ResultsScreen(
       testSession: testSession,
       currentScore: testSession.session.score,
       previousHighScore: 0,
-      onPlayAgain: () => tapCount++,
+      onPlayAgain: () {},
     )));
 
     expect(find.text('Test Complete'), findsOneWidget);
-    await tester.tap(find.text('Play Again'));
-    await tester.pump();
-
-    expect(tapCount, equals(1));
+    expect(find.text('Back to Home'), findsOneWidget);
+    expect(find.text('Play Again'), findsNothing);
+    expect(find.text('Continue Playing'), findsNothing);
   });
 
   group('Play mode (currentScore is the cumulative total, not the '
@@ -161,6 +167,102 @@ void main() {
       await tester.pump();
 
       expect(tapCount, equals(1));
+    });
+  });
+
+  group('Age-Group Test mode (ageGroupTest set)', () {
+    /// [correctCount] correct answers followed by (30 - correctCount)
+    /// wrong answers, out of a fixed 30 — matches the real 30-question
+    /// Age-Group Test shape.
+    TestSession buildAgeGroupSession(int correctCount) {
+      final outcomes = [
+        for (var i = 0; i < 30; i++)
+          i < correctCount ? AnswerOutcome.correct : AnswerOutcome.wrong,
+      ];
+      final marks = [
+        for (final o in outcomes) o == AnswerOutcome.correct ? 4 : -2,
+      ];
+      return _buildSession(outcomes, marks, isDailyChallenge: false);
+    }
+
+    testWidgets('shows no score, no high-score banner, no Best score line',
+        (tester) async {
+      final testSession = buildAgeGroupSession(15);
+      await tester.pumpWidget(_wrap(ResultsScreen(
+        testSession: testSession,
+        currentScore: 999, // must be ignored entirely in this mode
+        previousHighScore: 0,
+        ageGroupTest: AgeGroup.thirteenPlus,
+        onPlayAgain: () {},
+      )));
+
+      expect(find.text('999'), findsNothing);
+      expect(find.text('score so far'), findsNothing);
+      expect(find.textContaining('Best score'), findsNothing);
+      expect(find.text('NEW HIGH SCORE!'), findsNothing);
+    });
+
+    testWidgets('12/30 correct (exactly 40%) shows Congratulations',
+        (tester) async {
+      final testSession = buildAgeGroupSession(12);
+      await tester.pumpWidget(_wrap(ResultsScreen(
+        testSession: testSession,
+        currentScore: 0,
+        previousHighScore: 0,
+        ageGroupTest: AgeGroup.sixteenPlus,
+        onPlayAgain: () {},
+      )));
+
+      expect(find.text('Congratulations! You passed'), findsOneWidget);
+    });
+
+    testWidgets('11/30 correct (just under 40%) shows Try again next time',
+        (tester) async {
+      final testSession = buildAgeGroupSession(11);
+      await tester.pumpWidget(_wrap(ResultsScreen(
+        testSession: testSession,
+        currentScore: 0,
+        previousHighScore: 0,
+        ageGroupTest: AgeGroup.eighteenPlus,
+        onPlayAgain: () {},
+      )));
+
+      expect(find.text('Try again next time'), findsOneWidget);
+    });
+
+    testWidgets('title shows the age group label, and only a Back to Home '
+        'button is offered (no Try Again/Play Again bypassing the '
+        'cooldown)', (tester) async {
+      final testSession = buildAgeGroupSession(20);
+      await tester.pumpWidget(_wrap(ResultsScreen(
+        testSession: testSession,
+        currentScore: 0,
+        previousHighScore: 0,
+        ageGroupTest: AgeGroup.thirteenPlus,
+        onPlayAgain: () {},
+      )));
+
+      expect(find.text('13+ Test Result'), findsOneWidget);
+      expect(find.text('Back to Home'), findsOneWidget);
+      expect(find.text('Play Again'), findsNothing);
+      expect(find.text('Continue Playing'), findsNothing);
+      expect(find.text('Try Again'), findsNothing);
+      expect(find.text('Home'), findsNothing);
+    });
+
+    testWidgets('still shows the correct/wrong breakdown', (tester) async {
+      final testSession = buildAgeGroupSession(18);
+      await tester.pumpWidget(_wrap(ResultsScreen(
+        testSession: testSession,
+        currentScore: 0,
+        previousHighScore: 0,
+        ageGroupTest: AgeGroup.sixteenPlus,
+        onPlayAgain: () {},
+      )));
+
+      expect(find.text('Correct: 18'), findsOneWidget);
+      expect(find.text('Wrong: 12'), findsOneWidget);
+      expect(find.text('Skipped: 0'), findsOneWidget);
     });
   });
 }

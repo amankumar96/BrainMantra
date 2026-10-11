@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../models/app_language.dart';
+import '../services/language_controller.dart';
 import 'constants.dart';
 
 /// Best-effort heuristic: does [error] look like "the device has no
@@ -32,14 +35,23 @@ bool isOfflineError(Object error) {
 /// [isOfflineError]-classified error, instead of showing that error's raw
 /// technical text.
 class OfflineNotice extends StatelessWidget {
-  const OfflineNotice({super.key, required this.actionDescription});
+  const OfflineNotice({
+    super.key,
+    required this.actionDescription,
+    required this.actionDescriptionHindi,
+  });
 
   /// e.g. "delete your account" — filled into "Connect to the internet to
   /// {actionDescription}.".
   final String actionDescription;
 
+  /// The same phrase, in basic Hindi — e.g. "अपना खाता हटाने".
+  final String actionDescriptionHindi;
+
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<LanguageController>().language;
+    final isHindi = language == AppLanguage.hindi;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -58,12 +70,16 @@ class OfflineNotice extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  "You're offline",
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                Text(
+                  isHindi ? 'आप ऑफ़लाइन हैं' : "You're offline",
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 2),
-                Text('Connect to the internet to $actionDescription.'),
+                Text(
+                  isHindi
+                      ? '$actionDescriptionHindi के लिए इंटरनेट से कनेक्ट करें।'
+                      : 'Connect to the internet to $actionDescription.',
+                ),
               ],
             ),
           ),

@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:brain_mantra/models/app_language.dart';
 import 'package:brain_mantra/services/probability_generator.dart';
 import 'package:brain_mantra/services/rng_service.dart';
 
@@ -14,7 +15,7 @@ void main() {
       final rng = RngService.seeded('probability-variety');
       final texts = {
         for (var i = 0; i < 30; i++)
-          ProbabilityGenerator.generate(tier: 3, rng: rng).questionText,
+          ProbabilityGenerator.generate(tier: 3, rng: rng, language: AppLanguage.english).questionText,
       };
       expect(texts.length, greaterThan(1));
     });
@@ -24,7 +25,7 @@ void main() {
       final rng = RngService.seeded('probability-answer-variety');
       final answers = {
         for (var i = 0; i < 30; i++)
-          ProbabilityGenerator.generate(tier: 3, rng: rng).correctAnswer,
+          ProbabilityGenerator.generate(tier: 3, rng: rng, language: AppLanguage.english).correctAnswer,
       };
       expect(answers.length, greaterThan(1));
     });
@@ -34,7 +35,11 @@ void main() {
     test('correctAnswer is always an already-reduced fraction string', () {
       final rng = RngService.seeded('probability-reduced');
       for (var i = 0; i < 200; i++) {
-        final puzzle = ProbabilityGenerator.generate(tier: 3, rng: rng);
+        final puzzle = ProbabilityGenerator.generate(
+          tier: 3,
+          rng: rng,
+          language: AppLanguage.english,
+        );
         final parts = (puzzle.correctAnswer as String).split('/');
         expect(parts, hasLength(2));
         final f = int.parse(parts[0]);

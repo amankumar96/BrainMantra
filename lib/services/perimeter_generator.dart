@@ -1,3 +1,4 @@
+import '../models/app_language.dart';
 import '../models/diagram_data.dart';
 import '../models/puzzle.dart';
 import 'difficulty_curve.dart';
@@ -12,14 +13,20 @@ import 'rng_utils.dart';
 /// separates this topic from `areaVolume` (area/volume, the space a shape
 /// covers).
 abstract final class PerimeterGenerator {
-  static Puzzle generate({required int tier, required RngService rng}) {
+  static Puzzle generate({
+    required int tier,
+    required RngService rng,
+    required AppLanguage language,
+  }) {
     final params = DifficultyCurve.paramsForTier(tier);
     final range = _lengthRangeForTier(tier);
 
     return switch (rng.nextInt(0, 2)) {
-      0 => _rectangleGarden(tier, params.timeLimitSeconds, range, rng),
-      1 => _squareFrame(tier, params.timeLimitSeconds, range, rng),
-      _ => _triangularPark(tier, params.timeLimitSeconds, range, rng),
+      0 => _rectangleGarden(
+          tier, params.timeLimitSeconds, range, rng, language),
+      1 => _squareFrame(tier, params.timeLimitSeconds, range, rng, language),
+      _ => _triangularPark(
+          tier, params.timeLimitSeconds, range, rng, language),
     };
   }
 
@@ -28,6 +35,7 @@ abstract final class PerimeterGenerator {
     int timeLimitSeconds,
     ({int min, int max}) range,
     RngService rng,
+    AppLanguage language,
   ) {
     final length = rng.nextInt(range.min, range.max);
     final width = rng.nextInt(range.min, range.max);
@@ -36,10 +44,13 @@ abstract final class PerimeterGenerator {
       id: deterministicId(rng),
       category: PuzzleCategory.mathTest,
       type: PuzzleType.perimeter,
-      questionText:
-          'You want to put a fence around a rectangular garden that is '
-          '$length m long and $width m wide. How many metres of fencing do '
-          'you need?',
+      questionText: language == AppLanguage.english
+          ? 'You want to put a fence around a rectangular garden that is '
+              '$length m long and $width m wide. How many metres of fencing '
+              'do you need?'
+          : 'आप एक आयताकार बगीचे के चारों ओर बाड़ लगाना चाहते हैं, जो '
+              '$length मीटर लंबा और $width मीटर चौड़ा है। आपको कितने मीटर '
+              'बाड़ की जरूरत है?',
       options: buildNumericMcOptions(perimeter, rng, spread: _spreadFor(perimeter)),
       correctAnswer: perimeter,
       difficultyTier: tier,
@@ -48,7 +59,9 @@ abstract final class PerimeterGenerator {
         kind: DiagramKind.rectangle,
         dimensions: [length.toDouble(), width.toDouble()],
       ),
-      hint: 'Perimeter of a rectangle = 2 × (length + width)',
+      hint: language == AppLanguage.english
+          ? 'Perimeter of a rectangle = 2 × (length + width)'
+          : 'आयत की परिमाप = 2 × (लंबाई + चौड़ाई)',
     );
   }
 
@@ -57,6 +70,7 @@ abstract final class PerimeterGenerator {
     int timeLimitSeconds,
     ({int min, int max}) range,
     RngService rng,
+    AppLanguage language,
   ) {
     final side = rng.nextInt(range.min, range.max);
     final perimeter = 4 * side;
@@ -64,8 +78,11 @@ abstract final class PerimeterGenerator {
       id: deterministicId(rng),
       category: PuzzleCategory.mathTest,
       type: PuzzleType.perimeter,
-      questionText: 'A square photo frame has sides of $side cm. How much '
-          'ribbon do you need to go all the way around its border?',
+      questionText: language == AppLanguage.english
+          ? 'A square photo frame has sides of $side cm. How much '
+              'ribbon do you need to go all the way around its border?'
+          : 'एक चौकोर फोटो फ्रेम की भुजा $side सेमी है। उसके बॉर्डर के '
+              'चारों ओर पूरा घेरने के लिए कितना रिबन चाहिए?',
       options: buildNumericMcOptions(perimeter, rng, spread: _spreadFor(perimeter)),
       correctAnswer: perimeter,
       difficultyTier: tier,
@@ -74,7 +91,9 @@ abstract final class PerimeterGenerator {
         kind: DiagramKind.rectangle,
         dimensions: [side.toDouble(), side.toDouble()],
       ),
-      hint: 'Perimeter of a square = 4 × side',
+      hint: language == AppLanguage.english
+          ? 'Perimeter of a square = 4 × side'
+          : 'वर्ग की परिमाप = 4 × भुजा',
     );
   }
 
@@ -83,6 +102,7 @@ abstract final class PerimeterGenerator {
     int timeLimitSeconds,
     ({int min, int max}) range,
     RngService rng,
+    AppLanguage language,
   ) {
     // Sides drawn close together around a random common base (offsets
     // 0-2, base clamped >= 3) so the triangle inequality always holds
@@ -99,9 +119,11 @@ abstract final class PerimeterGenerator {
       id: deterministicId(rng),
       category: PuzzleCategory.mathTest,
       type: PuzzleType.perimeter,
-      questionText:
-          'A triangular park has sides measuring $a m, $b m and $c m. Find '
-          'the total distance around the park (its perimeter).',
+      questionText: language == AppLanguage.english
+          ? 'A triangular park has sides measuring $a m, $b m and $c m. Find '
+              'the total distance around the park (its perimeter).'
+          : 'एक त्रिकोणीय पार्क की भुजाएं $a मीटर, $b मीटर और $c मीटर हैं। '
+              'पार्क के चारों ओर की कुल दूरी (परिमाप) ज्ञात करें।',
       options: buildNumericMcOptions(perimeter, rng, spread: _spreadFor(perimeter)),
       correctAnswer: perimeter,
       difficultyTier: tier,
@@ -110,7 +132,9 @@ abstract final class PerimeterGenerator {
         kind: DiagramKind.polygon,
         vertices: trianglePolygonVertices(a, b, c),
       ),
-      hint: 'Perimeter of a triangle = sum of its three sides',
+      hint: language == AppLanguage.english
+          ? 'Perimeter of a triangle = sum of its three sides'
+          : 'त्रिभुज की परिमाप = उसकी तीनों भुजाओं का योग',
     );
   }
 

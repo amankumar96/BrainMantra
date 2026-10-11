@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../models/app_language.dart';
+import '../services/language_controller.dart';
 import '../utils/constants.dart';
 
 /// A plain readout of test progress and running score — replaces the
@@ -20,12 +23,20 @@ class MarksIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<LanguageController>().language;
+    final isHindi = language == AppLanguage.hindi;
     // Explicit '+' for positive totals so it reads as a signed tally
     // (e.g. "+12 marks") rather than being mistaken for a plain count.
     final sign = marksSoFar > 0 ? '+' : '';
     final progressText = totalQuestions == null
-        ? 'Question $currentQuestionNumber'
-        : 'Question $currentQuestionNumber of $totalQuestions';
+        ? (isHindi
+            ? 'प्रश्न $currentQuestionNumber'
+            : 'Question $currentQuestionNumber')
+        : (isHindi
+            ? 'प्रश्न $currentQuestionNumber / $totalQuestions'
+            : 'Question $currentQuestionNumber of $totalQuestions');
+    final marksText =
+        isHindi ? '$sign$marksSoFar मार्क्स' : '$sign$marksSoFar marks';
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -34,7 +45,7 @@ class MarksIndicator extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.w500),
         ),
         Text(
-          '$sign$marksSoFar marks',
+          marksText,
           style: const TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: AppText.score,

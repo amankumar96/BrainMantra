@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:brain_mantra/controllers/game_controller.dart';
+import 'package:brain_mantra/models/age_group.dart';
+import 'package:brain_mantra/models/app_language.dart';
 import 'package:brain_mantra/models/puzzle.dart';
 import 'package:brain_mantra/models/test_session.dart';
 import 'package:brain_mantra/services/rng_service.dart';
@@ -256,15 +258,15 @@ void main() {
       expect(controller.lastOutcome, equals(AnswerOutcome.skipped));
     });
 
-    test('every question is tier 3 or above, unlike a low/mid Play score '
-        'which would mostly land in tiers 1-2', () {
+    test('every question is tier 5 or above, unlike a low/mid Play score '
+        'which would mostly land in tiers 1-4', () {
       final controller = GameController(
         totalQuestions: 40,
         isDailyChallenge: true,
         rng: RngService.seeded('daily-tier-1'),
       );
       for (var i = 0; i < 40; i++) {
-        expect(controller.currentPuzzle!.difficultyTier, anyOf(3, 4));
+        expect(controller.currentPuzzle!.difficultyTier, anyOf(5, 6));
         controller.skipDueToTimeout();
         controller.onFeedbackAnimationComplete();
       }
@@ -547,6 +549,25 @@ void main() {
       expect(reasoningCount, inInclusiveRange(40, 80));
     });
 
+    test(
+        'draws 100% math (never reasoning) when language is Hindi, since '
+        'reasoning generators are English-only in both languages', () {
+      final controller = GameController(
+        totalQuestions: 100,
+        isDailyChallenge: false,
+        language: AppLanguage.hindi,
+        rng: RngService.seeded('hindi-no-reasoning'),
+      );
+      for (var i = 0; i < 100; i++) {
+        expect(
+          controller.currentPuzzle!.category,
+          equals(PuzzleCategory.mathTest),
+        );
+        controller.skipDueToTimeout();
+        controller.onFeedbackAnimationComplete();
+      }
+    });
+
     test('never repeats a puzzle type within its last 5 questions', () {
       final controller = GameController(
         totalQuestions: 150,
@@ -629,6 +650,245 @@ void main() {
         }
         expect(sawGated, isTrue);
       });
+    });
+
+    group('score-banded topic pools (Play mode only)', () {
+      const band1MathTypes = {
+        PuzzleType.arithmetic,
+        PuzzleType.trueFalse,
+        PuzzleType.missingNumber,
+        PuzzleType.oddOneOut,
+        PuzzleType.sequence,
+        PuzzleType.targetNumber,
+        PuzzleType.bodmas,
+      };
+      const band1ReasoningTypes = {
+        PuzzleType.familyTree,
+        PuzzleType.directionSense,
+        PuzzleType.wordPuzzle,
+        PuzzleType.statementConclusion,
+      };
+      const band1Pool = {...band1MathTypes, ...band1ReasoningTypes};
+      const band2MathTypes = {
+        ...band1MathTypes,
+        PuzzleType.speedDistance,
+        PuzzleType.profitLoss,
+        PuzzleType.interest,
+        PuzzleType.angleFinding,
+        PuzzleType.graphReading,
+        PuzzleType.numberClassification,
+        PuzzleType.statistics,
+      };
+
+      test('below 50 marks: every type stays within the band-1 pool (11 '
+          'types)', () {
+        final controller = GameController(
+          totalQuestions: 300,
+          isDailyChallenge: false,
+          rng: RngService.seeded('band1-pool'),
+        );
+        for (var i = 0; i < 300; i++) {
+          // skipDueToTimeout always scores 0 — totalMarks stays at 0 for
+          // the whole drive, well under the band-1 50-mark unlock.
+          expect(band1Pool.contains(controller.currentPuzzle!.type), isTrue);
+          controller.skipDueToTimeout();
+          controller.onFeedbackAnimationComplete();
+        }
+      });
+
+      test('50-99 marks: every type stays within the band-2 pool (14 math '
+          '+ all 12 reasoning), and a reasoning type outside band 1 is '
+          'actually seen', () {
+        final controller = GameController(
+          totalQuestions: 300,
+          isDailyChallenge: false,
+          startingScore: 60,
+          rng: RngService.seeded('band2-pool'),
+        );
+        var sawReasoningOutsideBand1 = false;
+        for (var i = 0; i < 300; i++) {
+          final type = controller.currentPuzzle!.type;
+          final inBand2 = band2MathTypes.contains(type) ||
+              controller.currentPuzzle!.category ==
+                  PuzzleCategory.reasoningTest;
+          expect(inBand2, isTrue);
+          if (!band1ReasoningTypes.contains(type) &&
+              controller.currentPuzzle!.category ==
+                  PuzzleCategory.reasoningTest) {
+            sawReasoningOutsideBand1 = true;
+          }
+          // skipDueToTimeout scores 0 — totalMarks stays pinned at the
+          // startingScore (60) for the whole drive, safely inside band 2.
+          controller.skipDueToTimeout();
+          controller.onFeedbackAnimationComplete();
+        }
+        expect(sawReasoningOutsideBand1, isTrue);
+      });
+
+      test('100+ marks: full pool, same as today\'s un-gated behavior '
+          '(sees types outside band 1/2, still respects the independent '
+          '_gatedTypes >200 rule)', () {
+        final controller = GameController(
+          totalQuestions: 300,
+          isDailyChallenge: false,
+          startingScore: 150,
+          rng: RngService.seeded('band3-pool'),
+        );
+        const gatedTypes = {
+          PuzzleType.logarithm,
+          PuzzleType.coordinateGeometry,
+          PuzzleType.progression,
+          PuzzleType.unitConversion,
+        };
+        var sawTypeOutsideBand2 = false;
+        for (var i = 0; i < 300; i++) {
+          final type = controller.currentPuzzle!.type;
+          expect(gatedTypes.contains(type), isFalse);
+          if (controller.currentPuzzle!.category == PuzzleCategory.mathTest &&
+              !band2MathTypes.contains(type)) {
+            sawTypeOutsideBand2 = true;
+          }
+          controller.skipDueToTimeout();
+          controller.onFeedbackAnimationComplete();
+        }
+        expect(sawTypeOutsideBand2, isTrue);
+      });
+
+      test('Daily Challenge is not restricted to the band-1 pool even at '
+          'score 0', () {
+        final controller = GameController(
+          totalQuestions: 300,
+          isDailyChallenge: true,
+          rng: RngService.seeded('band-daily-unaffected'),
+        );
+        var sawTypeOutsideBand1 = false;
+        for (var i = 0; i < 300; i++) {
+          if (!band1Pool.contains(controller.currentPuzzle!.type)) {
+            sawTypeOutsideBand1 = true;
+          }
+          controller.skipDueToTimeout();
+          controller.onFeedbackAnimationComplete();
+        }
+        expect(sawTypeOutsideBand1, isTrue);
+      });
+
+      test('difficultyTier matches the expected sub-tier set for each '
+          'score', () {
+        final cases = <int, Set<int>>{
+          10: {1},
+          40: {1, 2},
+          60: {3, 4},
+          90: {3, 4},
+          150: {5, 6},
+        };
+        cases.forEach((score, expectedTiers) {
+          final controller = GameController(
+            totalQuestions: 40,
+            isDailyChallenge: false,
+            startingScore: score,
+            rng: RngService.seeded('band-tier-$score'),
+          );
+          for (var i = 0; i < 40; i++) {
+            expect(
+              expectedTiers.contains(controller.currentPuzzle!.difficultyTier),
+              isTrue,
+              reason: 'score $score produced tier '
+                  '${controller.currentPuzzle!.difficultyTier}, expected '
+                  'one of $expectedTiers',
+            );
+            controller.skipDueToTimeout();
+            controller.onFeedbackAnimationComplete();
+          }
+        });
+      });
+    });
+  });
+
+  group('ageGroupTest mode', () {
+    test('forces totalQuestions to 30 and startingScore to 0 regardless of '
+        'what the caller passed', () {
+      final controller = GameController(
+        totalQuestions: 5, // should be overridden
+        isDailyChallenge: false,
+        startingScore: 999, // should be overridden
+        ageGroupTest: AgeGroup.thirteenPlus,
+        rng: RngService.seeded('age-group-overrides'),
+      );
+      expect(controller.totalQuestions, equals(30));
+      expect(controller.startingScore, equals(0));
+    });
+
+    test('13+ never draws a type outside thirteenPlusPool, and never '
+        'reasoning', () {
+      final controller = GameController(
+        isDailyChallenge: false,
+        ageGroupTest: AgeGroup.thirteenPlus,
+        rng: RngService.seeded('age-group-13'),
+      );
+      for (var i = 0; i < 30; i++) {
+        final puzzle = controller.currentPuzzle!;
+        expect(puzzle.category, equals(PuzzleCategory.mathTest));
+        expect(thirteenPlusPool.contains(puzzle.type), isTrue);
+        controller.skipDueToTimeout();
+        controller.onFeedbackAnimationComplete();
+      }
+    });
+
+    test('16+ never draws a type outside sixteenPlusPool, and never '
+        'reasoning', () {
+      final controller = GameController(
+        isDailyChallenge: false,
+        ageGroupTest: AgeGroup.sixteenPlus,
+        rng: RngService.seeded('age-group-16'),
+      );
+      for (var i = 0; i < 30; i++) {
+        final puzzle = controller.currentPuzzle!;
+        expect(puzzle.category, equals(PuzzleCategory.mathTest));
+        expect(sixteenPlusPool.contains(puzzle.type), isTrue);
+        controller.skipDueToTimeout();
+        controller.onFeedbackAnimationComplete();
+      }
+    });
+
+    test('18+ never draws reasoning, but is not restricted to the 13+/16+ '
+        'pools (uses the full normal math library)', () {
+      final controller = GameController(
+        isDailyChallenge: false,
+        ageGroupTest: AgeGroup.eighteenPlus,
+        rng: RngService.seeded('age-group-18'),
+      );
+      var sawTypeOutsideSixteenPlusPool = false;
+      for (var i = 0; i < 30; i++) {
+        final puzzle = controller.currentPuzzle!;
+        expect(puzzle.category, equals(PuzzleCategory.mathTest));
+        if (!sixteenPlusPool.contains(puzzle.type)) {
+          sawTypeOutsideSixteenPlusPool = true;
+        }
+        controller.skipDueToTimeout();
+        controller.onFeedbackAnimationComplete();
+      }
+      // Not a strict requirement every single run, but with a basic
+      // 3-type pool (arithmetic/trueFalse/missingNumber) excluded from
+      // 16+'s pool and otherwise freely drawable at tier 1-2 for 18+, this
+      // should surface across 30 questions with a fixed seed.
+      expect(sawTypeOutsideSixteenPlusPool, isTrue);
+    });
+
+    test('isTestComplete becomes true only after all 30 questions are '
+        'answered', () {
+      final controller = GameController(
+        isDailyChallenge: false,
+        ageGroupTest: AgeGroup.thirteenPlus,
+        rng: RngService.seeded('age-group-complete'),
+      );
+      for (var i = 0; i < 29; i++) {
+        controller.skipDueToTimeout();
+        controller.onFeedbackAnimationComplete();
+        expect(controller.isTestComplete, isFalse);
+      }
+      controller.skipDueToTimeout();
+      controller.onFeedbackAnimationComplete();
+      expect(controller.isTestComplete, isTrue);
     });
   });
 }

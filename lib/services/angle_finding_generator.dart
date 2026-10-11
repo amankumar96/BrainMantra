@@ -1,3 +1,4 @@
+import '../models/app_language.dart';
 import '../models/diagram_data.dart';
 import '../models/puzzle.dart';
 import 'difficulty_curve.dart';
@@ -9,7 +10,11 @@ import 'rng_utils.dart';
 /// `180 - a - b` — the Angle Sum Property — never a separately-generated
 /// value, so the diagram and the question can never drift out of sync.
 abstract final class AngleFindingGenerator {
-  static Puzzle generate({required int tier, required RngService rng}) {
+  static Puzzle generate({
+    required int tier,
+    required RngService rng,
+    required AppLanguage language,
+  }) {
     final params = DifficultyCurve.paramsForTier(tier);
     final step = _angleStepForTier(tier);
 
@@ -41,9 +46,11 @@ abstract final class AngleFindingGenerator {
       id: deterministicId(rng),
       category: PuzzleCategory.mathTest,
       type: PuzzleType.angleFinding,
-      questionText:
-          'Two angles of a triangle are ${known[0]}° and ${known[1]}°. '
-          'Find the third.',
+      questionText: language == AppLanguage.english
+          ? 'Two angles of a triangle are ${known[0]}° and ${known[1]}°. '
+              'Find the third.'
+          : 'एक त्रिभुज के दो कोण ${known[0]}° और ${known[1]}° हैं। तीसरा '
+              'कोण ज्ञात करें।',
       options: buildNumericMcOptions(correctAnswer, rng, spread: 15),
       correctAnswer: correctAnswer,
       difficultyTier: tier,
@@ -53,7 +60,9 @@ abstract final class AngleFindingGenerator {
         angles: angles.map((a) => a.toDouble()).toList(),
         unknownAngleIndex: unknownIndex,
       ),
-      hint: 'Angle Sum Property: angles of a triangle add to 180°',
+      hint: language == AppLanguage.english
+          ? 'Angle Sum Property: angles of a triangle add to 180°'
+          : 'कोण योग गुण: त्रिभुज के कोणों का योग 180° होता है',
     );
   }
 

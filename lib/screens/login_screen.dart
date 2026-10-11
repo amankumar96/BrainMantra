@@ -1,8 +1,11 @@
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../models/app_language.dart';
 import '../services/auth_service.dart';
+import '../services/language_controller.dart';
 import '../utils/constants.dart';
 import '../utils/legal_links.dart';
 
@@ -50,24 +53,35 @@ class _LoginScreenState extends State<LoginScreen> {
   /// same as every account (`SUPABASE_SECURITY.md`). Better to say so
   /// upfront than let it be a surprise later at the sign-out button.
   Future<void> _submitGuest() async {
+    final language = context.read<LanguageController>().language;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Play as Guest?'),
-        content: const Text(
-          'Guest progress is temporary — signing out deletes it '
-          "immediately, and there's no email or password to sign back in "
-          'with. Guest accounts left inactive for 30 days are also '
-          'deleted automatically, the same as every account.',
+        title: Text(_t(language, 'Play as Guest?', 'गेस्ट के रूप में खेलें?')),
+        content: Text(
+          _t(
+            language,
+            'Guest progress is temporary — signing out deletes it '
+                "immediately, and there's no email or password to sign "
+                'back in with. Guest accounts left inactive for 30 days '
+                'are also deleted automatically, the same as every '
+                'account.',
+            'गेस्ट की प्रगति अस्थायी है — साइन आउट करने पर यह तुरंत डिलीट '
+                'हो जाती है, और दोबारा साइन इन करने के लिए कोई ईमेल या '
+                'पासवर्ड नहीं है। 30 दिनों तक निष्क्रिय रहने पर गेस्ट खाते '
+                'भी स्वचालित रूप से डिलीट हो जाते हैं, हर खाते की तरह।',
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(_t(language, 'Cancel', 'रद्द करें')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Continue as Guest'),
+            child: Text(
+              _t(language, 'Continue as Guest', 'गेस्ट के रूप में जारी रखें'),
+            ),
           ),
         ],
       ),
@@ -93,6 +107,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<LanguageController>().language;
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Stack(
@@ -134,6 +149,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   const SizedBox(height: AppSpacing.sm),
                   _TopBranding(),
+                  const SizedBox(height: AppSpacing.sm),
+                  // Picked here, before any sign-in — satisfies "choose
+                  // the language at the start of the game." Also
+                  // changeable later from Home's Settings screen.
+                  const _LanguageToggle(),
                   // Pushes the panel toward the lower part of the screen,
                   // clear of the mascot in the background artwork above.
                   const Spacer(),
@@ -158,10 +178,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     onGuest: _submitGuest,
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  const Text(
-                    'Ready to chant your brain Mantra?',
+                  Text(
+                    _t(
+                      language,
+                      'Ready to chant your brain Mantra?',
+                      'अपना ब्रेन मंत्र जपने के लिए तैयार हैं?',
+                    ),
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w600,
                       shadows: [Shadow(color: Colors.black45, blurRadius: 6)],
@@ -216,12 +240,15 @@ class _TopBranding extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
+                    // "Brain Mantra" is the app's brand name — left
+                    // untranslated in both languages, same as any brand
+                    // name would be.
+                    const Text(
                       'Brain Mantra',
                       style: TextStyle(
                         color: Colors.white,
@@ -230,10 +257,14 @@ class _TopBranding extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      'Let your brain do the Magic',
+                      _t(
+                        context.watch<LanguageController>().language,
+                        'Let your brain do the Magic',
+                        'अपने दिमाग को जादू करने दें',
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
@@ -339,9 +370,13 @@ class _GoogleButton extends StatelessWidget {
               height: 22,
             ),
             const SizedBox(width: AppSpacing.sm),
-            const Text(
-              'Continue with Google',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            Text(
+              _t(
+                context.watch<LanguageController>().language,
+                'Continue with Google',
+                'Google से जारी रखें',
+              ),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             const Spacer(),
             Icon(
@@ -376,9 +411,13 @@ class _GuestButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
           ),
         ),
-        child: const Text(
-          'Continue as Guest',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        child: Text(
+          _t(
+            context.watch<LanguageController>().language,
+            'Continue as Guest',
+            'गेस्ट के रूप में जारी रखें',
+          ),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
       ),
     );
@@ -397,7 +436,7 @@ class _OrDivider extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
           child: Text(
-            'OR',
+            _t(context.watch<LanguageController>().language, 'OR', 'या'),
             style: TextStyle(
               color: AppColors.submitButtonText.withValues(alpha: 0.55),
               fontSize: 12,
@@ -411,3 +450,83 @@ class _OrDivider extends StatelessWidget {
     );
   }
 }
+
+/// A compact "English | हिंदी" segmented toggle — the first-run language
+/// pick, satisfying "choose the language at the start of the game."
+/// Also changeable later from Home's Settings screen (same
+/// `LanguageController`, so both stay in sync automatically).
+class _LanguageToggle extends StatelessWidget {
+  const _LanguageToggle();
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = context.watch<LanguageController>();
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.32),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final language in AppLanguage.values)
+                _LanguageToggleOption(
+                  language: language,
+                  selected: controller.language == language,
+                  onTap: () => controller.setLanguage(language),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LanguageToggleOption extends StatelessWidget {
+  const _LanguageToggleOption({
+    required this.language,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final AppLanguage language;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(17),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.xs,
+        ),
+        decoration: BoxDecoration(
+          color: selected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(17),
+        ),
+        child: Text(
+          language.label,
+          style: TextStyle(
+            color: selected ? AppColors.primary : Colors.white,
+            fontWeight: FontWeight.w600,
+            fontSize: 13,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Picks [en] or [hi] depending on [language].
+String _t(AppLanguage language, String en, String hi) =>
+    language == AppLanguage.english ? en : hi;

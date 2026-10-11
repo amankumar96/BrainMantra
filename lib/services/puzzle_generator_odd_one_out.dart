@@ -1,5 +1,6 @@
 import 'dart:math' show sqrt;
 
+import '../models/app_language.dart';
 import '../models/puzzle.dart';
 import 'difficulty_curve.dart';
 import 'rng_service.dart';
@@ -8,7 +9,7 @@ import 'rng_utils.dart';
 /// "Which does not belong? 2, 4, 6, 9" — 3 numbers satisfying a rule, plus
 /// one that provably doesn't. The rule pool is tier-gated: simple
 /// multiples-of/even-ness at tier 1-2, perfect squares/primes at tier 3-4.
-Puzzle generateOddOneOut(int tier, RngService rng) {
+Puzzle generateOddOneOut(int tier, RngService rng, AppLanguage language) {
   final params = DifficultyCurve.paramsForTier(tier);
   final useAdvancedRule = tier >= 3;
   final rule = !useAdvancedRule
@@ -54,7 +55,9 @@ Puzzle generateOddOneOut(int tier, RngService rng) {
     id: deterministicId(rng),
     category: PuzzleCategory.mathTest,
     type: PuzzleType.oddOneOut,
-    questionText: 'Which does not belong? ${options.join(", ")}',
+    questionText: language == AppLanguage.english
+        ? 'Which does not belong? ${options.join(", ")}'
+        : 'इनमें से कौन अलग है? ${options.join(", ")}',
     options: options,
     correctAnswer: oddOne.toString(),
     difficultyTier: tier,

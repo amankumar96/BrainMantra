@@ -1,3 +1,4 @@
+import '../models/app_language.dart';
 import '../models/puzzle.dart';
 import 'difficulty_curve.dart';
 import 'rng_service.dart';
@@ -6,11 +7,15 @@ import 'rng_utils.dart';
 /// Surds and Indices (Phase 11B, topic 2): the product rule and
 /// simplifying a surd to k√m form — both integer-clean by construction.
 abstract final class SurdsGenerator {
-  static Puzzle generate({required int tier, required RngService rng}) {
+  static Puzzle generate({
+    required int tier,
+    required RngService rng,
+    required AppLanguage language,
+  }) {
     final params = DifficultyCurve.paramsForTier(tier);
     return rng.nextBool()
         ? _product(tier, params.timeLimitSeconds, rng)
-        : _simplify(tier, params.timeLimitSeconds, rng);
+        : _simplify(tier, params.timeLimitSeconds, rng, language);
   }
 
   static Puzzle _product(int tier, int timeLimitSeconds, RngService rng) {
@@ -31,7 +36,12 @@ abstract final class SurdsGenerator {
     );
   }
 
-  static Puzzle _simplify(int tier, int timeLimitSeconds, RngService rng) {
+  static Puzzle _simplify(
+    int tier,
+    int timeLimitSeconds,
+    RngService rng,
+    AppLanguage language,
+  ) {
     // TUNABLE — coefficients/radicands scaled by tier.
     final kRange = tier <= 2 ? (min: 2, max: 5) : (min: 3, max: 9);
     const radicands = [2, 3, 5, 6, 7, 10, 11, 13];
@@ -49,7 +59,9 @@ abstract final class SurdsGenerator {
       id: deterministicId(rng),
       category: PuzzleCategory.mathTest,
       type: PuzzleType.surds,
-      questionText: 'Simplify √$n to the form k√m.',
+      questionText: language == AppLanguage.english
+          ? 'Simplify √$n to the form k√m.'
+          : '√$n को k√m के रूप में सरल करें।',
       options: buildMcOptionsFromCandidates(correct, candidates.toList(), rng),
       correctAnswer: correct,
       difficultyTier: tier,

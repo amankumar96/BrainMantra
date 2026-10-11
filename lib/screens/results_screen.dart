@@ -1,7 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../models/age_group.dart';
+import '../models/app_language.dart';
 import '../models/test_session.dart';
+import '../services/language_controller.dart';
 import '../utils/constants.dart';
+
+/// Age-Group Tests pass at 12/30 (40%) correct — TUNABLE, matches the
+/// feature plan's explicit pass-threshold decision.
+const double ageGroupTestPassFraction = 0.4;
 
 /// The end-of-session screen: current score, a correct/wrong/skipped
 /// breakdown of *this* session, a "new high score" banner if earned, and
@@ -17,9 +25,16 @@ class ResultsScreen extends StatelessWidget {
     required this.currentScore,
     required this.previousHighScore,
     required this.onPlayAgain,
+    this.ageGroupTest,
   });
 
   final TestSession testSession;
+
+  /// Non-null only for an Age-Group Test (`game_screen.dart`'s
+  /// `ageGroupTest` param) — switches this whole screen to the pass/fail
+  /// presentation (no score shown, no leaderboard effect) instead of the
+  /// normal score-centric one, per the feature plan.
+  final AgeGroup? ageGroupTest;
 
   /// The headline number to show — deliberately **not**
   /// `testSession.totalMarks` (which is only this session's delta). This
@@ -35,6 +50,7 @@ class ResultsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<LanguageController>().language;
     final correctCount =
         testSession.outcomes.where((o) => o == AnswerOutcome.correct).length;
     final wrongCount =
@@ -44,11 +60,22 @@ class ResultsScreen extends StatelessWidget {
     final isNewHighScore = currentScore > previousHighScore;
     final bestScore = isNewHighScore ? currentScore : previousHighScore;
     final isDailyChallenge = testSession.session.isDailyChallenge;
+    final isAgeGroupTest = ageGroupTest != null;
+    final totalAnswered = testSession.outcomes.length;
+    final passed = isAgeGroupTest &&
+        totalAnswered > 0 &&
+        correctCount / totalAnswered >= ageGroupTestPassFraction;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text(isDailyChallenge ? 'Test Complete' : 'Session Ended'),
+        title: Text(
+          isAgeGroupTest
+              ? '${ageGroupTest!.label} ${_t(language, 'Test Result', 'टेस्ट परिणाम')}'
+              : (isDailyChallenge
+                  ? _t(language, 'Test Complete', 'टेस्ट पूरा हुआ')
+                  : _t(language, 'Session Ended', 'सत्र समाप्त हुआ')),
+        ),
       ),
       body: SafeArea(
         child: Padding(
@@ -56,61 +83,108 @@ class ResultsScreen extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              if (isNewHighScore) ...[
-                const Icon(Icons.emoji_events, size: 48, color: Colors.amber),
-                const SizedBox(height: AppSpacing.xs),
-                const Text(
-                  'NEW HIGH SCORE!',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+              // Age-Group Tests show no score or leaderboard effect at
+              // all — only a pass/fail verdict, per the feature plan.
+              if (isAgeGroupTest) ...[
+                Icon(
+                  passed ? Icons.check_circle : Icons.refresh,
+                  size: 48,
+                  color: passed ? AppColors.correct : AppColors.neutral,
                 ),
-                const SizedBox(height: AppSpacing.md),
-              ],
-              Text(
-                '$currentScore',
-                style: const TextStyle(
-                  fontSize: 48,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Text('score so far'),
-              if (isDailyChallenge) ...[
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  '+${testSession.totalMarks} from today\'s Daily Challenge',
-                  style: const TextStyle(fontSize: 12, color: Colors.black54),
+                  passed
+                      ? _t(language, 'Congratulations! You passed',
+                          'बधाई हो! आप पास हो गए')
+                      : _t(language, 'Try again next time',
+                          'अगली बार फिर कोशिश करें'),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
                 ),
+                const SizedBox(height: AppSpacing.lg),
+              ] else ...[
+                if (isNewHighScore) ...[
+                  const Icon(Icons.emoji_events, size: 48, color: Colors.amber),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    _t(language, 'NEW HIGH SCORE!', 'नया हाई स्कोर!'),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                ],
+                Text(
+                  '$currentScore',
+                  style: const TextStyle(
+                    fontSize: 48,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(_t(language, 'score so far', 'अब तक का स्कोर')),
+                if (isDailyChallenge) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    _t(
+                      language,
+                      "+${testSession.totalMarks} from today's Daily Challenge",
+                      '+${testSession.totalMarks} आज की दैनिक चुनौती से',
+                    ),
+                    style: const TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
+                ],
+                const SizedBox(height: AppSpacing.lg),
               ],
-              const SizedBox(height: AppSpacing.lg),
               _StatRow(
-                label: 'Correct',
+                label: _t(language, 'Correct', 'सही'),
                 value: correctCount,
                 color: AppColors.correct,
               ),
               _StatRow(
-                label: 'Wrong',
+                label: _t(language, 'Wrong', 'गलत'),
                 value: wrongCount,
                 color: AppColors.wrong,
               ),
               _StatRow(
-                label: 'Skipped',
+                label: _t(language, 'Skipped', 'छोड़ी गई'),
                 value: skippedCount,
                 color: AppColors.neutral,
               ),
               const SizedBox(height: AppSpacing.lg),
-              Text('Best score: $bestScore'),
-              const SizedBox(height: AppSpacing.lg),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: onPlayAgain,
-                  child: Text(isDailyChallenge ? 'Play Again' : 'Continue Playing'),
+              if (!isAgeGroupTest) ...[
+                Text(_t(language, 'Best score: $bestScore', 'सर्वश्रेष्ठ स्कोर: $bestScore')),
+                const SizedBox(height: AppSpacing.lg),
+              ],
+              // Age-Group Tests have no cooldown (see home_screen.dart),
+              // but Daily Challenge now has a real 24-hour-ish lock
+              // (resets at 10 AM daily) — a direct "Play Again" would
+              // silently bypass it by starting a new Daily Challenge
+              // session without ever going through Home's lock check.
+              // Both modes only offer Home here; neither had (or now
+              // should have) a "retry immediately" callback — a player
+              // who's actually allowed another attempt just taps the
+              // card again from Home, where the lock state is checked.
+              if (isAgeGroupTest || isDailyChallenge)
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(context)
+                        .popUntil((route) => route.isFirst),
+                    child: Text(_t(language, 'Back to Home', 'होम पर वापस जाएं')),
+                  ),
+                )
+              else ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: onPlayAgain,
+                    child: Text(_t(language, 'Continue Playing', 'खेलना जारी रखें')),
+                  ),
                 ),
-              ),
-              TextButton(
-                onPressed: () =>
-                    Navigator.of(context).popUntil((route) => route.isFirst),
-                child: const Text('Home'),
-              ),
+                TextButton(
+                  onPressed: () =>
+                      Navigator.of(context).popUntil((route) => route.isFirst),
+                  child: Text(_t(language, 'Home', 'होम')),
+                ),
+              ],
             ],
           ),
         ),
@@ -149,3 +223,7 @@ class _StatRow extends StatelessWidget {
     );
   }
 }
+
+/// Picks [en] or [hi] depending on [language].
+String _t(AppLanguage language, String en, String hi) =>
+    language == AppLanguage.english ? en : hi;

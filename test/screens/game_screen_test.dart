@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 import 'package:brain_mantra/controllers/game_controller.dart';
+import 'package:brain_mantra/models/app_language.dart';
 import 'package:brain_mantra/models/puzzle.dart';
 import 'package:brain_mantra/models/test_session.dart';
 import 'package:brain_mantra/screens/game_screen.dart';
 import 'package:brain_mantra/screens/results_screen.dart';
+import 'package:brain_mantra/services/language_controller.dart';
 import 'package:brain_mantra/services/rng_service.dart';
+import 'package:brain_mantra/services/storage_service.dart';
 import 'package:brain_mantra/utils/constants.dart';
 import 'package:brain_mantra/widgets/answer_button.dart';
 import 'package:brain_mantra/widgets/diagram_painter.dart';
@@ -28,7 +32,10 @@ const _hintedNonDiagramTypes = {
   PuzzleType.interest,
 };
 
-Widget _wrap(Widget child) => MaterialApp(home: child);
+Widget _wrap(Widget child) => ChangeNotifierProvider<LanguageController>(
+      create: (_) => LanguageController(AppLanguage.english),
+      child: MaterialApp(home: child),
+    );
 
 /// A GameController whose current puzzle answers via plain text option
 /// buttons, not [DiagramAnswerButton]s (Phase 13/14 added several
@@ -255,6 +262,170 @@ void main() {
   });
 
   testWidgets(
+      'pressing the system/hardware back button mid-session persists the '
+      'score, even though it never reaches ResultsScreen', (tester) async {
+    final controller = _textOptionController(
+      seedPrefix: 'gs-back',
+      totalQuestions: null,
+      startingScore: 40,
+    );
+    final navigatorKey = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      ChangeNotifierProvider<LanguageController>(
+        create: (_) => LanguageController(AppLanguage.english),
+        child: MaterialApp(
+          navigatorKey: navigatorKey,
+          home: const Scaffold(body: Text('home')),
+        ),
+      ),
+    );
+    final pushFuture = navigatorKey.currentState!.push(
+      MaterialPageRoute(builder: (_) => GameScreen(debugController: controller)),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    // Answer one question so there's something to lose if the back press
+    // didn't save — an untouched session (no outcomes yet) deliberately
+    // doesn't persist, so this is also what proves that path isn't what's
+    // firing here.
+    final answer = _correctLabel(controller.currentPuzzle!);
+    await tester.ensureVisible(find.text(answer));
+    await tester.pump();
+    await tester.tap(find.text(answer));
+    await tester.pump();
+    await tester.tap(find.text('Submit'));
+    await tester.pump();
+    await _pumpMillis(tester, AppDurations.feedbackDuration.inMilliseconds + 200);
+
+    expect(find.text('home'), findsNothing);
+
+    // Simulates the platform-level back button/gesture (distinct from
+    // tester.pageBack(), which taps the AppBar's own back arrow — this
+    // app's GameScreen has no such arrow; the system back button is the
+    // only way back, routed through PopScope). Bounded pumps, not
+    // pumpAndSettle — GameScreen's TimerBar/floating-numbers animations
+    // never settle on their own while it's alive (same reason the "End
+    // button" test above only reaches for pumpAndSettle after the
+    // session has actually ended).
+    await tester.binding.handlePopRoute();
+
+    // This is the precise real bug, reproduced: home_screen.dart's
+    // _navigateToGame does `await Navigator.push(...)` for this exact
+    // route, then immediately re-fetches the score — so chaining
+    // directly off pushFuture (not off a fixed number of test pumps)
+    // asks the same question the real Home screen effectively asks. If
+    // the route could pop before the persist actually finished (the old,
+    // fire-and-forget bug), this would see stale/null data; it can't
+    // happen anymore because the pop itself is now held open
+    // (PopScope(canPop: false) in game_screen.dart) until the persist
+    // completes.
+    final statsRightAfterPop =
+        pushFuture.then((_) => StorageService.loadStats());
+
+    await _pumpMillis(tester, 2000, step: 20);
+
+    expect(find.text('home'), findsOneWidget);
+    expect(find.byType(ResultsScreen), findsNothing);
+    expect((await statsRightAfterPop).lastPlayedDate, isNotNull);
+  });
+
+  testWidgets(
+      'the app being backgrounded (Home button / Recent Apps / OS-level '
+      'switch away) mid-session persists the score too', (tester) async {
+    final controller = _textOptionController(
+      seedPrefix: 'gs-bg',
+      totalQuestions: null,
+      startingScore: 40,
+    );
+    await tester.pumpWidget(_wrap(GameScreen(debugController: controller)));
+    await tester.pump();
+
+    final answer = _correctLabel(controller.currentPuzzle!);
+    await tester.ensureVisible(find.text(answer));
+    await tester.pump();
+    await tester.tap(find.text(answer));
+    await tester.pump();
+    await tester.tap(find.text('Submit'));
+    await tester.pump();
+    await _pumpMillis(tester, AppDurations.feedbackDuration.inMilliseconds + 200);
+
+    // The Home button, Recent Apps button, and swiping the app away from
+    // the task switcher all surface to Flutter the same way: the app
+    // transitions to AppLifecycleState.paused. GameScreen's
+    // WidgetsBindingObserver is what this exercises.
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+
+    final stats = await StorageService.loadStats();
+    expect(stats.lastPlayedDate, isNotNull);
+  });
+
+  testWidgets(
+      'Home/Recent-Apps only minimizes — GameScreen stays mounted (no '
+      'navigation to Home/Results) while the app is backgrounded',
+      (tester) async {
+    final controller = _textOptionController(
+      seedPrefix: 'gs-bg-stays',
+      totalQuestions: null,
+    );
+    await tester.pumpWidget(_wrap(GameScreen(debugController: controller)));
+    await tester.pump();
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+
+    expect(find.byType(GameScreen), findsOneWidget);
+    expect(find.byType(ResultsScreen), findsNothing);
+  });
+
+  testWidgets(
+      "the question's countdown keeps running against real time while "
+      'backgrounded (not frozen/paused) — enough background time times '
+      "out the question that was on screen, same as a real exam timer",
+      (tester) async {
+    final controller = _textOptionController(
+      seedPrefix: 'gs-bg-timer',
+      totalQuestions: null,
+    );
+    final questionNumberBefore = controller.questionNumber;
+    final timeLimit = controller.currentPuzzle!.timeLimitSeconds;
+    await tester.pumpWidget(_wrap(GameScreen(debugController: controller)));
+    await tester.pump();
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    // GameScreen does nothing to stop TimerBar's countdown on
+    // backgrounding (no isRunning flip, no controller.stop()) — one big
+    // jump past the question's own time limit, simulating "away longer
+    // than the question allowed," is enough to time it out on its own.
+    await tester.pump(Duration(seconds: timeLimit + 5));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await _pumpMillis(tester, AppDurations.feedbackDuration.inMilliseconds + 200);
+
+    expect(controller.questionNumber, greaterThan(questionNumberBefore));
+    expect(controller.lastOutcome, equals(AnswerOutcome.skipped));
+    // Still just the Play screen, minimized-and-resumed — never exited.
+    expect(find.byType(GameScreen), findsOneWidget);
+  });
+
+  testWidgets(
+      'opening a session and immediately backgrounding it without '
+      'answering anything does not count as "played" (no persist fires)',
+      (tester) async {
+    final controller = _textOptionController(seedPrefix: 'gs-bg-untouched');
+    await tester.pumpWidget(_wrap(GameScreen(debugController: controller)));
+    await tester.pump();
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+
+    final stats = await StorageService.loadStats();
+    expect(stats.lastPlayedDate, isNull);
+  });
+
+  testWidgets(
       'a diagram-based question renders the diagram alongside the options, '
       'plus a hint', (tester) async {
     // Every formula-driven type populates a hint at every tier (Phase 11),
@@ -394,7 +565,9 @@ void main() {
     );
   });
 
-  testWidgets('Daily Challenge does not show an End button', (tester) async {
+  testWidgets('Daily Challenge shows an End button too, so marks are '
+      "saved even if the player ends it after just one question",
+      (tester) async {
     final controller = GameController(
       totalQuestions: 3,
       isDailyChallenge: true,
@@ -403,6 +576,6 @@ void main() {
     await tester.pumpWidget(_wrap(GameScreen(debugController: controller)));
     await tester.pump();
 
-    expect(find.text('End'), findsNothing);
+    expect(find.text('End'), findsOneWidget);
   });
 }

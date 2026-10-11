@@ -61,4 +61,31 @@ void main() {
       expect(decoded.totalCoins, equals(vals.coins));
     }
   });
+
+  test('lastDailyChallengeDate null round-trips to null', () {
+    final original = PlayerStats(lastDailyChallengeDate: null);
+    final decoded = roundTrip(original);
+    expect(decoded.lastDailyChallengeDate, isNull);
+  });
+
+  test('lastDailyChallengeDate set round-trips exactly', () {
+    final date = DateTime.utc(2026, 9, 10, 18, 30);
+    final original = PlayerStats(lastDailyChallengeDate: date);
+    final decoded = roundTrip(original);
+    expect(decoded.lastDailyChallengeDate, equals(date));
+  });
+
+  test('loading stats saved before this field existed defaults safely', () {
+    // Simulates an old persisted JSON blob (pre-feature) that has no
+    // lastDailyChallengeDate key at all.
+    final legacyJson = {
+      'highScore': 50,
+      'currentStreakDays': 2,
+      'lastPlayedDate': null,
+      'totalCoins': 0,
+      'bestScoreByTier': <String, dynamic>{},
+    };
+    final decoded = PlayerStats.fromJson(legacyJson);
+    expect(decoded.lastDailyChallengeDate, isNull);
+  });
 }

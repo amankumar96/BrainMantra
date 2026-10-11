@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../models/app_language.dart';
+import '../services/language_controller.dart';
 import '../services/leaderboard_service.dart';
 import '../utils/constants.dart';
 
@@ -106,19 +109,23 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     }
   }
 
-  void _showInfoDialog() {
+  void _showInfoDialog(AppLanguage language) {
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('About the Leaderboard'),
-        content: const Text(
-          'Ranked by total marks earned across Play and Daily Challenge, '
-          'among players active in the last 30 days.',
+        title: Text(_t(language, 'About the Leaderboard', 'लीडरबोर्ड के बारे में')),
+        content: Text(
+          _t(
+            language,
+            'Ranked by total marks earned across Play and Daily Challenge, '
+                'among players active in the last 30 days.',
+            'पिछले 30 दिनों में सक्रिय खिलाड़ियों में, खेल और दैनिक चुनौती में मिले कुल अंकों के आधार पर रैंकिंग दी जाती है।',
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Got it'),
+            child: Text(_t(language, 'Got it', 'समझ गया')),
           ),
         ],
       ),
@@ -127,12 +134,13 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<LanguageController>().language;
     final currentUserId = _currentUserId;
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Column(
         children: [
-          _LeaderboardHeader(onInfoTap: _showInfoDialog),
+          _LeaderboardHeader(onInfoTap: () => _showInfoDialog(language)),
           Expanded(
             child: FutureBuilder<_LeaderboardData>(
               future: _dataFuture,
@@ -206,6 +214,7 @@ class _LeaderboardHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<LanguageController>().language;
     return Container(
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(
@@ -230,16 +239,16 @@ class _LeaderboardHeader extends StatelessWidget {
             children: [
               IconButton(
                 icon: const Icon(Icons.arrow_back, color: Colors.white),
-                tooltip: 'Back',
+                tooltip: _t(language, 'Back', 'वापस'),
                 onPressed: () => Navigator.of(context).maybePop(),
               ),
               Expanded(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
-                      'Leaderboard',
-                      style: TextStyle(
+                    Text(
+                      _t(language, 'Leaderboard', 'लीडरबोर्ड'),
+                      style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
                         fontSize: 20,
@@ -250,8 +259,8 @@ class _LeaderboardHeader extends StatelessWidget {
                     InkWell(
                       borderRadius: BorderRadius.circular(8),
                       onTap: null,
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
                           horizontal: AppSpacing.xs,
                           vertical: 2,
                         ),
@@ -259,13 +268,13 @@ class _LeaderboardHeader extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              'Last 30 Days',
-                              style: TextStyle(
+                              _t(language, 'Last 30 Days', 'पिछले 30 दिन'),
+                              style: const TextStyle(
                                 color: Colors.white70,
                                 fontSize: 12,
                               ),
                             ),
-                            Icon(
+                            const Icon(
                               Icons.expand_more,
                               color: Colors.white70,
                               size: 16,
@@ -279,7 +288,7 @@ class _LeaderboardHeader extends StatelessWidget {
               ),
               IconButton(
                 icon: const Icon(Icons.info_outline, color: Colors.white),
-                tooltip: 'About the leaderboard',
+                tooltip: _t(language, 'About the leaderboard', 'लीडरबोर्ड के बारे में'),
                 onPressed: onInfoTap,
               ),
             ],
@@ -559,6 +568,7 @@ class LeaderboardRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<LanguageController>().language;
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.md,
@@ -614,9 +624,9 @@ class LeaderboardRow extends StatelessWidget {
                       color: AppColors.leaderboardCurrentUser,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Text(
-                      'You',
-                      style: TextStyle(color: Colors.white, fontSize: 10),
+                    child: Text(
+                      _t(language, 'You', 'आप'),
+                      style: const TextStyle(color: Colors.white, fontSize: 10),
                     ),
                   ),
                 ],
@@ -646,6 +656,7 @@ class YourPositionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<LanguageController>().language;
     return Container(
       margin: const EdgeInsets.only(top: AppSpacing.md),
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -680,9 +691,9 @@ class YourPositionCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  'Your Position',
-                  style: TextStyle(
+                Text(
+                  _t(language, 'Your Position', 'आपकी स्थिति'),
+                  style: const TextStyle(
                     fontSize: 11,
                     color: AppColors.leaderboardCurrentUser,
                     fontWeight: FontWeight.bold,
@@ -894,6 +905,7 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<LanguageController>().language;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -906,10 +918,14 @@ class _EmptyState extends StatelessWidget {
               color: AppColors.silver,
             ),
             const SizedBox(height: AppSpacing.md),
-            const Text(
-              'No leaderboard entries yet. Start solving to make your mark!',
+            Text(
+              _t(
+                language,
+                'No leaderboard entries yet. Start solving to make your mark!',
+                'अभी तक लीडरबोर्ड में कोई प्रविष्टि नहीं है। अपना नाम दर्ज करने के लिए हल करना शुरू करें!',
+              ),
               textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.neutral),
+              style: const TextStyle(color: AppColors.neutral),
             ),
           ],
         ),
@@ -925,6 +941,7 @@ class _ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<LanguageController>().language;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -933,15 +950,26 @@ class _ErrorState extends StatelessWidget {
           children: [
             const Icon(Icons.error_outline, size: 48, color: AppColors.wrong),
             const SizedBox(height: AppSpacing.md),
-            const Text(
-              'Could not load the leaderboard. Please try again.',
+            Text(
+              _t(
+                language,
+                'Could not load the leaderboard. Please try again.',
+                'लीडरबोर्ड लोड नहीं हो सका। कृपया फिर से कोशिश करें।',
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.md),
-            ElevatedButton(onPressed: onRetry, child: const Text('Retry')),
+            ElevatedButton(
+              onPressed: onRetry,
+              child: Text(_t(language, 'Retry', 'फिर कोशिश करें')),
+            ),
           ],
         ),
       ),
     );
   }
 }
+
+/// Picks [en] or [hi] depending on [language].
+String _t(AppLanguage language, String en, String hi) =>
+    language == AppLanguage.english ? en : hi;

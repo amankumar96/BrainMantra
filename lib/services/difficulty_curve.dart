@@ -63,21 +63,35 @@ class DifficultyParams {
 /// Translates a player's score (or an explicit tier number) into concrete
 /// generation settings.
 ///
-/// The four-tier table below is an **initial, tunable default** — no
+/// The six-tier table below is an **initial, tunable default** — no
 /// externally-specified "Easy–Insane table" exists elsewhere in the
 /// project's design docs, so these numbers were chosen as a reasonable
 /// starting point for playtesting, not derived from anything else. Adjust
 /// freely; nothing else in the codebase depends on the exact values, only
 /// on the shape of [DifficultyParams].
+///
+/// Widened from 4 tiers to 6 so Play mode's 0-49 and 50-99 score windows
+/// each get a small intermediate step instead of staying flat difficulty
+/// for the whole window (see `GameController`'s score-banded topic pools,
+/// which unlock at the same 50/100 marks). Tiers 1/3/5/6 are the original
+/// tiers 1/2/3/4 content, unchanged — only renumbered; tiers 2 and 4 are
+/// new, inserted as small steps up from tiers 1 and 3 respectively. Daily
+/// Challenge and the 13+/16+ Age-Group Tests use [randomHighTier], which
+/// still points at the two hardest tiers (now 5/6, was 3/4) — their
+/// actual difficulty is unaffected by this renumbering.
 abstract final class DifficultyCurve {
   // TUNABLE — initial defaults, not derived from an external spec.
   // Score thresholds a player must reach to enter each tier. tierForScore
   // walks this from the top down, so reaching a threshold exactly bumps
   // the player up (matches the doc's "score at threshold -> tier
   // increments" requirement).
+  //
+  // Legacy/unused by GameController (which uses randomTierForScore
+  // instead) — kept only for tierForScore below, not resized to match
+  // the 6-tier table since nothing production reads it.
   static const List<int> _tierScoreThresholds = [0, 100, 300, 600];
 
-  // TUNABLE — initial defaults. Index 0 = tier 1, index 3 = tier 4.
+  // TUNABLE — initial defaults. Index 0 = tier 1, index 5 = tier 6.
   static const List<DifficultyParams> _paramsByTier = [
     DifficultyParams(
       tier: 1,
@@ -98,7 +112,24 @@ abstract final class DifficultyCurve {
       ),
     ),
     DifficultyParams(
+      // NEW — a small step up from tier 1, for the upper half of Play's
+      // 0-49 score band (25-49) so difficulty doesn't stay completely
+      // flat across the whole band.
       tier: 2,
+      timeLimitSeconds: 90,
+      math: MathParams(
+        minOperand: 1,
+        maxOperand: 15,
+        allowedOperators: [MathOperator.add, MathOperator.subtract],
+      ),
+      reasoning: ReasoningParams(
+        familyTreeHopDepth: 1,
+        shapeMinSides: 3,
+        shapeMaxSides: 7,
+      ),
+    ),
+    DifficultyParams(
+      tier: 3,
       timeLimitSeconds: 120, // 2 min — see Phase 11 tier-timing spec
       math: MathParams(
         minOperand: 2,
@@ -116,7 +147,29 @@ abstract final class DifficultyCurve {
       ),
     ),
     DifficultyParams(
-      tier: 3,
+      // NEW — a small step up from tier 3, for the upper half of Play's
+      // 50-99 score band (75-99), introducing division a little earlier
+      // than the old flat tier-2-for-the-whole-band behavior did.
+      tier: 4,
+      timeLimitSeconds: 180,
+      math: MathParams(
+        minOperand: 3,
+        maxOperand: 35,
+        allowedOperators: [
+          MathOperator.add,
+          MathOperator.subtract,
+          MathOperator.multiply,
+          MathOperator.divide,
+        ],
+      ),
+      reasoning: ReasoningParams(
+        familyTreeHopDepth: 2,
+        shapeMinSides: 3,
+        shapeMaxSides: 8,
+      ),
+    ),
+    DifficultyParams(
+      tier: 5,
       timeLimitSeconds: 300, // 5 min — see Phase 11 tier-timing spec
       math: MathParams(
         minOperand: 5,
@@ -135,10 +188,10 @@ abstract final class DifficultyCurve {
       ),
     ),
     DifficultyParams(
-      tier: 4,
+      tier: 6,
       // 7 min — the ceiling for every tier per the Phase 11 tier-timing
-      // spec ("Tier 4 and above"): this game has exactly 4 tiers, so tier
-      // 4 simply IS that ceiling, not a placeholder for a 5th tier.
+      // spec ("Tier 4 and above"): this game now has 6 tiers, so tier 6
+      // simply IS that ceiling, not a placeholder for a 7th tier.
       timeLimitSeconds: 420,
       math: MathParams(
         minOperand: 10,
@@ -173,7 +226,7 @@ abstract final class DifficultyCurve {
   }
 
   /// The full settings bundle for [tier]. Out-of-range tiers are clamped
-  /// to the nearest valid tier (1–4) rather than throwing — callers should
+  /// to the nearest valid tier (1–6) rather than throwing — callers should
   /// never crash the game over a stray tier value.
   static DifficultyParams paramsForTier(int tier) {
     final clamped = tier.clamp(1, _paramsByTier.length);
@@ -187,27 +240,39 @@ abstract final class DifficultyCurve {
   /// `GameController` for **Play mode only** — Daily Challenge always
   /// uses [randomHighTier] instead, regardless of score.
   ///
-  /// Explicit product spec (replaces the earlier 30/300-threshold bands):
-  /// - score < 50: Tier 1 only
-  /// - 50 <= score <= 100: Tier 1 to Tier 2 (evenly split)
-  /// - score > 100: Tier 3 and above (3-4, evenly split)
+  /// Explicit product spec — five bands across the 6-tier table, aligned
+  /// with `GameController`'s score-banded topic pools so the difficulty
+  /// ramp and the topic-pool unlocks move together at the same 50/100
+  /// marks:
+  /// - score < 25: Tier 1 only
+  /// - 25 <= score < 50: Tier 1 or 2 (evenly split)
+  /// - 50 <= score < 75: Tier 3 or 4 (leaning Tier 3)
+  /// - 75 <= score < 100: Tier 3 or 4 (leaning Tier 4)
+  /// - score >= 100: Tier 5 or 6 (evenly split) — same content/ratio as
+  ///   the old "score > 100: Tier 3-4" rule, just renumbered.
   static int randomTierForScore(int score, RngService rng) {
-    if (score < 50) {
+    if (score < 25) {
       return 1;
-    } else if (score <= 100) {
+    } else if (score < 50) {
       return _weightedPick(rng, tiers: const [1, 2], weights: const [1, 1]);
+    } else if (score < 75) {
+      return _weightedPick(rng, tiers: const [3, 4], weights: const [2, 1]);
+    } else if (score < 100) {
+      return _weightedPick(rng, tiers: const [3, 4], weights: const [1, 2]);
     } else {
-      return _weightedPick(rng, tiers: const [3, 4], weights: const [1, 1]);
+      return _weightedPick(rng, tiers: const [5, 6], weights: const [1, 1]);
     }
   }
 
-  /// Daily Challenge's tier picker — always tier 3 or 4 (evenly weighted),
-  /// regardless of the player's score. Unlike [randomTierForScore], this
-  /// ignores score entirely: Daily Challenge is meant to be consistently
-  /// hard, not ramped like Play. TUNABLE: 50/50 is an initial default,
-  /// easy to skew later without touching any caller.
+  /// Daily Challenge's (and the 13+/16+ Age-Group Tests') tier picker —
+  /// always the two hardest tiers (5 or 6, evenly weighted), regardless of
+  /// the player's score. Unlike [randomTierForScore], this ignores score
+  /// entirely: these modes are meant to be consistently hard, not ramped
+  /// like Play. TUNABLE: 50/50 is an initial default, easy to skew later
+  /// without touching any caller. (Was tiers 3/4 before the table widened
+  /// to 6 tiers — same content, renumbered.)
   static int randomHighTier(RngService rng) {
-    return _weightedPick(rng, tiers: const [3, 4], weights: const [1, 1]);
+    return _weightedPick(rng, tiers: const [5, 6], weights: const [1, 1]);
   }
 
   /// Rolls one value from [tiers], weighted by the parallel [weights] list

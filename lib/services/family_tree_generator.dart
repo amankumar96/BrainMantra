@@ -1,5 +1,6 @@
 import 'difficulty_curve.dart';
 import 'family_tree.dart';
+import 'name_pool.dart';
 import 'rng_service.dart';
 
 /// Builds a random, structurally-valid [FamilyTree] for reasoning-category
@@ -96,31 +97,12 @@ abstract final class FamilyTreeGenerator {
   }
 }
 
-// Two fixed first-name pools, sized generously against the largest tree
-// this generator ever builds (tier 4 tops out around 20-30 people), so
-// name collisions within one tree are rare — and even if the pool were
-// exhausted, _pickUnusedName below falls back to a numbered variant
-// rather than looping forever.
-const List<String> _malePool = [
-  'Aarav', 'Vihaan', 'Arjun', 'Reyansh', 'Krishna', 'Ishaan', 'Rohan',
-  'Aditya', 'Kabir', 'Vivaan', 'Ayaan', 'Dhruv', 'Karan', 'Rahul', 'Sameer',
-  'Nikhil', 'Amit', 'Raj', 'Vikram', 'Suresh', 'Mohan', 'Ravi', 'Anil',
-  'Sanjay', 'Deepak', 'Ajay', 'Vijay', 'Manoj', 'Rakesh', 'Ashok', 'Gopal',
-  'Harish', 'Naveen', 'Prakash', 'Ramesh', 'Sunil', 'Tarun', 'Uday',
-  'Varun', 'Yash',
-];
-
-const List<String> _femalePool = [
-  'Aanya', 'Diya', 'Isha', 'Kavya', 'Meera', 'Nisha', 'Pooja', 'Riya',
-  'Sana', 'Tara', 'Uma', 'Vidya', 'Anita', 'Kavita', 'Sita', 'Priya',
-  'Neha', 'Divya', 'Geeta', 'Radha', 'Lata', 'Maya', 'Nita', 'Pallavi',
-  'Renu', 'Shanti', 'Usha', 'Veena', 'Anjali', 'Bhavna', 'Chitra', 'Deepa',
-  'Esha', 'Falguni', 'Gauri', 'Hema', 'Indira', 'Jaya', 'Komal', 'Leela',
-];
-
-/// Picks a first name not already used elsewhere in this tree.
+/// Picks a first name not already used elsewhere in this tree, from the
+/// shared [NamePool] (factored out so other generators that need random
+/// names draw from the same large set instead of each keeping their own
+/// small, easily-repeating list).
 String _pickUnusedName(Sex sex, Set<String> usedNames, RngService rng) {
-  final pool = sex == Sex.male ? _malePool : _femalePool;
+  final pool = sex == Sex.male ? NamePool.male : NamePool.female;
   for (var attempt = 0; attempt < 50; attempt++) {
     final candidate = pool[rng.nextInt(0, pool.length - 1)];
     if (usedNames.add(candidate)) return candidate;

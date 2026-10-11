@@ -2,13 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../controllers/game_controller.dart';
+import '../models/age_group.dart';
+import '../models/app_language.dart';
 import '../models/puzzle.dart';
 import '../models/player_stats.dart';
 import '../models/test_session.dart';
 import '../services/ad_frequency_cap.dart';
 import '../services/ads_service.dart';
 import '../services/auth_service.dart';
+import '../services/language_controller.dart';
 import '../services/leaderboard_service.dart';
+import '../services/notification_service.dart';
 import '../services/storage_service.dart';
 import '../services/streak_service.dart';
 import '../utils/constants.dart';
@@ -35,6 +39,7 @@ class GameScreen extends StatefulWidget {
     super.key,
     this.isDailyChallenge = false,
     this.startingScore = 0,
+    this.ageGroupTest,
     @visibleForTesting this.debugController,
   });
 
@@ -46,6 +51,13 @@ class GameScreen extends StatefulWidget {
   /// starts fresh at 0, per its fairness rules.
   final int startingScore;
 
+  /// Non-null launches an Age-Group Test instead of Play/Daily Challenge
+  /// (see `home_screen.dart`'s Age-Group Test cards) — 30 questions, a
+  /// maths-only pool scoped by age group, no score/leaderboard effect.
+  /// Takes precedence over [isDailyChallenge]/[startingScore], which the
+  /// caller should leave at their defaults when this is set.
+  final AgeGroup? ageGroupTest;
+
   /// Test-only hook: inject a pre-built controller (e.g. with a seeded
   /// RngService and a small totalQuestions) instead of letting this
   /// screen create its own. Real app code never sets this.
@@ -55,7 +67,7 @@ class GameScreen extends StatefulWidget {
   State<GameScreen> createState() => _GameScreenState();
 }
 
-class _GameScreenState extends State<GameScreen> {
+class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   late final GameController _controller;
   bool _hasNavigatedToResults = false;
 
@@ -78,9 +90,32 @@ class _GameScreenState extends State<GameScreen> {
               ? dailyChallengeQuestionCount
               : null,
           startingScore: widget.isDailyChallenge ? 0 : widget.startingScore,
+          ageGroupTest: widget.ageGroupTest,
+          // One-time read (not `watch`) — language is fixed for this
+          // whole session's lifetime, same as ageGroupTest; a mid-session
+          // change via Settings only affects the next session started.
+          language: context.read<LanguageController>().language,
         );
     _lastSeenQuestionNumber = _controller.questionNumber;
     _controller.addListener(_handleControllerChange);
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  /// Safety net for "the app got backgrounded/killed mid-session" (no
+  /// clean shutdown hook exists for that — `paused` is the closest
+  /// Flutter/Android gives us, firing when the app is sent to the
+  /// background, which is also the step before a swipe-kill). Persists
+  /// whatever's been scored so far; never navigates (the app is leaving
+  /// regardless) and never fires if nothing's actually been answered yet
+  /// (opening a session and immediately backgrounding shouldn't count as
+  /// "played" for streak/Daily-Challenge-lock purposes).
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.paused) return;
+    if (_hasNavigatedToResults || _controller.isSessionOver) return;
+    final snapshot = _controller.currentProgressSnapshot;
+    if (snapshot.outcomes.isEmpty) return;
+    _persistScoreAndStats(snapshot);
   }
 
   void _handleControllerChange() {
@@ -116,10 +151,15 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  Future<void> _persistAndShowResults() async {
-    final testSession = _controller.finalTestSession!;
-    await StorageService.saveSession(testSession.session);
-
+  /// The shared "sync score/stats" core of ending a session — split out
+  /// of `_persistAndShowResults` so it can also run, on its own, as a
+  /// safety net when the player exits mid-session (back button) or the
+  /// app gets backgrounded/killed before a normal end would otherwise
+  /// have fired it: either way, whatever's been scored *so far* is never
+  /// silently lost. Never navigates — callers that need to (the normal
+  /// end-of-session path) do that themselves with the returned values.
+  Future<({int updatedScore, PlayerStats stats, int previousHighScore})>
+  _persistScoreAndStats(TestSession testSession) async {
     // Only Daily Challenge results are ranked — a "Play" session uses
     // freely-random questions, so it isn't a fair, comparable test across
     // players the way a shared-seed Daily Challenge is (see the plan's
@@ -139,13 +179,21 @@ class _GameScreenState extends State<GameScreen> {
     // this is a Daily Challenge and the fetch+add succeeds.
     var updatedScore = testSession.session.score;
 
-    // Wrapped in try/catch: local persistence and navigation must succeed
-    // regardless of Supabase reachability (offline, a dropped connection,
-    // or — in widget tests — Supabase never being initialized at all).
-    // Losing one score-sync isn't nearly as bad as getting stuck on this
-    // screen because a network call failed.
+    // Wrapped in try/catch: local persistence must succeed regardless of
+    // Supabase reachability (offline, a dropped connection, or — in
+    // widget tests — Supabase never being initialized at all). Losing
+    // one score-sync isn't nearly as bad as getting stuck over a failed
+    // network call.
+    // An Age-Group Test never touches score/leaderboard at all, per the
+    // feature plan — not even the internal marks this session racked up
+    // (which exist only so the pass/fail % can be computed on
+    // results_screen; see its correctCount-based calculation, not marks).
+    final isAgeGroupTest = _controller.ageGroupTest != null;
+
     try {
-      if (_controller.isDailyChallenge) {
+      if (isAgeGroupTest) {
+        // Intentionally no score/leaderboard call at all.
+      } else if (_controller.isDailyChallenge) {
         await LeaderboardService.submitDailyResult(
           marks: testSession.totalMarks,
           // Daily Challenge always sets a fixed totalQuestions (see
@@ -165,8 +213,9 @@ class _GameScreenState extends State<GameScreen> {
         // and would silently discard the starting score.
         await AuthService.updateCurrentScore(updatedScore);
       }
-      // Every session (either mode) marks the player as active — this is
-      // what the 30-day inactive-account deletion job checks.
+      // Every session (any mode, Age-Group Test included) marks the
+      // player as active — this is what the 30-day inactive-account
+      // deletion job checks.
       await AuthService.touchLastActive();
     } catch (_) {
       // Best-effort sync — local stats (below) are the source of truth
@@ -175,9 +224,12 @@ class _GameScreenState extends State<GameScreen> {
     }
 
     final currentStats = await StorageService.loadStats();
-    final isNewHighScore = updatedScore > currentStats.highScore;
+    // An Age-Group Test's internal marks tally must never count towards
+    // highScore — it isn't a real score at all for this mode.
+    final isNewHighScore =
+        !isAgeGroupTest && updatedScore > currentStats.highScore;
     // lastPlayedDate/currentStreakDays are updated for every session end,
-    // either mode — a streak day means "played at all today," not
+    // any mode — a streak day means "played at all today," not
     // "completed a Daily Challenge." UTC (not local) to match
     // GameController's own day boundary for Daily Challenge's seed.
     final playedAt = DateTime.now().toUtc();
@@ -186,33 +238,62 @@ class _GameScreenState extends State<GameScreen> {
       lastPlayedDate: currentStats.lastPlayedDate,
       now: playedAt,
     );
-    await StorageService.saveStats(
-      PlayerStats(
-        highScore: isNewHighScore ? updatedScore : currentStats.highScore,
-        currentStreakDays: newStreakDays,
-        lastPlayedDate: playedAt,
-        totalCoins: currentStats.totalCoins,
-        bestScoreByTier: currentStats.bestScoreByTier,
-      ),
+    final newStats = PlayerStats(
+      highScore: isNewHighScore ? updatedScore : currentStats.highScore,
+      currentStreakDays: newStreakDays,
+      lastPlayedDate: playedAt,
+      totalCoins: currentStats.totalCoins,
+      bestScoreByTier: currentStats.bestScoreByTier,
+      lastDailyChallengeDate: _controller.isDailyChallenge
+          ? playedAt
+          : currentStats.lastDailyChallengeDate,
     );
+    await StorageService.saveStats(newStats);
+    // Best-effort, same precedent as everything else here — state just
+    // changed, so reminders must reflect it immediately rather than
+    // waiting for the next Home visit.
+    try {
+      await NotificationService.rescheduleAll(
+        stats: newStats,
+        dailyChallengeDoneToday:
+            NotificationService.isDailyChallengeDoneToday(newStats, playedAt),
+        now: playedAt,
+      );
+    } catch (_) {
+      // Never let a notification-scheduling failure strand the player.
+    }
+
+    return (
+      updatedScore: updatedScore,
+      stats: newStats,
+      previousHighScore: currentStats.highScore,
+    );
+  }
+
+  Future<void> _persistAndShowResults() async {
+    final testSession = _controller.finalTestSession!;
+    await StorageService.saveSession(testSession.session);
+    final result = await _persistScoreAndStats(testSession);
 
     if (!mounted) return;
     // Captured before pushReplacement disposes _controller (see dispose()
     // below) — Continue Playing needs these to resume from the right spot.
     final isDailyChallenge = _controller.isDailyChallenge;
+    final ageGroupTest = _controller.ageGroupTest;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => ResultsScreen(
           testSession: testSession,
-          currentScore: updatedScore,
-          previousHighScore: currentStats.highScore,
+          currentScore: result.updatedScore,
+          previousHighScore: result.previousHighScore,
+          ageGroupTest: ageGroupTest,
           onPlayAgain: () => Navigator.of(context).pushReplacement(
             MaterialPageRoute(
               builder: (_) => GameScreen(
                 isDailyChallenge: isDailyChallenge,
                 // Resume from the just-updated cumulative score, not the
                 // score this session originally started from.
-                startingScore: isDailyChallenge ? 0 : updatedScore,
+                startingScore: isDailyChallenge ? 0 : result.updatedScore,
               ),
             ),
           ),
@@ -223,29 +304,78 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _controller.removeListener(_handleControllerChange);
     _controller.dispose();
     super.dispose();
   }
 
+  // Guards _persistProgressOnPop against firing more than once if the
+  // player mashes back while the first pop is still waiting on the
+  // persist below.
+  bool _isPoppingBack = false;
+
+  /// Back button/gesture mid-session: the same safety net as
+  /// [didChangeAppLifecycleState], for the other common way to leave
+  /// without going through End/question-completion.
+  ///
+  /// Real bug caught on-device: this used to fire-and-forget the persist
+  /// so the pop itself stayed instantly responsive — but `home_screen.dart`'s
+  /// `_navigateToGame` awaits the very same `Navigator.push` this pop
+  /// completes, and re-fetches the score the instant that await resolves.
+  /// With an un-awaited persist, the pop (and thus Home's re-fetch) could
+  /// — and on-device, did — complete before `AuthService.updateCurrentScore`
+  /// had actually finished, showing a stale/zero score on Home and the
+  /// Leaderboard right after backing out of a scored session. Now the pop
+  /// is held (`PopScope(canPop: false)` below) until the persist genuinely
+  /// finishes, then performed manually — same "wait, then leave" pattern
+  /// the normal End-of-session flow already uses via `pushReplacement`.
+  Future<void> _persistProgressOnPop() async {
+    if (_isPoppingBack) return;
+    _isPoppingBack = true;
+    if (!_hasNavigatedToResults && !_controller.isSessionOver) {
+      final snapshot = _controller.currentProgressSnapshot;
+      if (snapshot.outcomes.isNotEmpty) {
+        await _persistScoreAndStats(snapshot);
+      }
+    }
+    // _hasNavigatedToResults may have flipped true while the above was
+    // awaiting (e.g. the session happened to end on its own right as back
+    // was pressed) — in that case pushReplacement is already handling
+    // navigation itself, so popping here too would remove an extra route.
+    if (!mounted || _hasNavigatedToResults) return;
+    Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<GameController>.value(
-      value: _controller,
-      child: Consumer<GameController>(
-        builder: (context, controller, _) {
-          final puzzle = controller.currentPuzzle;
-          // Between the session ending (question cap reached, or the
-          // player pressed End) and the post-frame navigation above
-          // actually firing, there's nothing sensible to render yet — a
-          // brief loading state covers that gap.
-          if (puzzle == null || controller.isSessionOver) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          }
-          return _GameScreenBody(controller: controller, puzzle: puzzle);
-        },
+    return PopScope(
+      // false, not true: the pop must wait for _persistProgressOnPop's
+      // save to actually finish (see its doc comment) before the route
+      // is really removed — canPop: true would let the system pop
+      // through immediately, racing the persist exactly like the bug
+      // this replaced.
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) _persistProgressOnPop();
+      },
+      child: ChangeNotifierProvider<GameController>.value(
+        value: _controller,
+        child: Consumer<GameController>(
+          builder: (context, controller, _) {
+            final puzzle = controller.currentPuzzle;
+            // Between the session ending (question cap reached, or the
+            // player pressed End) and the post-frame navigation above
+            // actually firing, there's nothing sensible to render yet — a
+            // brief loading state covers that gap.
+            if (puzzle == null || controller.isSessionOver) {
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
+            }
+            return _GameScreenBody(controller: controller, puzzle: puzzle);
+          },
+        ),
       ),
     );
   }
@@ -268,17 +398,26 @@ class _GameScreenBody extends StatelessWidget {
       // on, so it gets its own calmer, two-tone field.
       backgroundColor: AppColors.playBackgroundBottom,
       appBar: AppBar(
-        title: Text(controller.isDailyChallenge ? 'Daily Challenge' : 'Play'),
+        title: Text(
+          controller.isDailyChallenge
+              ? _t(controller.language, 'Daily Challenge', 'दैनिक चुनौती')
+              : _t(controller.language, 'Play', 'खेलें'),
+        ),
         actions: [
-          // Play only — it's the never-ending mode, so it needs an
-          // explicit way to stop. Daily Challenge already has a natural
-          // end (its fixed question count) and isn't offered an early
-          // exit here.
-          if (!controller.isDailyChallenge)
-            TextButton(
-              onPressed: controller.endSession,
-              child: const Text('End', style: TextStyle(color: Colors.white)),
+          // Now shown in every mode, including Daily Challenge — by
+          // explicit product decision, exiting early must still update
+          // the player's marks (not discard them), and that only happens
+          // if there's an actual in-app way to end deliberately. For
+          // Daily Challenge specifically, ending early also locks it for
+          // the rest of the day the same as finishing it normally — see
+          // `_persistAndShowResults`'s `lastDailyChallengeDate` write.
+          TextButton(
+            onPressed: controller.endSession,
+            child: Text(
+              _t(controller.language, 'End', 'समाप्त करें'),
+              style: const TextStyle(color: Colors.white),
             ),
+          ),
         ],
       ),
       body: Stack(
@@ -330,8 +469,10 @@ class _GameScreenBody extends StatelessWidget {
                     // timer_bar.dart's own doc comment.
                     key: ValueKey(puzzle.id),
                     durationSeconds: puzzle.timeLimitSeconds,
-                    isRunning: !controller.isSubmitted,
+                    isRunning:
+                        !controller.isSubmitted && !controller.isHintAdPlaying,
                     onExpired: controller.skipDueToTimeout,
+                    extraSeconds: controller.hintBonusSeconds,
                   ),
                   const SizedBox(height: AppSpacing.md),
                   Expanded(
@@ -379,7 +520,7 @@ class _GameScreenBody extends StatelessWidget {
                               vertical: AppSpacing.md,
                             ),
                           ),
-                          child: const Text('Skip'),
+                          child: Text(_t(controller.language, 'Skip', 'छोड़ें')),
                         ),
                       ),
                       const SizedBox(width: AppSpacing.md),
@@ -485,7 +626,7 @@ class _QuestionAndOptionsState extends State<_QuestionAndOptions> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
-                      topicLabel(puzzle.type),
+                      topicLabel(puzzle.type, controller.language),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -525,7 +666,9 @@ class _QuestionAndOptionsState extends State<_QuestionAndOptions> {
       child: TextButton.icon(
         onPressed: _revealHintViaRewardedAd,
         icon: const Icon(Icons.ondemand_video, size: 16),
-        label: const Text('Watch Ad for Hint'),
+        label: Text(
+          _t(controller.language, 'Watch Ad for Hint', 'हिंट के लिए विज्ञापन देखें'),
+        ),
         style: TextButton.styleFrom(foregroundColor: AppColors.neutral),
       ),
     );
@@ -537,13 +680,24 @@ class _QuestionAndOptionsState extends State<_QuestionAndOptions> {
   /// for free. Same "ads are best-effort, never load-bearing" precedent
   /// `AdsService` already applies everywhere else; a hint is a nice-to-
   /// have, not something worth stranding a player over.
+  ///
+  /// While the ad plays, the question timer is paused (via
+  /// `controller.isHintAdPlaying`) and the reward adds 60 bonus seconds
+  /// (`controller.hintBonusSeconds`) — both live on GameController since
+  /// TimerBar is a sibling widget, not a descendant, of this one.
   void _revealHintViaRewardedAd() {
+    controller.setHintAdPlaying(true);
     final shown = AdsService.instance.showRewardedIfLoaded(
       onReward: () {
+        controller.addHintBonusSeconds(60);
         if (mounted) setState(() => _hintRevealed = true);
       },
+      // Fires whether the ad was watched fully or closed early — this is
+      // what always lifts the pause, regardless of onReward.
+      onDismissed: () => controller.setHintAdPlaying(false),
     );
     if (!shown) {
+      controller.setHintAdPlaying(false);
       setState(() => _hintRevealed = true);
     }
   }
@@ -734,3 +888,9 @@ String _correctOptionLetter(Puzzle puzzle) {
   // it — fall back to naming the first option rather than throwing.
   return String.fromCharCode(65 + (index < 0 ? 0 : index));
 }
+
+/// Picks [en] or [hi] depending on [language] — this screen's share of
+/// UI chrome is small enough that a shared `AppStrings` dictionary class
+/// wasn't worth it here; a one-line helper keeps every call site terse.
+String _t(AppLanguage language, String en, String hi) =>
+    language == AppLanguage.english ? en : hi;

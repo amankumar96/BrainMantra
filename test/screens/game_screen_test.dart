@@ -14,6 +14,7 @@ import 'package:brain_mantra/utils/constants.dart';
 import 'package:brain_mantra/widgets/answer_button.dart';
 import 'package:brain_mantra/widgets/diagram_painter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:showcaseview/showcaseview.dart';
 
 const _diagramTypes = {
   PuzzleType.angleFinding,
@@ -91,9 +92,14 @@ Future<void> _pumpMillis(WidgetTester tester, int totalMillis,
 
 void main() {
   // GameScreen persists via StorageService (shared_preferences) at the
-  // end of a test — route it to the mock in-memory backend.
+  // end of a test — route it to the mock in-memory backend. Pre-seeds
+  // "has seen the first-use tutorial" so existing tests (which predate
+  // that feature and interact with Submit/Skip/etc. directly) aren't
+  // blocked by the tutorial's spotlight overlay — tests that actually
+  // exercise the tutorial itself override this locally with a fresh,
+  // empty SharedPreferences.
   setUp(() {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({'has_seen_play_tutorial': true});
   });
 
   testWidgets('renders the question text and one button per option',
@@ -577,5 +583,54 @@ void main() {
     await tester.pump();
 
     expect(find.text('End'), findsOneWidget);
+  });
+
+  group('first-use tutorial', () {
+    testWidgets(
+        'exactly 4 controls are wrapped for the walkthrough: End, Submit, '
+        'Skip, Notepad', (tester) async {
+      final controller = _textOptionController(seedPrefix: 'gs-tutorial-count');
+      await tester.pumpWidget(_wrap(GameScreen(debugController: controller)));
+      await tester.pump();
+
+      expect(find.byType(Showcase), findsNWidgets(4));
+    });
+
+    testWidgets(
+        'a never-seen player: the timer stays frozen until the '
+        'walkthrough finishes (never fires onExpired even well past the '
+        "question's own time limit)", (tester) async {
+      // Overrides the file's default setUp (which seeds "already seen"
+      // so the other tests above aren't blocked by this feature).
+      SharedPreferences.setMockInitialValues({});
+      final controller = _textOptionController(seedPrefix: 'gs-tutorial-fresh');
+      final timeLimit = controller.currentPuzzle!.timeLimitSeconds;
+      await tester.pumpWidget(_wrap(GameScreen(debugController: controller)));
+      await tester.pump();
+
+      await _pumpMillis(tester, (timeLimit + 5) * 1000, step: 200);
+
+      // If the timer had been running, skipDueToTimeout would have fired
+      // by now and recorded a skipped outcome — it never does while the
+      // tutorial is still showing.
+      expect(controller.lastOutcome, isNull);
+    });
+
+    testWidgets(
+        'a player who has already seen the tutorial: the timer runs '
+        'normally from the very first frame (no freeze)', (tester) async {
+      // The file's default setUp already seeds "already seen" — this
+      // test just makes that assumption explicit and verifiable, rather
+      // than only relying on every other test incidentally depending on
+      // it.
+      final controller = _textOptionController(seedPrefix: 'gs-tutorial-seen');
+      final timeLimit = controller.currentPuzzle!.timeLimitSeconds;
+      await tester.pumpWidget(_wrap(GameScreen(debugController: controller)));
+      await tester.pump();
+
+      await _pumpMillis(tester, (timeLimit + 5) * 1000, step: 200);
+
+      expect(controller.lastOutcome, equals(AnswerOutcome.skipped));
+    });
   });
 }

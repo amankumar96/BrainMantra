@@ -14,6 +14,7 @@ abstract final class StorageService {
   static const String _statsKey = 'player_stats';
   static const String _lastSessionKey = 'last_session';
   static const String _hasSeenRulesKey = 'has_seen_rules';
+  static const String _hasSeenPlayTutorialKey = 'has_seen_play_tutorial';
   static const String _languageKey = 'app_language';
 
   /// Persists [stats], overwriting whatever was saved before.
@@ -59,6 +60,22 @@ abstract final class StorageService {
     await prefs.setBool(_hasSeenRulesKey, true);
   }
 
+  /// Whether the player has ever completed (or dismissed) the one-time
+  /// gameplay walkthrough — checked once, the very first time
+  /// `GameScreen` opens in any mode (Play, Daily Challenge, or an
+  /// Age-Group Test all share this one flag; the walkthrough covers
+  /// controls common to all of them, so it only needs to show once ever,
+  /// not per mode).
+  static Future<bool> hasSeenPlayTutorial() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_hasSeenPlayTutorialKey) ?? false;
+  }
+
+  static Future<void> markPlayTutorialSeen() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_hasSeenPlayTutorialKey, true);
+  }
+
   /// The player's chosen UI/question language — a device setting, not
   /// account data (unlike `PlayerStats`), so it's kept separate and
   /// deliberately survives `clearAll()`/account deletion. Defaults to
@@ -78,12 +95,14 @@ abstract final class StorageService {
   }
 
   /// Erases everything this service has saved (stats, last session, and
-  /// the "seen rules" flag) — deliberately NOT the language preference,
-  /// which is a device setting that should survive a deleted account.
+  /// the "seen rules"/"seen tutorial" flags) — deliberately NOT the
+  /// language preference, which is a device setting that should survive
+  /// a deleted account.
   static Future<void> clearAll() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_statsKey);
     await prefs.remove(_lastSessionKey);
     await prefs.remove(_hasSeenRulesKey);
+    await prefs.remove(_hasSeenPlayTutorialKey);
   }
 }

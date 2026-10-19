@@ -63,10 +63,16 @@ def convert(md):
     flush_p(); close_l()
     return "\n".join(out)
 
-def page(title, body):
+PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.brainmantra.app"
+
+def page(title, body, description="Brain Mantra: a maths and IQ reasoning quiz game for Android."):
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="{html.escape(description)}">
+<meta property="og:title" content="Brain Mantra - {html.escape(title)}">
+<meta property="og:description" content="{html.escape(description)}">
+<meta property="og:type" content="website">
 <title>Brain Mantra - {title}</title><style>{CSS}</style></head><body>
 <nav><a href="index.html">Home</a> · <a href="privacy.html">Privacy Policy</a> ·
 <a href="terms.html">Terms of Service</a> · <a href="delete-account.html">Delete Account</a></nav>
@@ -81,10 +87,21 @@ for name, (src, title) in PAGES.items():
     (docs / name).write_text(page(title, body), encoding="utf-8")
     print("wrote", docs / name)
 
-index_body = """<h1>Brain Mantra</h1>
-<p>A maths and IQ reasoning quiz game for Android.</p>
+index_body = f"""<h1>Brain Mantra</h1>
+<p>A maths and IQ reasoning quiz game for Android — timed maths &amp; IQ reasoning
+questions, a Daily Challenge, Age-Group Tests, streaks and a global leaderboard.
+Free to play, available in English and Hindi.</p>
+<p><a href="{PLAY_STORE_URL}"><strong>Get it on Google Play</strong></a></p>
 <ul><li><a href="privacy.html">Privacy Policy</a></li>
 <li><a href="terms.html">Terms of Service</a></li>
 <li><a href="delete-account.html">How to delete your account and data</a></li></ul>"""
-(docs / "index.html").write_text(page("Home", index_body), encoding="utf-8")
+(docs / "index.html").write_text(
+    page(
+        "Home",
+        index_body,
+        description="Brain Mantra: a free maths & IQ reasoning quiz game for Android, "
+        "with daily challenges, streaks and a leaderboard. Available in English and Hindi.",
+    ),
+    encoding="utf-8",
+)
 print("wrote", docs / "index.html")

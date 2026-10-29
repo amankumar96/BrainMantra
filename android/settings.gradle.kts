@@ -21,6 +21,12 @@ plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
     id("com.android.application") version "9.1.0" apply false
     id("org.jetbrains.kotlin.android") version "2.4.0" apply false
+    // Required for firebase_core/firebase_messaging — reads
+    // android/app/google-services.json at build time. Not yet present in
+    // this repo (see push_notification_service.dart's doc comment); the
+    // release build won't succeed until it's added, but `flutter analyze`/
+    // `flutter test` don't touch Gradle so they're unaffected.
+    id("com.google.gms.google-services") version "4.4.2" apply false
 }
 
 include(":app")

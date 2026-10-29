@@ -10,8 +10,15 @@ import 'services/ads_service.dart';
 import 'services/auth_service.dart';
 import 'services/language_controller.dart';
 import 'services/notification_service.dart';
+import 'services/push_notification_service.dart';
 import 'services/supabase_config.dart';
 import 'utils/constants.dart';
+
+/// Shared across the app so [PushNotificationService] can pop back to Home
+/// when a push notification is tapped, regardless of where the player
+/// currently is (e.g. mid-session in `GameScreen`) — there's no named-route
+/// table here to target instead (just `MaterialApp(home: ...)`).
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 /// Entry point. Connects to Supabase before anything else runs — every
 /// screen assumes `Supabase.instance.client` is already initialized.
@@ -40,6 +47,7 @@ Future<void> main() async {
   final languageController = results[1] as LanguageController;
   unawaited(AdsService.instance.initialize());
   unawaited(NotificationService.initialize());
+  unawaited(PushNotificationService.initialize(rootNavigatorKey));
   runApp(BrainMantraApp(languageController: languageController));
 }
 
@@ -55,6 +63,7 @@ class BrainMantraApp extends StatelessWidget {
       child: MaterialApp(
         title: 'Brain Mantra',
         theme: _buildTheme(),
+        navigatorKey: rootNavigatorKey,
         home: const _AuthGate(),
       ),
     );

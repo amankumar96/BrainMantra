@@ -182,7 +182,12 @@ Deno.serve(async (req: Request) => {
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  // Prefers the new APP_SECRET_KEY over the legacy auto-injected
+  // SUPABASE_SERVICE_ROLE_KEY (kept only as a migration fallback — see
+  // delete-inactive-users/index.ts's doc comment for why, including why
+  // it's APP_SECRET_KEY and not SUPABASE_SECRET_KEY).
+  const serviceRoleKey = Deno.env.get('APP_SECRET_KEY') ??
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
   const fcmProjectId = Deno.env.get('FCM_PROJECT_ID')!;

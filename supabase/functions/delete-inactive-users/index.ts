@@ -1,15 +1,22 @@
 // Scheduled daily (see the cron SQL you'll run after deploying this) to
 // delete any account that hasn't been active in 30+ days.
 //
-// Uses the service-role key — auto-injected by the Supabase platform for
-// every deployed Edge Function as the SUPABASE_SERVICE_ROLE_KEY
-// environment variable, never hardcoded here and never shipped in the
+// Uses an admin-level key — never hardcoded here, never shipped in the
 // Flutter app — to call the Auth Admin API. That's what properly cleans
 // up Supabase's own auth-internal bookkeeping (sessions, identities,
 // refresh tokens); a raw SQL `DELETE FROM auth.users` would not.
 // `profiles`/`daily_test_results` rows are removed automatically by the
 // `on delete cascade` foreign keys added in the same migration that adds
 // the `last_active_at` column this function reads.
+//
+// Prefers the new APP_SECRET_KEY (manually set from Supabase's newer
+// "secret" key system, rotatable independently of the anon/publishable
+// key — named APP_SECRET_KEY rather than SUPABASE_SECRET_KEY because the
+// CLI rejects any secret name starting with the reserved SUPABASE_
+// prefix) over the legacy auto-injected SUPABASE_SERVICE_ROLE_KEY, which
+// stays only as a fallback during migration. Remove the fallback once
+// APP_SECRET_KEY is confirmed working everywhere this project uses an
+// admin key.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 
@@ -52,7 +59,8 @@ Deno.serve(async (req: Request) => {
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const serviceRoleKey = Deno.env.get('APP_SECRET_KEY') ??
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
   const cutoff = new Date();

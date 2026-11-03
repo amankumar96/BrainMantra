@@ -313,6 +313,16 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           : currentStats.lastDailyChallengeDate,
     );
     await StorageService.saveStats(newStats);
+    // Best-effort — local stats remain the source of truth for the player
+    // either way. Syncs the streak server-side so the push-notification
+    // Cloud Function can see it; otherwise streak data never leaves this
+    // device at all.
+    try {
+      await AuthService.syncStreak(
+        currentStreakDays: newStreakDays,
+        lastPlayedDate: playedAt,
+      );
+    } catch (_) {}
     // Best-effort, same precedent as everything else here — state just
     // changed, so reminders must reflect it immediately rather than
     // waiting for the next Home visit.

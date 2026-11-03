@@ -287,4 +287,39 @@ abstract final class AuthService {
         .update({'last_active_at': DateTime.now().toUtc().toIso8601String()})
         .eq('id', user.id);
   }
+
+  /// Stores this device's current FCM registration token on the player's
+  /// profile row, so the push-sending Cloud Function knows where to send
+  /// the daily/streak push notifications. Best-effort by convention — the
+  /// caller is expected to wrap this the same way [touchLastActive] is
+  /// wrapped at its call site, not swallow errors in here.
+  static Future<void> syncFcmToken(String token) async {
+    final user = currentUser;
+    if (user == null) return;
+    await _client.from('profiles').update({'fcm_token': token}).eq(
+      'id',
+      user.id,
+    );
+  }
+
+  /// Syncs this player's current streak length and last-played date to
+  /// Supabase, so the streak-warning push Cloud Function can determine
+  /// server-side who has an active, at-risk streak — that data otherwise
+  /// only exists on-device (see [StreakService]/`PlayerStats`).
+  static Future<void> syncStreak({
+    required int currentStreakDays,
+    required DateTime lastPlayedDate,
+  }) async {
+    final user = currentUser;
+    if (user == null) return;
+    await _client.from('profiles').update({
+      'current_streak_days': currentStreakDays,
+      // Date-only column, truncated to the UTC calendar day — matches
+      // StreakService's own UTC-day boundary convention.
+      'last_played_date': lastPlayedDate.toUtc().toIso8601String().substring(
+        0,
+        10,
+      ),
+    }).eq('id', user.id);
+  }
 }

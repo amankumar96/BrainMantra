@@ -10,15 +10,19 @@
 // functions.invoke) actually resolves to — so a player can only ever
 // delete themselves, never anyone else, no matter what they might send.
 //
-// Uses the service-role key — auto-injected by the Supabase platform for
-// every deployed Edge Function as SUPABASE_SERVICE_ROLE_KEY, never
-// hardcoded here and never shipped in the Flutter app — for two things:
-// validating the caller's JWT (adminClient.auth.getUser(jwt) works for
-// any valid token, not just the service role's own) and the actual
-// Auth Admin API delete call, which properly cleans up Supabase's own
-// auth-internal bookkeeping (a raw SQL DELETE would not).
-// profiles/daily_test_results rows are removed automatically via the
-// same `on delete cascade` foreign keys delete-inactive-users relies on.
+// Uses an admin-level key — never hardcoded here, never shipped in the
+// Flutter app — for two things: validating the caller's JWT
+// (adminClient.auth.getUser(jwt) works for any valid token, not just the
+// service role's own) and the actual Auth Admin API delete call, which
+// properly cleans up Supabase's own auth-internal bookkeeping (a raw SQL
+// DELETE would not). profiles/daily_test_results rows are removed
+// automatically via the same `on delete cascade` foreign keys
+// delete-inactive-users relies on.
+//
+// Prefers the new APP_SECRET_KEY over the legacy auto-injected
+// SUPABASE_SERVICE_ROLE_KEY (kept only as a migration fallback — see
+// delete-inactive-users/index.ts's doc comment for why, including why
+// it's APP_SECRET_KEY and not SUPABASE_SECRET_KEY).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 
@@ -33,7 +37,8 @@ Deno.serve(async (req: Request) => {
   const jwt = authHeader.slice('Bearer '.length);
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const serviceRoleKey = Deno.env.get('APP_SECRET_KEY') ??
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
   // Resolves the caller's own identity from their token — this is the

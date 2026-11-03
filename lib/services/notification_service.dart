@@ -228,6 +228,10 @@ abstract final class NotificationService {
   /// different years landing on the same fact (day-of-year wraps past
   /// [_mathFacts]'s length) is an acceptable, harmless coincidence given
   /// how small this feature is meant to stay.
+  ///
+  /// Hand-ported (not shared) to `functions/src/mathFacts.ts` for the
+  /// server-sent push notifications — KEEP BOTH LISTS IN SYNC if this one
+  /// is ever edited.
   static String mathFactForDay(DateTime now) {
     final startOfYear = DateTime(now.year);
     final dayOfYear = now.difference(startOfYear).inDays;

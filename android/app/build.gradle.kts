@@ -81,13 +81,15 @@ android {
             // flutter_local_notifications) — see that file for details.
             // Required ahead of Google Play's Feb 2027 DEX-optimization
             // policy (apps over 10MB of DEX code need >=25% shrinking/
-            // obfuscation/optimization). Re-enabled in stages — Stage A
-            // here is code shrinking only (isShrinkResources stays off
-            // until Stage A passes a full manual verification pass on a
-            // real device; see the commit history on feature/r8-shrinking
-            // for when it's flipped on).
+            // obfuscation/optimization). Re-enabled in stages: Stage A
+            // (code shrinking only) was verified crash-free on a real
+            // device, including the full push-notification cycle, before
+            // merging — see the commit history on feature/r8-shrinking.
+            // Stage B here adds resource shrinking on top of that proven
+            // base; see feature/r8-shrink-resources for its own real-device
+            // verification pass before this was turned on.
             isMinifyEnabled = true
-            isShrinkResources = false
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

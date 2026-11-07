@@ -70,18 +70,28 @@ android {
             } else {
                 signingConfigs.getByName("debug")
             }
-            // Code shrinking (R8) is left OFF deliberately. AGP 9's default
-            // release behaviour renames/strips classes, which broke
-            // WorkManager's Room database at startup (a transitive
-            // dependency, likely pulled in by google_mobile_ads or
-            // supabase_flutter) with no keep rules in place to protect it
-            // — confirmed via a real crash on a physical device (logcat:
-            // "Failed to create an instance of androidx.work.impl.
-            // WorkDatabase"). A smaller, obfuscated build is a worthwhile
-            // later optimization, but needs its own dedicated round of
-            // R8 keep-rule testing rather than shipping it untested.
-            isMinifyEnabled = false
+            // Code shrinking/obfuscation/optimization (R8) — RE-ENABLED.
+            // History: this was off because AGP 9.1.0's default release
+            // behaviour broke WorkManager's Room database with no keep rules
+            // in place (confirmed crash: "Failed to create an instance of
+            // androidx.work.impl.WorkDatabase"). proguard-rules.pro now
+            // carries explicit keep rules for WorkManager/Room plus every
+            // other native-plugin surface identified as a risk
+            // (google_mobile_ads, google_sign_in, firebase_messaging,
+            // flutter_local_notifications) — see that file for details.
+            // Required ahead of Google Play's Feb 2027 DEX-optimization
+            // policy (apps over 10MB of DEX code need >=25% shrinking/
+            // obfuscation/optimization). Re-enabled in stages — Stage A
+            // here is code shrinking only (isShrinkResources stays off
+            // until Stage A passes a full manual verification pass on a
+            // real device; see the commit history on feature/r8-shrinking
+            // for when it's flipped on).
+            isMinifyEnabled = true
             isShrinkResources = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 }
